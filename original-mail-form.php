@@ -1487,6 +1487,7 @@ class Original_Mail_Forms {
         do_settings_sections( 'recaptcha-settings-group' );
         $recaptcha_field_name = !empty(get_option('omf_recaptcha_field_name')) ? get_option('omf_recaptcha_field_name') : 'g-recaptcha-response';
         ?>
+        <p><a href="https://www.google.com/recaptcha/admin" target="_blank" rel="noopener">reCAPTCHA v3 コンソールでキーを取得 →</a></p>
         <table class="form-table">
           <tr>
             <th scope="row">reCAPTCHA v3 サイトキー</th>
