@@ -101,6 +101,7 @@ class Original_Mail_Forms {
     add_filter('omf_get_errors', [$this, 'get_errors']);
     add_filter('omf_get_post_values', [$this, 'get_post_values']);
     add_filter('omf_nonce_field', [$this, 'nonce_field']);
+    add_filter('omf_recaptcha_field', [$this, 'recaptcha_field']);
   }
 
   //JSを追加
@@ -145,13 +146,29 @@ class Original_Mail_Forms {
   }
 
   /**
-   * nonce_fieldを出力する
+   * nonceフィールドを出力する
    * @return [type] [description]
    */
   public function nonce_field() {
     global $post;
     $action = "{$this->session_prefix}_{$post->ID}";
     wp_nonce_field($action, 'omf_nonce');
+  }
+
+  /**
+   * reCAPTCHAフィールド
+   * @return [type] [description]
+   */
+  public function recaptcha_field() {
+    $is_recaptcha = $this->can_use_recaptcha();
+    if(!$is_recaptcha){
+      return;
+    }
+
+    $recaptcha_field_name = !empty(get_option('omf_recaptcha_field_name')) ? get_option('omf_recaptcha_field_name') : 'g-recaptcha-response';
+    ?>
+    <input type="hidden" name="<?php echo esc_attr($recaptcha_field_name)?>" id="g-recaptcha-response">
+    <?php
   }
 
   /**
@@ -1060,7 +1077,7 @@ class Original_Mail_Forms {
    */
   public function can_use_recaptcha() {
     //reCAPTCHAのキーを確認
-    if(empty(get_option('my_recaptcha_secret_key')) || empty(get_option('my_recaptcha_site_key'))){
+    if(empty(get_option('omf_recaptcha_secret_key')) || empty(get_option('omf_recaptcha_site_key'))){
       return false;
     }
 
@@ -1090,8 +1107,9 @@ class Original_Mail_Forms {
    * @return boolean
    */
   public function verify_google_recaptcha() {
-    $recaptcha_secret = get_option('my_recaptcha_secret_key');
-    $recaptcha_response = filter_input(INPUT_POST, 'g-recaptcha-response', FILTER_SANITIZE_SPECIAL_CHARS);
+    $recaptcha_secret = get_option('omf_recaptcha_secret_key');
+    $recaptcha_field_name = !empty(get_option('omf_recaptcha_field_name')) ? get_option('omf_recaptcha_field_name') : 'g-recaptcha-response';
+    $recaptcha_response = filter_input(INPUT_POST, $recaptcha_field_name, FILTER_SANITIZE_SPECIAL_CHARS);
 
     // APIリクエスト
     $recaptch_url = 'https://www.google.com/recaptcha/api/siteverify';
@@ -1407,7 +1425,7 @@ class Original_Mail_Forms {
     }
 
     //JS出力
-    $recaptcha_site_key = get_option('my_recaptcha_site_key');
+    $recaptcha_site_key = get_option('omf_recaptcha_site_key');
     wp_enqueue_script('recaptcha-script', "https://www.google.com/recaptcha/api.js?render={$recaptcha_site_key}", [], null, true);
 
     $custom_script = "
@@ -1450,9 +1468,10 @@ class Original_Mail_Forms {
    * reCAPTCHA設定オプションページ 項目の登録
    */
   public function register_recaptcha_settings() {
-    register_setting( 'recaptcha-settings-group', 'my_recaptcha_site_key' );
-    register_setting( 'recaptcha-settings-group', 'my_recaptcha_secret_key' );
-    register_setting( 'recaptcha-settings-group', 'my_recaptcha_score' );
+    register_setting( 'recaptcha-settings-group', 'omf_recaptcha_site_key' );
+    register_setting( 'recaptcha-settings-group', 'omf_recaptcha_secret_key' );
+    register_setting( 'recaptcha-settings-group', 'omf_recaptcha_score' );
+    register_setting( 'recaptcha-settings-group', 'omf_recaptcha_field_name' );
   }
 
   /**
@@ -1463,14 +1482,17 @@ class Original_Mail_Forms {
     <h1>reCAPTCHA設定</h1>
     <div class="admin_optional">
       <form method="post" action="options.php">
-        <?php settings_fields( 'recaptcha-settings-group' ); ?>
-        <?php do_settings_sections( 'recaptcha-settings-group' ); ?>
+        <?php
+        settings_fields( 'recaptcha-settings-group' );
+        do_settings_sections( 'recaptcha-settings-group' );
+        $recaptcha_field_name = !empty(get_option('omf_recaptcha_field_name')) ? get_option('omf_recaptcha_field_name') : 'g-recaptcha-response';
+        ?>
         <table class="form-table">
           <tr>
             <th scope="row">reCAPTCHA v3 サイトキー</th>
             <td>
               <p>
-                <input class="regular-text code" type="text" name="my_recaptcha_site_key" cols="160" rows="7" value="<?php echo esc_attr( get_option('my_recaptcha_site_key') ); ?>">
+                <input class="regular-text code" type="text" name="omf_recaptcha_site_key" value="<?php echo esc_attr( get_option('omf_recaptcha_site_key') ); ?>">
               </p>
             </td>
           </tr>
@@ -1478,7 +1500,7 @@ class Original_Mail_Forms {
             <th scope="row">reCAPTCHA v3 シークレットキー</th>
             <td>
               <p>
-                <input class="regular-text code" type="text" name="my_recaptcha_secret_key" cols="160" rows="7" value="<?php echo esc_attr( get_option('my_recaptcha_secret_key') ); ?>">
+                <input class="regular-text code" type="text" name="omf_recaptcha_secret_key" value="<?php echo esc_attr( get_option('omf_recaptcha_secret_key') ); ?>">
               </p>
             </td>
           </tr>
@@ -1486,9 +1508,18 @@ class Original_Mail_Forms {
             <th scope="row">しきい値（0.0 - 1.0）</th>
             <td>
               <p>
-                <input class="small-text" type="number" pattern="\d*" min="0.0" max="1.0" step="0.1" name="my_recaptcha_score" value="<?php echo esc_attr( get_option('my_recaptcha_score') )?>">
+                <input class="small-text" type="number" pattern="\d*" min="0.0" max="1.0" step="0.1" name="omf_recaptcha_score" value="<?php echo esc_attr( get_option('omf_recaptcha_score') )?>">
               </p>
               <p class="description">大きいほど判定が厳しくなる。デフォルトでは、0.5。</p>
+            </td>
+          </tr>
+          <tr>
+            <th scope="row">reCAPTCHAフィールド名</th>
+            <td>
+              <p>
+                <input class="regular-text code" type="text" name="omf_recaptcha_field_name" value="<?php echo esc_attr( $recaptcha_field_name ); ?>">
+              </p>
+              <p class="description">フォーム内に出力されるinput要素のname属性を設定。デフォルトは「g-recaptcha-response」</p>
             </td>
           </tr>
         </table>

@@ -16,7 +16,19 @@ class OMF {
     return apply_filters('omf_get_post_values', []);
   }
 
+  /**
+   * nonceフィールド出力
+   * @return String
+   */
   public static function nonce_field() {
     return apply_filters('omf_nonce_field', []);
+  }
+
+  /**
+   * reCAPTCHAフィールドを出力
+   * @return String
+   */
+  public static function recaptcha_field() {
+    return apply_filters('omf_recaptcha_field', []);
   }
 }
