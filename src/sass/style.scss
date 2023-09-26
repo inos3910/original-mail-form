@@ -1,0 +1,116 @@
+.omf-metabox-wrapper{
+  padding: 10px;
+
+  *,
+  *::before,
+  *::after{
+    box-sizing: border-box;
+  }
+}
+
+.omf-metabox{
+  margin-block: 9px;
+}
+
+.omf-metabox--side{
+  label{
+    display: block;
+    margin-block: 0.5em;
+  }
+}
+
+.omf-metabox--repeat{
+  position: relative;
+}
+
+.omf-metabox__item{
+  table{
+    width: 100%;
+    table-layout: fixed;
+
+    th,
+    td{
+      font-weight: 400;
+      line-height: 1.5;
+    }
+
+    th{
+      width: 25%;
+      text-align: left;
+      vertical-align: top;
+    }
+
+    td{
+      width: 75%;
+    }
+  }
+
+  textarea{
+    padding: 1em;
+  }
+
+  label{
+    display: block;
+  }
+}
+
+.omf-metabox__list{
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  padding: 1em;
+  margin-block: 1.5em;
+  background: #f1f1f1;
+  border-radius: 10px;
+}
+
+.omf-metabox__row{
+  display: grid;
+  grid-template-columns: 20% minmax(0, 1fr);
+  align-items: center;
+  gap: 1em;
+  padding-block: 0.5em;
+}
+
+.omf-metabox__add-button{
+  // margin-bottom: 1em;
+}
+
+.omf-metabox__remove{
+  position: absolute;
+  top: -6px;
+  right: -6px;
+  z-index: 10;
+  width: 30px;
+  height: 30px;
+  color: #fff;
+  background: #000;
+  border-radius: 50%;
+
+  &::before,
+  &::after{
+    content:"";
+    position: absolute;
+    inset:0;
+    margin: auto;
+    display: block;
+    background: currentColor;
+    transform: rotate(45deg);
+  }
+
+  &::before{
+    width: 50%;
+    height: 1px;
+  }
+
+  &::after{
+    width: 1px;
+    height: 50%;
+  }
+
+  &:hover{
+    opacity: 0.8;
+    cursor: pointer;
+  }
+}

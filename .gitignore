@@ -1,0 +1,12 @@
+.DS_Store
+*.log
+*.psd
+*.mp4
+*.map
+*.lock
+*.webp
+
+.htaccess
+.htpasswd
+error_log
+node_modules/
