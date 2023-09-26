@@ -155,3 +155,7 @@ $message = !empty($values['message']) ? $values['message'] : '';
 <h1>フォーム送信完了</h1>
 <p>送信完了しました。</p>
 ```
+
+## 備考
+- メールの送信には `wp_mail()` を使用
+- SMTP設定は`WP Mail SMTP`などのプラグイン利用を想定
