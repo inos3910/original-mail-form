@@ -35,15 +35,22 @@ module.exports = {
     {
       test: /\.js$/,
       use: [
-      {
-        loader: "babel-loader",
-        options: {
-          presets: [
-            "@babel/preset-env",
-            ],
+        is_production ? {
+          loader: "babel-loader",
+          options: {
+            presets: [
+              "@babel/preset-env",
+              ],
+          },
+        } : {
+          loader: "esbuild-loader",
+          options: {
+            loader: "js",
+            target: "es2015",
+            sourcemap: true 
+          },
         },
-      },
-      ],
+        ],
     },
     {
       test: /\.(scss|sass|css)$/i,
