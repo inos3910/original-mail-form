@@ -109,7 +109,7 @@ class Original_Mail_Forms {
   {
     global $post_type;
     if ($post_type === OMF_Config::NAME) {
-      wp_enqueue_script('omf-script', plugins_url( '/dist/main.js', __FILE__ ), [], '1.0', true);
+      wp_enqueue_script('omf-script', plugins_url( '/dist/js/main.js', __FILE__ ), [], '1.0', true);
     }
   }
 
@@ -1597,7 +1597,7 @@ class Original_Mail_Forms {
    * CSSの追加
    */
   public function custom_omf_styles() {
-    wp_enqueue_style('omf-admin-style', plugins_url( '/dist/style.css', __FILE__ ));
+    wp_enqueue_style('omf-admin-style', plugins_url( '/dist/css/style.css', __FILE__ ));
   }
 
   /**
