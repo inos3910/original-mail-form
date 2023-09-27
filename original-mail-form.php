@@ -152,7 +152,7 @@ class Original_Mail_Forms {
   public function nonce_field() {
     global $post;
     $action = "{$this->session_prefix}_{$post->ID}";
-    wp_nonce_field($action, 'omf_nonce');
+    wp_nonce_field($action, 'omf_nonce', false);
   }
 
   /**
@@ -381,8 +381,7 @@ class Original_Mail_Forms {
     if($auth){
       //各要素を取得
       $post_data = !empty($_POST) ? array_map([$this, 'custom_escape'], $_POST) : [];
-      //送信データをセッションで保持
-      $_SESSION[$this->post_data_session_name] = $post_data;
+
       //検証
       $errors = $this->validate_mail_form_data($post_data);
       //エラーがある場合は入力画面に戻す
@@ -390,6 +389,9 @@ class Original_Mail_Forms {
         $_SESSION[$this->errors_session_name] = $errors;
         return;
       }
+
+      //送信データをセッションで保持
+      $_SESSION[$this->post_data_session_name] = $this->filter_post_keys($post_data);
 
       // 検証OKの場合は確認画面へ
       session_regenerate_id(true);
@@ -417,6 +419,19 @@ class Original_Mail_Forms {
       
       return;
     }
+  }
+
+  // 不要な送信データをフィルターする
+  public function filter_post_keys($post_data) {
+    if(empty($post_data)){
+      return;
+    }
+
+    $recaptcha_field_name = !empty(get_option('omf_recaptcha_field_name')) ? get_option('omf_recaptcha_field_name') : 'g-recaptcha-response';
+    $remove_keys = ['omf_nonce', '_wp_http_referer', $recaptcha_field_name];
+    $post_data = array_diff_key($post_data, array_flip($remove_keys));
+
+    return $post_data;
   }
 
   /**
