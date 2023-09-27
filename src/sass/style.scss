@@ -62,6 +62,16 @@
   margin-block: 1.5em;
   border: 1px solid #ccc;
   border-radius: 10px;
+  cursor: move;
+
+  &.over{
+    background-color: rgba(#000,.3);
+    border-color: #000;
+  }
+
+  &:hover{
+    border-color: #555;
+  }
 }
 
 .omf-metabox__head{

@@ -1906,7 +1906,7 @@ class Original_Mail_Forms {
           $matching_char    = !empty($value['matching_char']) ? $value['matching_char'] : '';
           ?>
 
-          <div class="omf-metabox__list js-omf-repeat-field" data-omf-validation-count="<?php echo esc_attr($key)?>">
+          <div class="omf-metabox__list js-omf-repeat-field" data-omf-validation-count="<?php echo esc_attr($key)?>" draggable="true">
             <div class="omf-metabox__head">
               <div class="omf-metabox__remove js-omf-remove"></div>
               <div class="omf-metabox__head__title js-omf-field-title"><?php echo esc_attr($target)?></div>
@@ -2009,7 +2009,7 @@ class Original_Mail_Forms {
         endforeach;
       else:
         ?>
-        <div class="omf-metabox__list js-omf-repeat-field" data-omf-validation-count="0">
+        <div class="omf-metabox__list js-omf-repeat-field" data-omf-validation-count="0" draggable="true">
           <div class="omf-metabox__head">
             <div class="omf-metabox__remove js-omf-remove"></div>
             <div class="omf-metabox__head__title js-omf-field-title"></div>

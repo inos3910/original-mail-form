@@ -18,6 +18,8 @@ class OMF {
     this.toggleFieldEvent();
     //特定の要素に対して項目のタイトル入力時にフィールドタイトルが連動して変える
     this.changeTitleEvent();
+    //バリデーションフィールドのドラッグ&ドロップ
+    this.dragEvent();
   }
 
   /**
@@ -108,36 +110,46 @@ class OMF {
 
     const target = targets[targets.length - 1];
     const clone  = target.cloneNode(true);
+    const insertedElem = target.insertAdjacentElement('afterend', clone);
     
-    const elems = clone.querySelectorAll('[name^="cf_omf_validation"]');
+    const elems = insertedElem.querySelectorAll('[name^="cf_omf_validation"]');
 
     let counter = 0;
     for(const el of elems){
 
       el.name    = this.replaceBracketsWithText(el.name, this.repeatCount);
       el.value   = el.value == 1 ? 1 : '';
-      el.checked = false;
+      el.setAttribute('value', el.value);
+      el.removeAttribute('checked');
+
+      // const newInput = document.createElement('input');
+      // newInput.classList = el.classList;
+      // newInput.type  = el.type;
+      // newInput.name  = el.name;
+      // newInput.value = el.value;
+      // el.parentNode.replaceChild(newInput, el);
 
       if(counter === elems.length - 1){
         this.repeatCount = this.extractBracketContents(el.name) + 1;
       }
+
       counter++;
     }
 
     //タイトルを空にする
-    const fieldTitle = clone.querySelector('.js-omf-field-title');
+    const fieldTitle = insertedElem.querySelector('.js-omf-field-title');
     if(fieldTitle){
       fieldTitle.textContent = '';
     }
 
     //タイトル変更イベントを追加
-    this.addChangeTitleEvent(clone.querySelector('.js-omf-input-field-title'));
+    this.addChangeTitleEvent(insertedElem.querySelector('.js-omf-input-field-title'));
     //削除イベントを登録
-    this.addRemoveEvent(clone.querySelector('.js-omf-remove'));
+    this.addRemoveEvent(insertedElem.querySelector('.js-omf-remove'));
     //開閉イベントを登録
-    this.addToggleFieldEvent(clone.querySelector('.js-omf-toggle'));
-
-    target.insertAdjacentElement('afterend', clone);
+    this.addToggleFieldEvent(insertedElem.querySelector('.js-omf-toggle'));
+    //ドラッグイベントを登録
+    this.addDragEvent(insertedElem);
   }
 
   /**
@@ -213,7 +225,7 @@ class OMF {
     else{
       target.classList.add('open');
     }
-    
+
   }
 
   /**
@@ -264,9 +276,124 @@ class OMF {
     }
 
     target.textContent = input.value;
+    input.setAttribute('value', input.value);
+  }
+
+  /**
+   * ドラッグ＆ドロップで並び替えるイベント
+   */
+  dragEvent() {
+    const items = document.querySelectorAll('.js-omf-repeat-field');
+    if(!items.length){
+      return;
+    }
+
+    this.dragSrcEl = null;
+
+    items.forEach((item) => {
+      this.addDragEvent(item);
+    });
+  }
+
+  /**
+   * ドラッグ＆ドロップで並び替えるイベントを追加
+   */
+  addDragEvent(el){
+    el.addEventListener('dragstart', this.handleDragStart);
+    el.addEventListener('dragover', this.handleDragOver);
+    el.addEventListener('dragenter', this.handleDragEnter);
+    el.addEventListener('dragleave', this.handleDragLeave);
+    el.addEventListener('dragend', this.handleDragEnd);
+    el.addEventListener('drop', this.handleDrop);
   }
 
 
+  //ドラッグ開始
+  handleDragStart = (e) => {
+    e.currentTarget.style.opacity = '0.4';
+
+
+    this.dragSrcEl = e.currentTarget;
+
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/html', this.dragSrcEl.innerHTML);
+  }
+
+  //ドラッグ終了
+  handleDragEnd = (e) => {
+    e.currentTarget.style.opacity = '1';
+
+    const items = document.querySelectorAll('.js-omf-repeat-field');
+    if(!items.length){
+      return;
+    }
+
+    items.forEach((item) => {
+      item.classList.remove('over');
+    });
+  }
+
+  //ドラッグ対象がドロップ対象上にある時
+  handleDragOver = (e) => {
+    if (e.preventDefault) {
+      e.preventDefault();
+    }
+
+    return false;
+  }
+
+  //ドラッグ対象がドロップ対象に入った時
+  handleDragEnter = (e) => {
+    e.currentTarget.classList.add('over');
+  }
+
+  //ドラッグ対象がドロップ対象から離れた時
+  handleDragLeave = (e) => {
+    e.currentTarget.classList.remove('over');
+  }
+
+   //ドラッグ対象がドロップ対象にドロップされた時
+  handleDrop = (e) =>  {
+    e.stopPropagation();
+
+    if (this.dragSrcEl !== e.currentTarget) {
+      this.dragSrcEl.innerHTML = e.currentTarget.innerHTML;
+      e.currentTarget.innerHTML = e.dataTransfer.getData('text/html');
+
+      //タイトル変更イベントを追加
+      this.addChangeTitleEvent(this.dragSrcEl.querySelector('.js-omf-input-field-title'));
+      this.addChangeTitleEvent(e.currentTarget.querySelector('.js-omf-input-field-title'));
+      //削除イベントを登録
+      this.addRemoveEvent(this.dragSrcEl.querySelector('.js-omf-remove'));
+      this.addRemoveEvent(e.currentTarget.querySelector('.js-omf-remove'));
+      //開閉イベントを登録
+      this.addToggleFieldEvent(this.dragSrcEl.querySelector('.js-omf-toggle'));
+      this.addToggleFieldEvent(e.currentTarget.querySelector('.js-omf-toggle'));
+
+      //フィールドの連番を振り直す
+      this.updateFieldIndex();
+    }
+
+    return false;
+  }
+
+  //フィールドの連番を振り直す
+  updateFieldIndex() {
+    const fields = document.querySelectorAll('.js-omf-repeat-field');
+    if(!fields.length){
+      return fieldCount;
+    }
+
+    for(const field of fields){
+      const index = field.dataset.omfValidationCount;
+
+      const elems = field.querySelectorAll('[name^="cf_omf_validation"]');
+      for(const el of elems){
+        el.name = this.replaceBracketsWithText(el.name, index);
+      }
+    }
+
+  }
 
 }
 
