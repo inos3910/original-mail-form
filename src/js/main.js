@@ -122,13 +122,6 @@ class OMF {
       el.setAttribute('value', el.value);
       el.removeAttribute('checked');
 
-      // const newInput = document.createElement('input');
-      // newInput.classList = el.classList;
-      // newInput.type  = el.type;
-      // newInput.name  = el.name;
-      // newInput.value = el.value;
-      // el.parentNode.replaceChild(newInput, el);
-
       if(counter === elems.length - 1){
         this.repeatCount = this.extractBracketContents(el.name) + 1;
       }
@@ -256,6 +249,11 @@ class OMF {
       e.preventDefault();
       this.changeTitle(e);
     }, false);
+
+    target.addEventListener('blur', (e) => {
+      e.currentTarget.setAttribute('value', e.currentTarget.value);
+    }, false);
+
   }
 
 
@@ -276,7 +274,6 @@ class OMF {
     }
 
     target.textContent = input.value;
-    input.setAttribute('value', input.value);
   }
 
   /**
@@ -316,7 +313,7 @@ class OMF {
     this.dragSrcEl = e.currentTarget;
 
     e.dataTransfer.effectAllowed = 'move';
-    e.dataTransfer.setData('text/html', this.dragSrcEl.innerHTML);
+    e.dataTransfer.setData('text/html', this.dragSrcEl);
   }
 
   //ドラッグ終了
@@ -357,19 +354,10 @@ class OMF {
     e.stopPropagation();
 
     if (this.dragSrcEl !== e.currentTarget) {
-      this.dragSrcEl.innerHTML = e.currentTarget.innerHTML;
-      e.currentTarget.innerHTML = e.dataTransfer.getData('text/html');
-
-      //タイトル変更イベントを追加
-      this.addChangeTitleEvent(this.dragSrcEl.querySelector('.js-omf-input-field-title'));
-      this.addChangeTitleEvent(e.currentTarget.querySelector('.js-omf-input-field-title'));
-      //削除イベントを登録
-      this.addRemoveEvent(this.dragSrcEl.querySelector('.js-omf-remove'));
-      this.addRemoveEvent(e.currentTarget.querySelector('.js-omf-remove'));
-      //開閉イベントを登録
-      this.addToggleFieldEvent(this.dragSrcEl.querySelector('.js-omf-toggle'));
-      this.addToggleFieldEvent(e.currentTarget.querySelector('.js-omf-toggle'));
-
+      const dragIndex   = Number(this.dragSrcEl.dataset.omfValidationCount);
+      const targetIndex = Number(e.currentTarget.dataset.omfValidationCount);
+      const position = dragIndex < targetIndex ? 'afterend' : 'beforebegin';
+      const newField = e.currentTarget.insertAdjacentElement(position, this.dragSrcEl);
       //フィールドの連番を振り直す
       this.updateFieldIndex();
     }
@@ -384,13 +372,16 @@ class OMF {
       return fieldCount;
     }
 
-    for(const field of fields){
-      const index = field.dataset.omfValidationCount;
+    let count = 0;
 
+    for(const field of fields){
+      field.dataset.omfValidationCount = count;
       const elems = field.querySelectorAll('[name^="cf_omf_validation"]');
       for(const el of elems){
-        el.name = this.replaceBracketsWithText(el.name, index);
+        el.name = this.replaceBracketsWithText(el.name, count);
       }
+
+      count++;
     }
 
   }
