@@ -14,7 +14,10 @@ class OMF {
     this.addRepeatFieldEvent();
     //項目の削除
     this.removeRepeatFieldEvent();
-
+    //項目の開閉
+    this.toggleFieldEvent();
+    //特定の要素に対して項目のタイトル入力時にフィールドタイトルが連動して変える
+    this.changeTitleEvent();
   }
 
   /**
@@ -40,13 +43,10 @@ class OMF {
    * 項目の削除イベント追加
    */
   removeRepeatFieldEvent(){
-    const repeatFieldRemoveButtons = document.querySelectorAll('.js-omf-remove-button');
+    const repeatFieldRemoveButtons = document.querySelectorAll('.js-omf-remove');
     if(repeatFieldRemoveButtons.length){
       for(const el of repeatFieldRemoveButtons){
-        el.addEventListener('click', (e) => {
-          e.preventDefault();
-          this.removeRepeatField(e);
-        }, false);
+        this.addRemoveEvent(el);
       }
     }
   }
@@ -124,8 +124,18 @@ class OMF {
       counter++;
     }
 
+    //タイトルを空にする
+    const fieldTitle = clone.querySelector('.js-omf-field-title');
+    if(fieldTitle){
+      fieldTitle.textContent = '';
+    }
+
+    //タイトル変更イベントを追加
+    this.addChangeTitleEvent(clone.querySelector('.js-omf-input-field-title'));
     //削除イベントを登録
-    this.addRemoveEvent(clone.querySelector('.js-omf-remove-button'));
+    this.addRemoveEvent(clone.querySelector('.js-omf-remove'));
+    //開閉イベントを登録
+    this.addToggleFieldEvent(clone.querySelector('.js-omf-toggle'));
 
     target.insertAdjacentElement('afterend', clone);
   }
@@ -149,6 +159,114 @@ class OMF {
     const match = inputString.match(/cf_omf_validation\[(\d+)\]/);
     return match ? Number(match[1]) : null;
   }
+
+
+  /**
+   * 項目の開閉イベント追加
+   */
+  toggleFieldEvent() {
+    const toggleFieldButtons = document.querySelectorAll('.js-omf-toggle');
+    if(!toggleFieldButtons.length){
+      return;
+    }
+
+    for(const el of toggleFieldButtons){
+      this.addToggleFieldEvent(el);
+    }
+  }
+
+
+  /**
+   * 特定の要素に対して項目の開閉イベント追加
+   * @param {HTMLElement} target
+   */
+  addToggleFieldEvent(target) {
+    if(!target){
+      return;
+    }
+
+    target.addEventListener('click', (e) => {
+      e.preventDefault();
+      this.toggleField(e);
+    }, false);
+  }
+
+  /**
+   * 項目を開閉
+   * @param {Object} e イベントオブジェクト
+   */
+  toggleField(e) {
+    const button = e.currentTarget;
+    const repeatField = button.closest('.js-omf-repeat-field');
+    if(!repeatField){
+      return;
+    }
+
+    const target = repeatField.querySelector('.js-omf-toggle-field');
+    if(!target){
+      return;
+    }
+
+    if(target.classList.contains('open')){
+      target.classList.remove('open');
+    }
+    else{
+      target.classList.add('open');
+    }
+    
+  }
+
+  /**
+   * 特定の要素に対して項目のタイトル入力時にフィールドタイトルが連動して変わるイベント
+   */
+  changeTitleEvent() {
+    const toggleFieldButtons = document.querySelectorAll('.js-omf-input-field-title');
+    if(!toggleFieldButtons.length){
+      return;
+    }
+
+    for(const el of toggleFieldButtons){
+      this.addChangeTitleEvent(el);
+    }
+  }
+
+
+  /**
+   * 特定の要素に対して項目のタイトル入力時にフィールドタイトルが連動して変わるイベントを追加
+   * @param {HTMLElement} target
+   */
+  addChangeTitleEvent(target) {
+    if(!target){
+      return;
+    }
+
+    target.addEventListener('input', (e) => {
+      e.preventDefault();
+      this.changeTitle(e);
+    }, false);
+  }
+
+
+  /**
+   * 項目のタイトル入力時にフィールドタイトルが連動して変更する
+   * @param {Object} e イベントオブジェクト
+   */
+  changeTitle(e){
+    const input = e.currentTarget;
+    const repeatField = input.closest('.js-omf-repeat-field');
+    if(!repeatField){
+      return;
+    }
+
+    const target = repeatField.querySelector('.js-omf-field-title');
+    if(!target){
+      return;
+    }
+
+    target.textContent = input.value;
+  }
+
+
 
 }
 

@@ -59,29 +59,54 @@
   display: flex;
   flex-direction: column;
   width: 100%;
-  padding: 1em;
   margin-block: 1.5em;
-  background: #f1f1f1;
+  border: 1px solid #ccc;
   border-radius: 10px;
 }
 
-.omf-metabox__row{
-  display: grid;
-  grid-template-columns: 20% minmax(0, 1fr);
+.omf-metabox__head{
+  display: flex;
   align-items: center;
+  padding: 1em;
   gap: 1em;
-  padding-block: 0.5em;
 }
 
-.omf-metabox__add-button{
-  // margin-bottom: 1em;
+.omf-metabox__head__title{
+
+}
+
+.omf-metabox__toggle{
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 30px;
+  height: 30px;
+  margin-left: auto;
+  color: #000;
+  border-radius: 50%;
+  border: 1px solid;
+  cursor: pointer;
+
+  &::before{
+    content:"";
+    display: block;
+    width: 8px;
+    height: 8px;
+    margin-top: -2px;
+    transform: rotate(45deg);
+    border-right: 1px solid;
+    border-bottom: 1px solid;
+  }
+
+  &:hover{
+    color: #fff;
+    background: #000;
+  }
 }
 
 .omf-metabox__remove{
-  position: absolute;
-  top: -6px;
-  right: -6px;
-  z-index: 10;
+  position: relative;
   width: 30px;
   height: 30px;
   color: #fff;
@@ -113,4 +138,21 @@
     opacity: 0.8;
     cursor: pointer;
   }
+}
+
+.omf-metabox__body{
+  display: none;
+  padding: 1em;
+
+  &.open{
+    display: block;
+  }
+}
+
+.omf-metabox__row{
+  display: grid;
+  grid-template-columns: 20% minmax(0, 1fr);
+  align-items: center;
+  gap: 1em;
+  padding-block: 0.5em;
 }

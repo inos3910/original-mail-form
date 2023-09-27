@@ -1907,96 +1907,102 @@ class Original_Mail_Forms {
           ?>
 
           <div class="omf-metabox__list js-omf-repeat-field" data-omf-validation-count="<?php echo esc_attr($key)?>">
-            <div class="omf-metabox__remove js-omf-remove-button"></div>
-            <div class="omf-metabox__row">
-              <span>バリデーションする項目</span>
-              <span>
-                <input type="text" name="<?php echo esc_attr("{$meta_key}[{$key}][target]")?>" value="<?php echo esc_attr($target)?>">
-              </span>
+            <div class="omf-metabox__head">
+              <div class="omf-metabox__remove js-omf-remove"></div>
+              <div class="omf-metabox__head__title js-omf-field-title"><?php echo esc_attr($target)?></div>
+              <div class="omf-metabox__toggle js-omf-toggle"></div>
             </div>
-            <div class="omf-metabox__row">
-              <span>最小文字数</span>
-              <span>
-                <input type="text" name="<?php echo esc_attr("{$meta_key}[{$key}][min]")?>" value="<?php echo esc_attr($min)?>">
-              </span>
-            </div>
-            <div class="omf-metabox__row">
-              <span>最大文字数</span>
-              <span>
-                <input type="text" name="<?php echo esc_attr("{$meta_key}[{$key}][max]")?>" value="<?php echo esc_attr($max)?>">
-              </span>
-            </div>
-            <div class="omf-metabox__row">
-              <span>一致する文字（カンマ区切りで複数指定）</span>
-              <span>
-                <input class="large-text" type="text" name="<?php echo esc_attr("{$meta_key}[{$key}][matching_char]")?>" value="<?php echo esc_attr($matching_char)?>">
-              </span>
-            </div>
-            <div class="omf-metabox__row">
-              <span>必須</span>
-              <span>
-                <input type="checkbox" name="<?php echo esc_attr("{$meta_key}[{$key}][required]")?>" value="1"<?php if($required) echo esc_attr(' checked')?>>
-              </span>
-            </div>
-            <div class="omf-metabox__row">
-              <span>電話番号</span>
-              <span>
-                <input type="checkbox" name="<?php echo esc_attr("{$meta_key}[{$key}][tel]")?>" value="1"<?php if($tel) echo esc_attr(' checked')?>>
-              </span>
-            </div>
-            <div class="omf-metabox__row">
-              <span>メールアドレス</span>
-              <span>
-                <input type="checkbox" name="<?php echo esc_attr("{$meta_key}[{$key}][email]")?>" value="1"<?php if($email) echo esc_attr(' checked')?>>
-              </span>
-            </div>
-            <div class="omf-metabox__row">
-              <span>URL</span>
-              <span>
-                <input type="checkbox" name="<?php echo esc_attr("{$meta_key}[{$key}][url]")?>" value="1"<?php if($url) echo esc_attr(' checked')?>>
-              </span>
-            </div>
-            <div class="omf-metabox__row">
-              <span>半角数字</span>
-              <span>
-                <input type="checkbox" name="<?php echo esc_attr("{$meta_key}[{$key}][numeric]")?>" value="1"<?php if($numeric) echo esc_attr(' checked')?>>
-              </span>
-            </div>
-            <div class="omf-metabox__row">
-              <span>半角英字</span>
-              <span>
-                <input type="checkbox" name="<?php echo esc_attr("{$meta_key}[{$key}][alpha]")?>" value="1"<?php if($alpha) echo esc_attr(' checked')?>>
-              </span>
-            </div>
-            <div class="omf-metabox__row">
-              <span>半角英数字</span>
-              <span>
-                <input type="checkbox" name="<?php echo esc_attr("{$meta_key}[{$key}][alphanumeric]")?>" value="1"<?php if($alphanumeric) echo esc_attr(' checked')?>>
-              </span>
-            </div>
-            <div class="omf-metabox__row">
-              <span>カタカナ</span>
-              <span>
-                <input type="checkbox" name="<?php echo esc_attr("{$meta_key}[{$key}][katakana]")?>" value="1"<?php if($katakana) echo esc_attr(' checked')?>>
-              </span>
-            </div>
-            <div class="omf-metabox__row">
-              <span>ひらがな</span>
-              <span>
-                <input type="checkbox" name="<?php echo esc_attr("{$meta_key}[{$key}][hiragana]")?>" value="1"<?php if($hiragana) echo esc_attr(' checked')?>>
-              </span>
-            </div>
-            <div class="omf-metabox__row">
-              <span>カタカナ or ひらがな</span>
-              <span>
-                <input type="checkbox" name="<?php echo esc_attr("{$meta_key}[{$key}][kana]")?>" value="1"<?php if($kana) echo esc_attr(' checked')?>>
-              </span>
-            </div>
-            <div class="omf-metabox__row">
-              <span>ThrowsSpamAway</span>
-              <span>
-                <input type="checkbox" name="<?php echo esc_attr("{$meta_key}[{$key}][throws_spam_away]")?>" value="1"<?php if($throws_spam_away) echo esc_attr(' checked')?>>
-              </span>
+            <div class="omf-metabox__body js-omf-toggle-field">
+              <div class="omf-metabox__row">
+                <span>バリデーションする項目</span>
+                <span>
+                  <input class="js-omf-input-field-title" type="text" name="<?php echo esc_attr("{$meta_key}[{$key}][target]")?>" value="<?php echo esc_attr($target)?>">
+                </span>
+              </div>
+              <div class="omf-metabox__row">
+                <span>最小文字数</span>
+                <span>
+                  <input type="text" name="<?php echo esc_attr("{$meta_key}[{$key}][min]")?>" value="<?php echo esc_attr($min)?>">
+                </span>
+              </div>
+              <div class="omf-metabox__row">
+                <span>最大文字数</span>
+                <span>
+                  <input type="text" name="<?php echo esc_attr("{$meta_key}[{$key}][max]")?>" value="<?php echo esc_attr($max)?>">
+                </span>
+              </div>
+              <div class="omf-metabox__row">
+                <span>一致する文字（カンマ区切りで複数指定）</span>
+                <span>
+                  <input class="large-text" type="text" name="<?php echo esc_attr("{$meta_key}[{$key}][matching_char]")?>" value="<?php echo esc_attr($matching_char)?>">
+                </span>
+              </div>
+              <div class="omf-metabox__row">
+                <span>必須</span>
+                <span>
+                  <input type="checkbox" name="<?php echo esc_attr("{$meta_key}[{$key}][required]")?>" value="1"<?php if($required) echo esc_attr(' checked')?>>
+                </span>
+              </div>
+              <div class="omf-metabox__row">
+                <span>電話番号</span>
+                <span>
+                  <input type="checkbox" name="<?php echo esc_attr("{$meta_key}[{$key}][tel]")?>" value="1"<?php if($tel) echo esc_attr(' checked')?>>
+                </span>
+              </div>
+              <div class="omf-metabox__row">
+                <span>メールアドレス</span>
+                <span>
+                  <input type="checkbox" name="<?php echo esc_attr("{$meta_key}[{$key}][email]")?>" value="1"<?php if($email) echo esc_attr(' checked')?>>
+                </span>
+              </div>
+              <div class="omf-metabox__row">
+                <span>URL</span>
+                <span>
+                  <input type="checkbox" name="<?php echo esc_attr("{$meta_key}[{$key}][url]")?>" value="1"<?php if($url) echo esc_attr(' checked')?>>
+                </span>
+              </div>
+              <div class="omf-metabox__row">
+                <span>半角数字</span>
+                <span>
+                  <input type="checkbox" name="<?php echo esc_attr("{$meta_key}[{$key}][numeric]")?>" value="1"<?php if($numeric) echo esc_attr(' checked')?>>
+                </span>
+              </div>
+              <div class="omf-metabox__row">
+                <span>半角英字</span>
+                <span>
+                  <input type="checkbox" name="<?php echo esc_attr("{$meta_key}[{$key}][alpha]")?>" value="1"<?php if($alpha) echo esc_attr(' checked')?>>
+                </span>
+              </div>
+              <div class="omf-metabox__row">
+                <span>半角英数字</span>
+                <span>
+                  <input type="checkbox" name="<?php echo esc_attr("{$meta_key}[{$key}][alphanumeric]")?>" value="1"<?php if($alphanumeric) echo esc_attr(' checked')?>>
+                </span>
+              </div>
+              <div class="omf-metabox__row">
+                <span>カタカナ</span>
+                <span>
+                  <input type="checkbox" name="<?php echo esc_attr("{$meta_key}[{$key}][katakana]")?>" value="1"<?php if($katakana) echo esc_attr(' checked')?>>
+                </span>
+              </div>
+              <div class="omf-metabox__row">
+                <span>ひらがな</span>
+                <span>
+                  <input type="checkbox" name="<?php echo esc_attr("{$meta_key}[{$key}][hiragana]")?>" value="1"<?php if($hiragana) echo esc_attr(' checked')?>>
+                </span>
+              </div>
+              <div class="omf-metabox__row">
+                <span>カタカナ or ひらがな</span>
+                <span>
+                  <input type="checkbox" name="<?php echo esc_attr("{$meta_key}[{$key}][kana]")?>" value="1"<?php if($kana) echo esc_attr(' checked')?>>
+                </span>
+              </div>
+              <div class="omf-metabox__row">
+                <span>ThrowsSpamAway</span>
+                <span>
+                  <input type="checkbox" name="<?php echo esc_attr("{$meta_key}[{$key}][throws_spam_away]")?>" value="1"<?php if($throws_spam_away) echo esc_attr(' checked')?>>
+                </span>
+              </div>
             </div>
           </div>
           <?php
@@ -2004,96 +2010,102 @@ class Original_Mail_Forms {
       else:
         ?>
         <div class="omf-metabox__list js-omf-repeat-field" data-omf-validation-count="0">
-          <div class="omf-metabox__remove js-omf-remove-button"></div>
-          <div class="omf-metabox__row">
-            <span>バリデーションする項目</span>
-            <span>
-              <input type="text" name="<?php echo esc_attr("{$meta_key}[0][target]")?>" value="">
-            </span>
+          <div class="omf-metabox__head">
+            <div class="omf-metabox__remove js-omf-remove"></div>
+            <div class="omf-metabox__head__title js-omf-field-title"></div>
+            <div class="omf-metabox__toggle js-omf-toggle"></div>
           </div>
-          <div class="omf-metabox__row">
-            <span>最小文字数</span>
-            <span>
-              <input type="text" name="<?php echo esc_attr("{$meta_key}[0][min]")?>" value="">
-            </span>
-          </div>
-          <div class="omf-metabox__row">
-            <span>最大文字数</span>
-            <span>
-              <input type="text" name="<?php echo esc_attr("{$meta_key}[0][max]")?>" value="">
-            </span>
-          </div>
-          <div class="omf-metabox__row">
-            <span>一致する文字（カンマ区切りで複数指定）</span>
-            <span>
-              <input type="text" name="<?php echo esc_attr("{$meta_key}[0][matching_char]")?>" value="">
-            </span>
-          </div>
-          <div class="omf-metabox__row">
-            <span>必須</span>
-            <span>
-              <input type="checkbox" name="<?php echo esc_attr("{$meta_key}[0][required]")?>" value="1">
-            </span>
-          </div>
-          <div class="omf-metabox__row">
-            <span>電話番号</span>
-            <span>
-              <input type="checkbox" name="<?php echo esc_attr("{$meta_key}[0][tel]")?>" value="1">
-            </span>
-          </div>
-          <div class="omf-metabox__row">
-            <span>メールアドレス</span>
-            <span>
-              <input type="checkbox" name="<?php echo esc_attr("{$meta_key}[0][email]")?>" value="1">
-            </span>
-          </div>
-          <div class="omf-metabox__row">
-            <span>URL</span>
-            <span>
-              <input type="checkbox" name="<?php echo esc_attr("{$meta_key}[0][url]")?>" value="1">
-            </span>
-          </div>
-          <div class="omf-metabox__row">
-            <span>半角数字</span>
-            <span>
-              <input type="checkbox" name="<?php echo esc_attr("{$meta_key}[0][numeric]")?>" value="1">
-            </span>
-          </div>
-          <div class="omf-metabox__row">
-            <span>半角英字</span>
-            <span>
-              <input type="checkbox" name="<?php echo esc_attr("{$meta_key}[0][alpha]")?>" value="1">
-            </span>
-          </div>
-          <div class="omf-metabox__row">
-            <span>半角英数字</span>
-            <span>
-              <input type="checkbox" name="<?php echo esc_attr("{$meta_key}[0][alphanumeric]")?>" value="1">
-            </span>
-          </div>
-          <div class="omf-metabox__row">
-            <span>カタカナ</span>
-            <span>
-              <input type="checkbox" name="<?php echo esc_attr("{$meta_key}[0][katakana]")?>" value="1">
-            </span>
-          </div>
-          <div class="omf-metabox__row">
-            <span>ひらがな</span>
-            <span>
-              <input type="checkbox" name="<?php echo esc_attr("{$meta_key}[0][hiragana]")?>" value="1">
-            </span>
-          </div>
-          <div class="omf-metabox__row">
-            <span>カタカナ or ひらがな</span>
-            <span>
-              <input type="checkbox" name="<?php echo esc_attr("{$meta_key}[0][kana]")?>" value="1">
-            </span>
-          </div>
-          <div class="omf-metabox__row">
-            <span>ThrowsSpamAway</span>
-            <span>
-              <input type="checkbox" name="<?php echo esc_attr("{$meta_key}[0][throws_spam_away]")?>" value="1">
-            </span>
+          <div class="omf-metabox__body js-omf-toggle-field">
+            <div class="omf-metabox__row">
+              <span>バリデーションする項目</span>
+              <span>
+                <input class="js-omf-input-field-title" type="text" name="<?php echo esc_attr("{$meta_key}[0][target]")?>" value="">
+              </span>
+            </div>
+            <div class="omf-metabox__row">
+              <span>最小文字数</span>
+              <span>
+                <input type="text" name="<?php echo esc_attr("{$meta_key}[0][min]")?>" value="">
+              </span>
+            </div>
+            <div class="omf-metabox__row">
+              <span>最大文字数</span>
+              <span>
+                <input type="text" name="<?php echo esc_attr("{$meta_key}[0][max]")?>" value="">
+              </span>
+            </div>
+            <div class="omf-metabox__row">
+              <span>一致する文字（カンマ区切りで複数指定）</span>
+              <span>
+                <input type="text" name="<?php echo esc_attr("{$meta_key}[0][matching_char]")?>" value="">
+              </span>
+            </div>
+            <div class="omf-metabox__row">
+              <span>必須</span>
+              <span>
+                <input type="checkbox" name="<?php echo esc_attr("{$meta_key}[0][required]")?>" value="1">
+              </span>
+            </div>
+            <div class="omf-metabox__row">
+              <span>電話番号</span>
+              <span>
+                <input type="checkbox" name="<?php echo esc_attr("{$meta_key}[0][tel]")?>" value="1">
+              </span>
+            </div>
+            <div class="omf-metabox__row">
+              <span>メールアドレス</span>
+              <span>
+                <input type="checkbox" name="<?php echo esc_attr("{$meta_key}[0][email]")?>" value="1">
+              </span>
+            </div>
+            <div class="omf-metabox__row">
+              <span>URL</span>
+              <span>
+                <input type="checkbox" name="<?php echo esc_attr("{$meta_key}[0][url]")?>" value="1">
+              </span>
+            </div>
+            <div class="omf-metabox__row">
+              <span>半角数字</span>
+              <span>
+                <input type="checkbox" name="<?php echo esc_attr("{$meta_key}[0][numeric]")?>" value="1">
+              </span>
+            </div>
+            <div class="omf-metabox__row">
+              <span>半角英字</span>
+              <span>
+                <input type="checkbox" name="<?php echo esc_attr("{$meta_key}[0][alpha]")?>" value="1">
+              </span>
+            </div>
+            <div class="omf-metabox__row">
+              <span>半角英数字</span>
+              <span>
+                <input type="checkbox" name="<?php echo esc_attr("{$meta_key}[0][alphanumeric]")?>" value="1">
+              </span>
+            </div>
+            <div class="omf-metabox__row">
+              <span>カタカナ</span>
+              <span>
+                <input type="checkbox" name="<?php echo esc_attr("{$meta_key}[0][katakana]")?>" value="1">
+              </span>
+            </div>
+            <div class="omf-metabox__row">
+              <span>ひらがな</span>
+              <span>
+                <input type="checkbox" name="<?php echo esc_attr("{$meta_key}[0][hiragana]")?>" value="1">
+              </span>
+            </div>
+            <div class="omf-metabox__row">
+              <span>カタカナ or ひらがな</span>
+              <span>
+                <input type="checkbox" name="<?php echo esc_attr("{$meta_key}[0][kana]")?>" value="1">
+              </span>
+            </div>
+            <div class="omf-metabox__row">
+              <span>ThrowsSpamAway</span>
+              <span>
+                <input type="checkbox" name="<?php echo esc_attr("{$meta_key}[0][throws_spam_away]")?>" value="1">
+              </span>
+            </div>
           </div>
         </div>
         <?php
