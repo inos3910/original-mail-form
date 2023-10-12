@@ -1,18 +1,21 @@
 <?php
-class OMF {
+class OMF
+{
   /**
-  * エラー取得関数
-  * @return array エラーメッセージの配列
-  */
-  public static function get_errors() {
+   * エラー取得関数
+   * @return array エラーメッセージの配列
+   */
+  public static function get_errors()
+  {
     return apply_filters('omf_get_errors', []);
   }
 
   /**
    * 送信データを取得（確認画面用）
-   * @return Array 
+   * @return Array
    */
-  public static function get_post_values() {
+  public static function get_post_values()
+  {
     return apply_filters('omf_get_post_values', []);
   }
 
@@ -20,15 +23,26 @@ class OMF {
    * nonceフィールド出力
    * @return String
    */
-  public static function nonce_field() {
+  public static function nonce_field()
+  {
     return apply_filters('omf_nonce_field', []);
+  }
+
+  /**
+   * nonceフィールド出力
+   * @return String
+   */
+  public static function create_nonce()
+  {
+    return apply_filters('omf_create_nonce', []);
   }
 
   /**
    * reCAPTCHAフィールドを出力
    * @return String
    */
-  public static function recaptcha_field() {
+  public static function recaptcha_field()
+  {
     return apply_filters('omf_recaptcha_field', []);
   }
 }

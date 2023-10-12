@@ -70,6 +70,8 @@ class Original_Mail_Forms
     add_action('admin_menu', [$this, 'add_admin_recaptcha_menu']);
     add_action('init', [$this, 'create_post_type']);
     add_action('admin_enqueue_scripts', [$this, 'add_omf_scripts']);
+    //REST API
+    add_action('rest_api_init', [$this, 'add_custom_endpoint']);
 
     //フィルターフック追加
     $this->add_filter_hooks();
@@ -85,6 +87,194 @@ class Original_Mail_Forms
   public function is_rest()
   {
     return (defined('REST_REQUEST') && REST_REQUEST);
+  }
+
+  /**
+   * REST APIエンドポイント追加
+   */
+  public function add_custom_endpoint()
+  {
+    //バリデーションのみ
+    register_rest_route(
+      'omf-api/v0',
+      '/validate',
+      [
+        'methods'             => WP_REST_Server::CREATABLE,
+        'permission_callback' => '__return_true',
+        'callback'            => [$this, 'rest_api_validate']
+      ]
+    );
+
+    //送信
+    register_rest_route(
+      'omf-api/v0',
+      '/send',
+      [
+        'methods'             => WP_REST_Server::CREATABLE,
+        'permission_callback' => '__return_true',
+        'callback'            => [$this, 'rest_api_send']
+      ]
+    );
+  }
+
+  /**
+   * REST API 送信データのバリデーション
+   *
+   * @param Array $param
+   * @return void
+   */
+  public function rest_api_validate($params)
+  {
+    return $this->rest_response(function ($params) {
+
+      //フォーム認証
+      $nonce = isset($_SERVER['HTTP_X_WP_NONCE']) ? sanitize_text_field($_SERVER['HTTP_X_WP_NONCE']) : '';
+      $auth = wp_verify_nonce($nonce, 'wp_rest');
+
+      //nonce認証OK
+      if ($auth) {
+        $param = $params->get_params();
+        //各要素を取得
+        $post_data = !empty($param) ? array_map([$this, 'custom_escape'], $param) : [];
+        //ページID
+        $post_id = $post_data['post_id'];
+        //検証
+        $errors = $this->validate_mail_form_data($post_data, $post_id);
+        //エラーがある場合は入力画面に戻す
+        if (!empty($errors)) {
+          return [
+            'valid' => false,
+            'errors' => $errors,
+            'data' => $post_data
+          ];
+        } else {
+          return [
+            'valid' => true,
+            'data' => $post_data
+          ];
+        }
+      }
+      //nonce認証NG
+      else {
+        return new WP_Error('failed', __('認証NG'), ['status' => 404]);
+      }
+    }, $params);
+  }
+
+  /**
+   * REST API メール送信
+   *
+   * @param Array $param
+   * @return void
+   */
+  public function rest_api_send($params)
+  {
+    if (session_status() !== PHP_SESSION_ACTIVE) {
+      session_start();
+    }
+    return $this->rest_response(function ($params) {
+      //フォーム認証
+      $nonce = isset($_SERVER['HTTP_X_WP_NONCE']) ? sanitize_text_field($_SERVER['HTTP_X_WP_NONCE']) : '';
+      $auth = wp_verify_nonce($nonce, 'wp_rest');
+
+      //nonce認証OK
+      if ($auth) {
+        $param = $params->get_params();
+        //各要素を取得
+        $post_data = !empty($param) ? array_map([$this, 'custom_escape'], $param) : [];
+        //ページID
+        $post_id = $post_data['post_id'];
+        //検証
+        $errors = $this->validate_mail_form_data($post_data, $post_id);
+        //バリデーションエラーがある場合はエラーを返す
+        if (!empty($errors)) {
+          return [
+            'valid' => false,
+            'errors' => $errors,
+            'data' => $post_data
+          ];
+        }
+
+        //メールフォームを取得
+        $linked_mail_form = $this->get_linked_mail_form($post_id);
+        if (empty($linked_mail_form)) {
+          return;
+        }
+
+        // 検証OKの場合は認証フラグを立てる
+        session_regenerate_id(true);
+        $session_prefix = OMF_Config::PREFIX . "{$linked_mail_form->post_name}";
+        //認証セッション名を更新
+        $auth_session_name = "{$session_prefix}_auth";
+        $_SESSION[$auth_session_name] = true;
+        session_write_close();
+
+        //メールIDを追加
+        $post_data['mail_id'] = $this->get_mail_id($linked_mail_form->ID);
+
+        //自動返信メール送信処理
+        $is_sended_reply = $this->send_reply_mail($post_data, $post_id);
+        //管理者宛メール送信処理
+        $is_sended_admin = $this->send_admin_mail($post_data, $post_id);
+        $is_sended = $is_sended_reply && $is_sended_admin;
+        //送信成功
+        if ($is_sended) {
+
+          //完了画面（リダイレクト先）を取得
+          $screen_ids = $this->get_form_page_ids($linked_mail_form);
+          $complete_page_id = !empty($screen_ids) ? $screen_ids['complete'] : '';
+          $complete_page_url = !empty($complete_page_id) ? get_permalink($complete_page_id) : '';
+          //送信後にメールIDを更新
+          $this->update_mail_id($linked_mail_form->ID, $post_data['mail_id']);
+
+          return [
+            'is_sended' => $is_sended,
+            'data' => $post_data,
+            'redirect_url' => $complete_page_url
+          ];
+        }
+        //送信失敗
+        else {
+          $errors = [];
+          if (!$is_sended_reply) {
+            $errors['reply_mail'] = '自動返信メールの送信処理に失敗しました';
+          }
+          if (!$is_sended_admin) {
+            $errors['admin_mail'] = '管理者宛メールの送信処理に失敗しました';
+          }
+          return [
+            'is_sended' => $is_sended,
+            'data' => $post_data,
+            'errors' => $errors,
+          ];
+        }
+      }
+      //nonce認証NG
+      else {
+        return new WP_Error('failed', __('認証NG'), ['status' => 404]);
+      }
+    }, $params);
+  }
+
+  /**
+   * REST API レスポンス処理
+   *
+   * @param Function $func
+   * @param Object $params
+   * @return Object
+   */
+  public function rest_response($func, $params)
+  {
+    $res = $func($params);
+    $response = new WP_REST_Response($res);
+    if (is_wp_error($response)) {
+      $error_data = $response->get_error_data();
+      $status = !empty($error_data['status']) ? $error_data['status'] : 404;
+      $response->set_status($status);
+    } else {
+      $response->set_status(200);
+    }
+    return $response;
   }
 
   /**
@@ -108,6 +298,7 @@ class Original_Mail_Forms
     add_filter('omf_get_errors', [$this, 'get_errors']);
     add_filter('omf_get_post_values', [$this, 'get_post_values']);
     add_filter('omf_nonce_field', [$this, 'nonce_field']);
+    add_filter('omf_create_nonce', [$this, 'create_nonce']);
     add_filter('omf_recaptcha_field', [$this, 'recaptcha_field']);
   }
 
@@ -156,13 +347,19 @@ class Original_Mail_Forms
 
   /**
    * nonceフィールドを出力する
-   * @return [type] [description]
    */
   public function nonce_field()
   {
-    global $post;
-    $action = "{$this->session_prefix}_{$post->ID}";
-    wp_nonce_field($action, 'omf_nonce', false);
+    wp_nonce_field($this->nonce_action, 'omf_nonce', false);
+  }
+
+  /**
+   * nonceを生成する
+   * @return String
+   */
+  public function create_nonce()
+  {
+    return wp_create_nonce('wp_rest');
   }
 
   /**
@@ -543,12 +740,12 @@ class Original_Mail_Forms
 
 
   //フォームデータの検証
-  public function validate_mail_form_data($post_data)
+  public function validate_mail_form_data($post_data, $post_id = null)
   {
     $errors = [];
 
     //連携しているメールフォームを取得
-    $linked_mail_form = $this->get_linked_mail_form();
+    $linked_mail_form = $this->get_linked_mail_form($post_id);
     if (empty($linked_mail_form)) {
       return $errors['undefined'] = ['メールフォームにエラーが起きました'];
     }
@@ -569,7 +766,7 @@ class Original_Mail_Forms
     }
 
     //reCAPTCHA
-    $is_recaptcha = $this->can_use_recaptcha();
+    $is_recaptcha = $this->can_use_recaptcha($post_id);
     if ($is_recaptcha) {
       $recaptcha = $this->verify_google_recaptcha();
       if (!$recaptcha) {
@@ -1126,7 +1323,7 @@ class Original_Mail_Forms
    * reCAPTCHA設定の有無を判定
    * @return boolean
    */
-  public function can_use_recaptcha()
+  public function can_use_recaptcha($post_id = null)
   {
     //reCAPTCHAのキーを確認
     if (empty(get_option('omf_recaptcha_secret_key')) || empty(get_option('omf_recaptcha_site_key'))) {
@@ -1134,7 +1331,7 @@ class Original_Mail_Forms
     }
 
     //reCAPTCHA設定を確認
-    $linked_mail_form = $this->get_linked_mail_form();
+    $linked_mail_form = $this->get_linked_mail_form($post_id);
     if (empty($linked_mail_form)) {
       return false;
     }
@@ -1289,7 +1486,7 @@ class Original_Mail_Forms
     if (empty($mail_id)) {
       $mail_id = 1;
     } else {
-      $mail_id = intval($mail_id);
+      $mail_id = intval(sanitize_text_field($mail_id));
       ++$mail_id;
     }
 
@@ -1310,12 +1507,13 @@ class Original_Mail_Forms
   /**
    * 自動返信メールの送信処理
    * @param array $post_data メールフォーム送信データ
+   * @param int $post_id フォームを設置したページのID
    * @return boolean
    */
-  public function send_reply_mail($post_data)
+  public function send_reply_mail($post_data, $post_id = null)
   {
 
-    $linked_mail_form = $this->get_linked_mail_form();
+    $linked_mail_form = $this->get_linked_mail_form($post_id);
     if (empty($linked_mail_form)) {
       return false;
     }
@@ -1367,9 +1565,9 @@ class Original_Mail_Forms
    * @param array $post_data メールフォーム送信データ
    * @return boolean
    */
-  public function send_admin_mail($post_data)
+  public function send_admin_mail($post_data, $post_id = null)
   {
-    $linked_mail_form = $this->get_linked_mail_form();
+    $linked_mail_form = $this->get_linked_mail_form($post_id);
     if (empty($linked_mail_form)) {
       return false;
     }
@@ -1703,7 +1901,8 @@ class Original_Mail_Forms
       'cf_omf_screen_entry',
       'cf_omf_screen_confirm',
       'cf_omf_screen_complete',
-      'cf_omf_recaptcha'
+      'cf_omf_recaptcha',
+      'cf_omf_mail_id'
     ];
     foreach ((array)$update_meta_keys as $key) {
       if (isset($_POST[$key])) {
@@ -1762,6 +1961,8 @@ class Original_Mail_Forms
     add_meta_box('omf-metabox-recaptcha', 'reCAPTCHA設定', [$this, 'recaptcha_meta_box_callback'], OMF_Config::NAME, 'side', 'default');
     //バリデーション
     add_meta_box('omf-metabox-validation', 'バリデーション設定', [$this, 'validation_meta_box_callback'], OMF_Config::NAME, 'normal', 'default');
+    //メールID
+    add_meta_box('omf-metabox-mail_id', 'メールID', [$this, 'mail_id_meta_box_callback'], OMF_Config::NAME, 'side', 'default');
   }
 
   /**
@@ -1884,14 +2085,12 @@ class Original_Mail_Forms
       <?php
       $this->omf_meta_box_text($post, '件名', 'cf_omf_reply_title');
       $description = <<<EOD
-      <p class="description">
       フォームのname属性に指定した値は{name}と指定してメールに反映可能。<br>
       その他、デフォルトで下記のタグを用意。<br>
       {send_datetime} : 送信日時（Y/m/d (曜日) H:i）<br>
       {mail_id} ： メールID（連番）<br>
       {site_name}：WordPressサイト名<br>
       {site_url}：WordPressサイトURL
-      </p>
       EOD;
       $this->omf_meta_box_textarea($post, '自動返信メール本文', 'cf_omf_reply_mail', $description);
       $this->omf_meta_box_text($post, '宛先', 'cf_omf_reply_to');
@@ -1912,14 +2111,12 @@ class Original_Mail_Forms
       <?php
       $this->omf_meta_box_text($post, '件名', 'cf_omf_admin_title');
       $description = <<<EOD
-      <p class="description">
       フォームのname属性に指定した値は{name}と指定してメールに反映可能。<br>
       その他、デフォルトで下記のタグを用意。<br>
       {send_datetime} : 送信日時（Y/m/d (曜日) H:i）<br>
       {mail_id} ： メールID（連番）<br>
       {site_name}：WordPressサイト名<br>
       {site_url}：WordPressサイトURL
-      </p>
       EOD;
       $this->omf_meta_box_textarea($post, '管理者宛メール本文', 'cf_omf_admin_mail', $description);
       $this->omf_meta_box_text($post, '宛先', 'cf_omf_admin_to');
@@ -1940,6 +2137,21 @@ class Original_Mail_Forms
       <?php
       $this->omf_meta_box_post_types($post, '投稿タイプ', 'cf_omf_condition_post');
       $this->omf_meta_box_side_text($post, '投稿/固定ページID', 'cf_omf_condition_id');
+      ?>
+    </div>
+  <?php
+  }
+
+  /**
+   * メールID
+   * @param WP_Post $post
+   */
+  public function mail_id_meta_box_callback($post)
+  {
+  ?>
+    <div class="omf-metabox-wrapper">
+      <?php
+      $this->omf_meta_box_number($post, 'メールID', 'cf_omf_mail_id', 'メール本文内{mail_id}として使える。フォーム送信毎に自動で1ずつ増加する。');
       ?>
     </div>
   <?php
@@ -2336,6 +2548,35 @@ class Original_Mail_Forms
           </label>
         <?php
         } ?>
+      </div>
+    </div>
+  <?php
+  }
+
+  /**
+   * 数値のメタボックス
+   * @param  WP_Post $post
+   * @param  string $title       タイトル
+   * @param  string $meta_key    カスタムフィールド名
+   * @param  string $description 説明
+   */
+  public function omf_meta_box_number($post, $title, $meta_key, $description = null)
+  {
+    $value = get_post_meta($post->ID, $meta_key, true);
+  ?>
+    <div class="omf-metabox">
+      <div class="omf-metabox__item">
+        <label class="label" for="<?php echo esc_attr($meta_key) ?>"><?php echo esc_html($title) ?></label>
+        <input type="number" id="<?php echo esc_attr($meta_key) ?>" name="<?php echo esc_attr($meta_key) ?>" value="<?php echo esc_attr($value) ?>" min="0" step="1">
+        <?php
+        if (!empty($description)) {
+        ?>
+          <p class="description">
+            <?php echo $description ?>
+          </p>
+        <?php
+        }
+        ?>
       </div>
     </div>
   <?php

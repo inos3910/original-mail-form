@@ -1,60 +1,61 @@
-.omf-metabox-wrapper{
+.omf-metabox-wrapper {
   padding: 10px;
 
   *,
   *::before,
-  *::after{
+  *::after {
     box-sizing: border-box;
   }
 }
 
-.omf-metabox{
+.omf-metabox {
   margin-block: 9px;
 }
 
-.omf-metabox--side{
-  label{
-    display: block;
-    margin-block: 0.5em;
-  }
+.omf-metabox--side {
 }
 
-.omf-metabox--repeat{
+.omf-metabox--repeat {
   position: relative;
 }
 
-.omf-metabox__item{
-  table{
+.omf-metabox__item {
+  table {
     width: 100%;
     table-layout: fixed;
 
     th,
-    td{
+    td {
       font-weight: 400;
       line-height: 1.5;
     }
 
-    th{
+    th {
       width: 25%;
       text-align: left;
       vertical-align: top;
     }
 
-    td{
+    td {
       width: 75%;
     }
   }
 
-  textarea{
+  textarea {
     padding: 1em;
   }
 
-  label{
+  label {
     display: block;
+    margin-block: 0.5em;
+  }
+
+  p {
+    margin-block: 0.5em;
   }
 }
 
-.omf-metabox__list{
+.omf-metabox__list {
   position: relative;
   display: flex;
   flex-direction: column;
@@ -64,28 +65,27 @@
   border-radius: 10px;
   cursor: move;
 
-  &.over{
-    background-color: rgba(#000,.3);
+  &.over {
+    background-color: rgba(#000, 0.3);
     border-color: #000;
   }
 
-  &:hover{
+  &:hover {
     border-color: #555;
   }
 }
 
-.omf-metabox__head{
+.omf-metabox__head {
   display: flex;
   align-items: center;
   padding: 1em;
   gap: 1em;
 }
 
-.omf-metabox__head__title{
-
+.omf-metabox__head__title {
 }
 
-.omf-metabox__toggle{
+.omf-metabox__toggle {
   position: relative;
   display: flex;
   align-items: center;
@@ -98,8 +98,8 @@
   border: 1px solid;
   cursor: pointer;
 
-  &::before{
-    content:"";
+  &::before {
+    content: "";
     display: block;
     width: 8px;
     height: 8px;
@@ -109,13 +109,13 @@
     border-bottom: 1px solid;
   }
 
-  &:hover{
+  &:hover {
     color: #fff;
     background: #000;
   }
 }
 
-.omf-metabox__remove{
+.omf-metabox__remove {
   position: relative;
   width: 30px;
   height: 30px;
@@ -124,42 +124,42 @@
   border-radius: 50%;
 
   &::before,
-  &::after{
-    content:"";
+  &::after {
+    content: "";
     position: absolute;
-    inset:0;
+    inset: 0;
     margin: auto;
     display: block;
     background: currentColor;
     transform: rotate(45deg);
   }
 
-  &::before{
+  &::before {
     width: 50%;
     height: 1px;
   }
 
-  &::after{
+  &::after {
     width: 1px;
     height: 50%;
   }
 
-  &:hover{
+  &:hover {
     opacity: 0.8;
     cursor: pointer;
   }
 }
 
-.omf-metabox__body{
+.omf-metabox__body {
   display: none;
   padding: 1em;
 
-  &.open{
+  &.open {
     display: block;
   }
 }
 
-.omf-metabox__row{
+.omf-metabox__row {
   display: grid;
   grid-template-columns: 20% minmax(0, 1fr);
   align-items: center;
