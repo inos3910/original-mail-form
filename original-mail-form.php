@@ -67,6 +67,7 @@ class Original_Mail_Forms
     add_action('template_redirect', [$this, 'redirect_form_pages']);
     add_action('wp_enqueue_scripts', [$this, 'load_recaptcha_script']);
     //管理画面
+    add_action('admin_menu', [$this, 'add_admin_setting_menu']);
     add_action('admin_menu', [$this, 'add_admin_recaptcha_menu']);
     add_action('init', [$this, 'create_post_type']);
     add_action('admin_enqueue_scripts', [$this, 'add_omf_scripts']);
@@ -1735,6 +1736,146 @@ class Original_Mail_Forms
     ";
     wp_add_inline_script('recaptcha-script', $recaptcha_site_key_script, 'before');
   }
+
+  /**
+   * 設定オプションページを追加
+   * @return [type] [description]
+   */
+  public function add_admin_setting_menu()
+  {
+    add_submenu_page(
+      'edit.php?post_type=' . OMF_Config::NAME,
+      'プラグインの更新',
+      'プラグインの更新',
+      'manage_options',
+      'omf_settings',
+      [$this, 'admin_omf_settings_page']
+    );
+  }
+
+  /**
+   * 設定オプション画面のソース
+   */
+  public function admin_omf_settings_page()
+  {
+    if (filter_input(INPUT_POST, 'update_omf', FILTER_SANITIZE_NUMBER_INT) === '1') {
+      $this->update_plugin_from_github();
+    }
+  ?>
+    <h1>プラグインの更新</h1>
+    <div class="admin_optional">
+      <form method="post" action="">
+        <p>Github上で管理している最新のmasterブランチのファイルに更新します。</p>
+        <p><a href="https://github.com/inos3910/original-mail-form" target="_blank" rel="noopener">GitHubリポジトリはこちら →</a></p>
+        <button class="button" type="submit" name="update_omf" value="1">更新開始</button>
+      </form>
+    </div>
+  <?php
+  }
+
+  /**
+   * プラグイン更新処理
+   *
+   * @return void
+   */
+  public function update_plugin_from_github()
+  {
+    $github_repo_url = 'https://github.com/inos3910/original-mail-form/archive/master.zip';
+
+    // プラグインディレクトリのパス
+    $plugin_dir = plugin_dir_path(__FILE__);
+
+    // バックアップディレクトリのパス
+    $backup_dir = $plugin_dir . 'backup/';
+
+    // バックアップファイルを作成
+    $backup_file = $this->create_backup($backup_dir, $plugin_dir);
+
+    // GitHubからの更新をダウンロード
+    $response = wp_safe_remote_get($github_repo_url);
+
+    if (!is_wp_error($response)) {
+      $zip_content = wp_remote_retrieve_body($response);
+
+      // ZIPファイルを一時ディレクトリに保存
+      $temp_zip_path = sys_get_temp_dir() . '/github-omf-update.zip';
+      file_put_contents($temp_zip_path, $zip_content);
+
+      // 特定のファイルをダウンロードから除外
+      $zip = new ZipArchive;
+      if ($zip->open($temp_zip_path) === true) {
+        $excluded_files = array('.gitignore', 'package.json', 'package-lock.json', 'yarn.lock', 'webpack.config.js');
+        $files_to_extract = array();
+        for ($i = 0; $i < $zip->numFiles; $i++) {
+          $file_info = $zip->statIndex($i);
+          if (!in_array(basename($file_info['name']), $excluded_files)) {
+            $files_to_extract[] = $file_info['name'];
+          }
+        }
+        $zip->extractTo($plugin_dir, $files_to_extract);
+        $zip->close();
+
+        // 一時ファイルの削除
+        unlink($temp_zip_path);
+
+        add_action('admin_notices', function () {
+          echo '<div class="updated"><p>プラグインが更新されました。</p></div>';
+        });
+      } else {
+        // エラーメッセージを表示
+        add_action('admin_notices', function () {
+          echo '<div class="error"><p>GitHubからの更新を適用できませんでした。</p></div>';
+        });
+      }
+    } else {
+      // エラーメッセージを表示
+      add_action('admin_notices', function () {
+        echo '<div class="error"><p>GitHubからファイルを取得する際にエラーが発生しました。</p></div>';
+      });
+    }
+  }
+
+  /**
+   * バックアップを作成
+   *
+   * @param String $backup_dir
+   * @param String $plugin_dir
+   * @return String
+   */
+  public function create_backup($backup_dir, $plugin_dir)
+  {
+    // バックアップディレクトリを作成
+    if (!file_exists($backup_dir)) {
+      wp_mkdir_p($backup_dir);
+    }
+
+    // バックアップファイル名
+    $backup_file = $backup_dir . 'backup_' . date('Y-m-d_Hi') . '.zip';
+
+    // プラグインディレクトリのファイルをバックアップ
+    $zip = new ZipArchive;
+    if ($zip->open($backup_file, ZipArchive::CREATE) === true) {
+      $files = glob($plugin_dir . '*');
+      foreach ($files as $file) {
+        $file_name = basename($file);
+        $zip->addFile($file, $file_name);
+      }
+      $zip->close();
+
+      // エラーメッセージを表示
+      add_action('admin_notices', function () {
+        echo '<div class="error"><p>プラグインディレクトリのバックアップが作成されました。</p></div>';
+      });
+    } else {
+      // エラーメッセージを表示
+      add_action('admin_notices', function () {
+        echo '<div class="error"><p>バックアップの作成に失敗しました。</p></div>';
+      });
+    }
+
+    return $backup_file;
+  }
+
 
   /**
    * reCAPTCHA設定オプションページを追加
