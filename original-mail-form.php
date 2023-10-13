@@ -2003,6 +2003,9 @@ class Original_Mail_Forms
     ];
     //投稿タイプの登録
     register_post_type(OMF_Config::NAME, $args);
+    //投稿一覧のカスタマイズ
+    add_filter('manage_edit-' . OMF_Config::NAME . '_columns', [$this, 'custom_posts_columns']);
+    add_action('manage_' . OMF_Config::NAME . '_posts_custom_column', [$this, 'add_column'], 10, 2);
     //メタボックスの追加
     add_action('add_meta_boxes_' . OMF_Config::NAME, [$this, 'add_meta_box_omf']);
     add_action('add_meta_boxes', [$this, 'add_meta_box_posts']);
@@ -2010,6 +2013,70 @@ class Original_Mail_Forms
     add_action('save_post', [$this, 'save_omf_custom_field']);
     //CSSの追加
     add_action('admin_enqueue_scripts', [$this, 'custom_omf_styles']);
+  }
+
+  /**
+   * 投稿タイプ一覧画面のカスタマイズ
+   *
+   * @param [type] $columns
+   * @return void
+   */
+  public function custom_posts_columns($columns)
+  {
+    unset($columns['author']);
+    //「日時」列を最後に持ってくる為、一旦クリア
+    if (isset($columns['date'])) {
+      $date = $columns['date'];
+      unset($columns['date']);
+    }
+
+    $columns['slug'] = "スラッグ";
+    $columns['entry'] = "フォーム入力画面";
+    $columns['recaptcha'] = "reCAPTCHA設定";
+
+    // 「日時」列を再セット
+    if (isset($date)) {
+      $columns['date']   = $date;
+    }
+
+    return $columns;
+  }
+
+
+  /**
+   * 投稿タイプ一覧画面に値を出力
+   *
+   * @param [type] $column_name
+   * @param [type] $post_id
+   * @return void
+   */
+  public function add_column($column_name, $post_id)
+  {
+    //スラッグ
+    if ($column_name === 'slug') {
+      $post = get_post($post_id);
+      if (!empty($post)) {
+        echo esc_html($post->post_name);
+      }
+    }
+    //入力画面
+    elseif ($column_name === 'entry') {
+      $entry_page = get_post_meta($post_id, 'cf_omf_screen_entry', true);
+      echo esc_html($entry_page);
+    }
+    // reCAPTCHA設定
+    elseif ($column_name === 'recaptcha') {
+      $is_recaptcha = get_post_meta($post_id, 'cf_omf_recaptcha', true);
+      if (!empty($is_recaptcha) && $is_recaptcha == 1) {
+        echo esc_html('有効');
+      } else {
+        echo esc_html('無効');
+      }
+    }
+    //それ以外
+    else {
+      return;
+    }
   }
 
   /**
@@ -2326,7 +2393,6 @@ class Original_Mail_Forms
     $values = get_post_meta($post->ID, $meta_key, true);
   ?>
     <div class="omf-metabox omf-metabox--repeat">
-      <button class="omf-metabox__add-button" type="button" id="js-omf-repeat-add-button">項目を追加</button>
       <?php
       if (!empty($values)) :
         foreach ((array)$values as $key => $value) :
@@ -2363,13 +2429,13 @@ class Original_Mail_Forms
               <div class="omf-metabox__row">
                 <span>最小文字数</span>
                 <span>
-                  <input type="text" name="<?php echo esc_attr("{$meta_key}[{$key}][min]") ?>" value="<?php echo esc_attr($min) ?>">
+                  <input type="number" name="<?php echo esc_attr("{$meta_key}[{$key}][min]") ?>" value="<?php echo esc_attr($min) ?>" min="0" max="9999" step="1">
                 </span>
               </div>
               <div class="omf-metabox__row">
                 <span>最大文字数</span>
                 <span>
-                  <input type="text" name="<?php echo esc_attr("{$meta_key}[{$key}][max]") ?>" value="<?php echo esc_attr($max) ?>">
+                  <input type="number" name="<?php echo esc_attr("{$meta_key}[{$key}][max]") ?>" value="<?php echo esc_attr($max) ?>" min="0" max="9999" step="1">
                 </span>
               </div>
               <div class="omf-metabox__row">
@@ -2552,6 +2618,7 @@ class Original_Mail_Forms
       <?php
       endif;
       ?>
+      <button class="omf-metabox__add-button" type="button" id="js-omf-repeat-add-button">項目を追加</button>
     </div>
   <?php
   }
