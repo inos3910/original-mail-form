@@ -1799,7 +1799,16 @@ class Original_Mail_Forms
     // ZIPファイルの中身をプラグインディレクトリにコピーし、上書き
     $zip = new ZipArchive;
     if ($zip->open($temp_zip_path) === true) {
-      $zip->extractTo($plugin_dir);
+      //除外ファイル
+      $excluded_files = ['.gitignore', 'package.json', 'package-lock.json', 'yarn.lock', 'webpack.config.js'];
+      $files_to_extract = [];
+      for ($i = 0; $i < $zip->numFiles; $i++) {
+        $file_info = $zip->statIndex($i);
+        if (!in_array(basename($file_info['name']), $excluded_files)) {
+          $files_to_extract[] = $file_info['name'];
+        }
+      }
+      $zip->extractTo($plugin_dir, $files_to_extract);
       $zip->close();
     }
 
