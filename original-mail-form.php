@@ -1803,8 +1803,6 @@ class Original_Mail_Forms
     //ファイルの移動
     $target_dir = $plugin_dir . "original-mail-form-master/";
     $this->moveFiles($target_dir, $plugin_dir);
-    //ディレクトリ削除
-    rmdir($target_dir);
 
     // メッセージを表示
     echo '<div class="updated"><p>プラグインが更新されました。</p></div>';
@@ -1829,6 +1827,10 @@ class Original_Mail_Forms
           if (is_dir($sourcePath)) {
             $this->moveFiles($sourcePath, $destinationPath);
           } else {
+            if (file_exists($destinationPath)) {
+              // 移動先のファイルが存在する場合は削除
+              unlink($destinationPath);
+            }
             rename($sourcePath, $destinationPath);
           }
         }
@@ -1836,6 +1838,9 @@ class Original_Mail_Forms
 
       closedir($handle);
     }
+
+    //ディレクトリ削除
+    rmdir($source);
   }
 
   /**
