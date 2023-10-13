@@ -1784,6 +1784,9 @@ class Original_Mail_Forms
    */
   public function update_plugin_from_github()
   {
+    //WP_Filesystem
+    require_once(ABSPATH . 'wp-admin/includes/file.php');
+
     $github_repo_url = 'https://github.com/inos3910/original-mail-form/archive/master.zip';
     $plugin_dir = plugin_dir_path(__FILE__);
 
@@ -1796,11 +1799,15 @@ class Original_Mail_Forms
     $zip_content = wp_remote_retrieve_body($response);
     $temp_zip_path = sys_get_temp_dir() . '/github-update.zip';
 
-    if (!file_put_contents($temp_zip_path, $zip_content)) {
-      echo '<div class="error"><p>一時ファイルの保存に失敗しました。</p></div>';
+    if (WP_Filesystem()) {
+      global $wp_filesystem;
+      $is_saved_tmp = $wp_filesystem->put_contents($temp_zip_path, $zip_content);
+      if (!$is_saved_tmp) {
+        echo '<div class="error"><p>一時ファイルの保存に失敗しました。</p></div>';
+      }
     }
 
-    // ZIPファイルの中身をプラグインディレクトリにコピーし、上書き
+    // ZIPファイルの中身をプラグインディレクトリにコピー
     $zip = new ZipArchive;
     if ($zip->open($temp_zip_path) === true) {
       //除外ファイル
@@ -1816,6 +1823,7 @@ class Original_Mail_Forms
       $zip->close();
     }
 
+    //一時ファイルを削除
     unlink($temp_zip_path);
 
     //ファイルの移動
