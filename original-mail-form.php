@@ -1781,20 +1781,14 @@ class Original_Mail_Forms
     $response = wp_safe_remote_get($github_repo_url);
 
     if (is_wp_error($response)) {
-      add_action('admin_notices', function () {
-        echo '<div class="error"><p>GitHubからファイルを取得する際にエラーが発生しました。</p></div>';
-      });
-      return;
+      echo '<div class="error"><p>GitHubからファイルを取得する際にエラーが発生しました。</p></div>';
     }
 
     $zip_content = wp_remote_retrieve_body($response);
     $temp_zip_path = sys_get_temp_dir() . '/github-update.zip';
 
     if (!file_put_contents($temp_zip_path, $zip_content)) {
-      add_action('admin_notices', function () {
-        echo '<div class="error"><p>一時ファイルの保存に失敗しました。</p></div>';
-      });
-      return;
+      echo '<div class="error"><p>一時ファイルの保存に失敗しました。</p></div>';
     }
 
     // ZIPファイルの中身をプラグインディレクトリにコピーし、上書き
@@ -1807,13 +1801,14 @@ class Original_Mail_Forms
     unlink($temp_zip_path);
 
     //ファイルの移動
-    if ($handle = opendir($plugin_dir . "original-mail-form-master")) {
+    $target_dir = $plugin_dir . "original-mail-form-master/";
+    if ($handle = opendir($target_dir)) {
       //オープンしたディレクトリにファイルが存在すればループで取り出していく
       while (false !== ($entry = readdir($handle))) {
         //ファイル名が「.」「..」じゃなければ処理を実行
         if ($entry != "." && $entry != "..") {
           //ファイルを指定したディレクトリに移動させる
-          rename($entry, $plugin_dir . $entry);
+          rename($target_dir . $entry, $plugin_dir . $entry);
         }
       }
 
@@ -1821,10 +1816,11 @@ class Original_Mail_Forms
       closedir($handle);
     }
 
-    // エラーメッセージを表示
-    add_action('admin_notices', function () {
-      echo '<div class="updated"><p>プラグインが更新されました。</p></div>';
-    });
+    //ディレクトリ削除
+    rmdir($target_dir);
+
+    // メッセージを表示
+    echo '<div class="updated"><p>プラグインが更新されました。</p></div>';
   }
 
   /**
