@@ -43,12 +43,6 @@ class Original_Mail_Forms
   private $errors_session_name;
 
   /**
-   * フォーム画面のパス
-   * @var array
-   */
-  private $form_page_pathes = [];
-
-  /**
    * construct
    */
   public function __construct()
@@ -238,10 +232,10 @@ class Original_Mail_Forms
         else {
           $errors = [];
           if (!$is_sended_reply) {
-            $errors['reply_mail'] = '自動返信メールの送信処理に失敗しました';
+            $errors['reply_mail'] = ['自動返信メールの送信処理に失敗しました'];
           }
           if (!$is_sended_admin) {
-            $errors['admin_mail'] = '管理者宛メールの送信処理に失敗しました';
+            $errors['admin_mail'] = ['管理者宛メールの送信処理に失敗しました'];
           }
           return [
             'is_sended' => $is_sended,
@@ -1542,6 +1536,9 @@ class Original_Mail_Forms
     $mail_template     = $this->replace_form_mail_if_tags($mail_template, $tag_to_text);
     //メールタグを置換
     $reply_message     = $this->replace_form_mail_tags($mail_template, $tag_to_text);
+    //フィルターを通す
+    $reply_message     = apply_filters('omf_reply_mail', $reply_message, $tag_to_text);
+
     //メールヘッダー
     $reply_headers[]   = "From: {$from_name} <{$mail_from}>";
     $reply_headers[]   = "Reply-To: {$from_name} <{$mail_from}>";
@@ -1599,6 +1596,9 @@ class Original_Mail_Forms
     $mail_template     = $this->replace_form_mail_if_tags($mail_template, $tag_to_text);
     //メールタグを置換
     $admin_message     = $this->replace_form_mail_tags($mail_template, $tag_to_text);
+    //フィルターを通す
+    $admin_message     = apply_filters('omf_admin_mail', $admin_message, $tag_to_text);
+
     //メールヘッダー
     $admin_headers[]   = "From: {$from_name} <{$mail_from}>";
     $admin_headers[]   = "Reply-To: {$from_name} <{$mail_from}>";

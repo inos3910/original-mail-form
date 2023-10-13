@@ -20,6 +20,7 @@ v1.0 （2023-10-12）
 - メールタグ`{mail_tag}`を使ったメール本文の設定が管理画面から可能
 - バリデーション設定が可能
 - メールフォームを複数作成可能
+- フィルターフックで自動返信・管理者宛メールどちらも本文を変更可能
 
 ## MW WP Form との違い
 
@@ -32,6 +33,7 @@ v1.0 （2023-10-12）
 - 個別のエラー画面は設定不可。エラーの場合は入力画面に戻る。
 - エラー表示は自分で PHP を使って作成する必要がある
 - ショートコードがないため、プラグイン管理画面上で「表示条件」で表示する固定ページもしくは投稿タイプを選択した上で、該当の投稿・固定ページ上で「メールフォーム連携」を有効化設定する必要がある
+- REST API でバリデーション・メール送信ができる
 
 ## 主な使い方
 
@@ -211,4 +213,229 @@ $message = !empty($values['message']) ? $values['message'] : '';
 ## 備考
 
 - メールの送信には `wp_mail()` を使用
-- SMTP 設定は`WP Mail SMTP`などのプラグイン利用を想定
+- SMTP 設定は`WP Mail SMTP`などのプラグイン利用を想定 → wp に内蔵されている phpmailer で設定できるように変更する？
+
+## REST API
+
+カスタムエンドポイントを 2 つ用意。
+
+- POST `/omf-api/v0/validate` バリデーション
+- POST `/omf-api/v0/send` 送信
+
+### 基本設定
+
+API に必須項目があるので、まず WP 側でそれを出力しておく。
+
+```
+function add_omf_scripts()
+{
+  $handle = 'omf';
+  wp_register_script(
+    //ハンドルネーム
+    $app,
+    //パス
+    get_theme_file_uri('js/script.js'),
+    //依存スクリプト
+    [],
+    //version
+    false,
+    //wp_footerに出力
+    true
+  );
+
+  wp_localize_script($handle, 'OMF_VALUES', [
+    'root'       => esc_url_raw(rest_url()), //rest apiのルートURL
+    'omf_nonce'  => wp_create_nonce('wp_rest'), //認証用のnonce
+    'post_id'    => get_the_ID() //記事ID
+  ]);
+
+  wp_enqueue_script($handle);
+}
+add_action('wp_enqueue_scripts', 'add_omf_scripts');
+```
+
+### バリデーション
+
+```
+async validate() {
+  const requestUrl = `${OMF_VALUES.root}omf-api/v0/validate`;
+
+  const requestBody = {
+    user_name: 'しぇあする太郎',
+    user_email: 'sharesl@example.com',
+    message: ’お問い合わせ内容’,
+    post_id: OMF_VALUES.post_id, //記事IDをパラメータに含める
+  };
+
+  const res = await fetch(requestUrl, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-WP-Nonce': OMF_VALUES.omf_nonce, //nonceをヘッダーに追加
+    },
+    body: JSON.stringify(requestBody),
+  });
+  const json = await res.json();
+  console.log(json);
+}
+```
+
+#### バリデーション成功
+
+```
+{
+  valid: true
+  data: {
+    user_name: 'しぇあする太郎',
+    user_email: 'sharesl@example.com',
+    message: ’お問い合わせ内容’,
+    post_id: 'xxx',
+  }
+}
+```
+
+#### バリデーション失敗
+
+```
+{
+  valid: false
+  errors: {
+    user_email: ['必須項目です','正しいメールアドレスを入力してください']
+  },
+  data: {
+    user_name: 'しぇあする太郎',
+    user_email: '',
+    message: ’お問い合わせ内容’,
+    post_id: 'xxx',
+  }
+}
+```
+
+### 送信
+
+```
+async sendMail() {
+  const requestUrl = `${OMF_VALUES.root}omf-api/v0/send`;
+
+  const requestBody = {
+    user_name: 'しぇあする太郎',
+    user_email: 'sharesl@example.com',
+    message: ’お問い合わせ内容’,
+    post_id: OMF_VALUES.post_id, //記事IDをパラメータに含める
+  };
+
+  const res = await fetch(requestUrl, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'X-WP-Nonce': OMF_VALUES.omf_nonce, //nonceをヘッダーに追加
+    },
+    body: JSON.stringify(requestBody),
+  });
+  const json = await res.json();
+  console.log(json);
+
+  //完了画面に遷移
+  if ('redirect_url' in json && json.redirect_url) {
+    window.location.href = json.redirect_url;
+  }
+}
+```
+
+### バリデーション失敗
+
+送信時もバリデーションチェックが走るので、失敗するとエラーが返る
+
+```
+{
+  valid: false
+  errors: {
+    user_email: ['必須項目です','正しいメールアドレスを入力してください']
+  },
+  data: {
+    user_name: 'しぇあする太郎',
+    user_email: '',
+    message: ’お問い合わせ内容’,
+    post_id: 'xxx',
+  }
+}
+```
+
+### 送信成功
+
+```
+{
+  is_sended : true,
+  data : {
+    user_name: 'しぇあする太郎',
+    user_email: 'sharesl@example.com',
+    message: ’お問い合わせ内容’,
+    post_id: 'xxx',
+  },
+  redirect_url : 'https://example.com/contact/complete/'
+}
+```
+
+完了画面にリダイレクトするための URL を含めて返ってくる。
+
+### 送信失敗
+
+```
+{
+  is_sended : false,
+  data : {
+    user_name: 'しぇあする太郎',
+    user_email: 'sharesl@example.com',
+    message: ’お問い合わせ内容’,
+    post_id: 'xxx',
+  },
+  errors : {
+    reply_mail : ['自動返信メールの送信処理に失敗しました'],
+    admin_mail : ['管理者宛メールの送信処理に失敗しました']
+  }
+}
+```
+
+送信処理に失敗した場合にはエラーを含めて返ってくる。
+
+## フィルターフック
+
+### 管理者宛メール変更
+
+```
+/**
+ * 管理者宛メール変更
+ *
+ * @param String $message_body メール本文
+ * @param Array $tags メールタグ情報
+ * @return String メール本文
+ */
+function my_custom_admin_mail($message_body, $tags) {
+  /*
+   *メール本文をゴニョゴニョ
+  **/
+
+  return $message_body;
+}
+add_filter('omf_admin_mail', 'my_custom_admin_mail', 10, 2);
+```
+
+### 自動返信メール変更
+
+```
+/**
+ * 自動返信メール変更
+ *
+ * @param String $message_body メール本文
+ * @param Array $tags メールタグ情報
+ * @return String メール本文
+ */
+function my_custom_reply_mail($message_body, $tags) {
+  /*
+   *メール本文をゴニョゴニョ
+  **/
+
+  return $message_body;
+}
+add_filter('omf_reply_mail', 'my_custom_reply_mail', 10, 2);
+```
