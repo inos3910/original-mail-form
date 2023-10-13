@@ -1773,6 +1773,11 @@ class Original_Mail_Forms
   <?php
   }
 
+  /**
+   * プラグインをmasterブランチに更新
+   *
+   * @return void
+   */
   public function update_plugin_from_github()
   {
     $github_repo_url = 'https://github.com/inos3910/original-mail-form/archive/master.zip';
@@ -1808,6 +1813,13 @@ class Original_Mail_Forms
     echo '<div class="updated"><p>プラグインが更新されました。</p></div>';
   }
 
+  /**
+   * 指定フォルダ内の中身をすべて任意の場所に移動
+   *
+   * @param [type] $source 指定フォルダ
+   * @param [type] $destination 任意の場所
+   * @return void
+   */
   public function moveFiles($source, $destination)
   {
     if (!is_dir($source)) {
