@@ -1802,25 +1802,40 @@ class Original_Mail_Forms
 
     //ファイルの移動
     $target_dir = $plugin_dir . "original-mail-form-master/";
-    if ($handle = opendir($target_dir)) {
-      //オープンしたディレクトリにファイルが存在すればループで取り出していく
-      while (false !== ($entry = readdir($handle))) {
-        //ファイル名が「.」「..」じゃなければ処理を実行
-        if ($entry != "." && $entry != "..") {
-          //ファイルを指定したディレクトリに移動させる
-          rename($target_dir . $entry, $plugin_dir . $entry);
-        }
-      }
-
-      //オープンしたディレクトリのハンドルをクローズする
-      closedir($handle);
-    }
-
+    $this->moveFiles($target_dir, $plugin_dir);
     //ディレクトリ削除
     rmdir($target_dir);
 
     // メッセージを表示
     echo '<div class="updated"><p>プラグインが更新されました。</p></div>';
+  }
+
+  public function moveFiles($source, $destination)
+  {
+    if (!is_dir($source)) {
+      return;
+    }
+
+    if (!is_dir($destination)) {
+      mkdir($destination, 0755, true);
+    }
+
+    if ($handle = opendir($source)) {
+      while (false !== ($entry = readdir($handle))) {
+        if ($entry != "." && $entry != "..") {
+          $sourcePath = $source . '/' . $entry;
+          $destinationPath = $destination . '/' . $entry;
+
+          if (is_dir($sourcePath)) {
+            $this->moveFiles($sourcePath, $destinationPath);
+          } else {
+            rename($sourcePath, $destinationPath);
+          }
+        }
+      }
+
+      closedir($handle);
+    }
   }
 
   /**
