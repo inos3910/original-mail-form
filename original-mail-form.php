@@ -1758,17 +1758,21 @@ class Original_Mail_Forms
    */
   public function admin_omf_settings_page()
   {
-    if (filter_input(INPUT_POST, 'update_omf', FILTER_SANITIZE_NUMBER_INT) === '1') {
-      $this->update_plugin_from_github();
-    }
   ?>
-    <h1>プラグインの更新</h1>
-    <div class="admin_optional">
-      <form method="post" action="">
-        <p>Github上で管理している最新のmasterブランチのファイルに更新します。</p>
-        <p><a href="https://github.com/inos3910/original-mail-form" target="_blank" rel="noopener">GitHubリポジトリはこちら →</a></p>
-        <button class="button" type="submit" name="update_omf" value="1">更新開始</button>
-      </form>
+    <div class="wrap">
+      <h1>プラグインの更新</h1>
+      <?php
+      if (filter_input(INPUT_POST, 'update_omf', FILTER_SANITIZE_NUMBER_INT) === '1') {
+        $this->update_plugin_from_github();
+      }
+      ?>
+      <div class="admin_optional">
+        <form method="post" action="">
+          <p>Github上で管理している最新のmasterブランチのファイルに更新します。</p>
+          <p><a href="https://github.com/inos3910/original-mail-form" target="_blank" rel="noopener">GitHubリポジトリはこちら →</a></p>
+          <button class="button" type="submit" name="update_omf" value="1">更新開始</button>
+        </form>
+      </div>
     </div>
   <?php
   }
@@ -1898,53 +1902,55 @@ class Original_Mail_Forms
   public function admin_recaptcha_settings_page()
   {
   ?>
-    <h1>reCAPTCHA設定</h1>
-    <div class="admin_optional">
-      <form method="post" action="options.php">
-        <?php
-        settings_fields('recaptcha-settings-group');
-        do_settings_sections('recaptcha-settings-group');
-        $recaptcha_field_name = !empty(get_option('omf_recaptcha_field_name')) ? get_option('omf_recaptcha_field_name') : 'g-recaptcha-response';
-        ?>
-        <p><a href="https://www.google.com/recaptcha/admin" target="_blank" rel="noopener">reCAPTCHA v3 コンソールでキーを取得 →</a></p>
-        <table class="form-table">
-          <tr>
-            <th scope="row">reCAPTCHA v3 サイトキー</th>
-            <td>
-              <p>
-                <input class="regular-text code" type="text" name="omf_recaptcha_site_key" value="<?php echo esc_attr(get_option('omf_recaptcha_site_key')); ?>">
-              </p>
-            </td>
-          </tr>
-          <tr>
-            <th scope="row">reCAPTCHA v3 シークレットキー</th>
-            <td>
-              <p>
-                <input class="regular-text code" type="text" name="omf_recaptcha_secret_key" value="<?php echo esc_attr(get_option('omf_recaptcha_secret_key')); ?>">
-              </p>
-            </td>
-          </tr>
-          <tr>
-            <th scope="row">しきい値（0.0 - 1.0）</th>
-            <td>
-              <p>
-                <input class="small-text" type="number" pattern="\d*" min="0.0" max="1.0" step="0.1" name="omf_recaptcha_score" value="<?php echo esc_attr(get_option('omf_recaptcha_score')) ?>">
-              </p>
-              <p class="description">大きいほど判定が厳しくなる。デフォルトでは、0.5。</p>
-            </td>
-          </tr>
-          <tr>
-            <th scope="row">reCAPTCHAフィールド名</th>
-            <td>
-              <p>
-                <input class="regular-text code" type="text" name="omf_recaptcha_field_name" value="<?php echo esc_attr($recaptcha_field_name); ?>">
-              </p>
-              <p class="description">フォーム内に出力されるinput要素のname属性を設定。デフォルトは「g-recaptcha-response」</p>
-            </td>
-          </tr>
-        </table>
-        <?php submit_button(); ?>
-      </form>
+    <div class="wrap">
+      <h1>reCAPTCHA設定</h1>
+      <div class="admin_optional">
+        <form method="post" action="options.php">
+          <?php
+          settings_fields('recaptcha-settings-group');
+          do_settings_sections('recaptcha-settings-group');
+          $recaptcha_field_name = !empty(get_option('omf_recaptcha_field_name')) ? get_option('omf_recaptcha_field_name') : 'g-recaptcha-response';
+          ?>
+          <p><a href="https://www.google.com/recaptcha/admin" target="_blank" rel="noopener">reCAPTCHA v3 コンソールでキーを取得 →</a></p>
+          <table class="form-table">
+            <tr>
+              <th scope="row">reCAPTCHA v3 サイトキー</th>
+              <td>
+                <p>
+                  <input class="regular-text code" type="text" name="omf_recaptcha_site_key" value="<?php echo esc_attr(get_option('omf_recaptcha_site_key')); ?>">
+                </p>
+              </td>
+            </tr>
+            <tr>
+              <th scope="row">reCAPTCHA v3 シークレットキー</th>
+              <td>
+                <p>
+                  <input class="regular-text code" type="text" name="omf_recaptcha_secret_key" value="<?php echo esc_attr(get_option('omf_recaptcha_secret_key')); ?>">
+                </p>
+              </td>
+            </tr>
+            <tr>
+              <th scope="row">しきい値（0.0 - 1.0）</th>
+              <td>
+                <p>
+                  <input class="small-text" type="number" pattern="\d*" min="0.0" max="1.0" step="0.1" name="omf_recaptcha_score" value="<?php echo esc_attr(get_option('omf_recaptcha_score')) ?>">
+                </p>
+                <p class="description">大きいほど判定が厳しくなる。デフォルトでは、0.5。</p>
+              </td>
+            </tr>
+            <tr>
+              <th scope="row">reCAPTCHAフィールド名</th>
+              <td>
+                <p>
+                  <input class="regular-text code" type="text" name="omf_recaptcha_field_name" value="<?php echo esc_attr($recaptcha_field_name); ?>">
+                </p>
+                <p class="description">フォーム内に出力されるinput要素のname属性を設定。デフォルトは「g-recaptcha-response」</p>
+              </td>
+            </tr>
+          </table>
+          <?php submit_button(); ?>
+        </form>
+      </div>
     </div>
   <?php
   }
