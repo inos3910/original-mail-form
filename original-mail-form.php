@@ -207,6 +207,9 @@ class Original_Mail_Forms
         //メールIDを追加
         $post_data['mail_id'] = $this->get_mail_id($linked_mail_form->ID);
 
+        //送信前のフック
+        do_action('omf_before_send_mail', $post_data, $linked_mail_form, $post_id);
+
         //自動返信メール送信処理
         $is_sended_reply = $this->send_reply_mail($post_data, $post_id);
         //管理者宛メール送信処理
@@ -221,6 +224,9 @@ class Original_Mail_Forms
           $complete_page_url = !empty($complete_page_id) ? get_permalink($complete_page_id) : '';
           //送信後にメールIDを更新
           $this->update_mail_id($linked_mail_form->ID, $post_data['mail_id']);
+
+          //送信後のフック
+          do_action('omf_after_send_mail', $post_data, $linked_mail_form, $post_id);
 
           return [
             'is_sended' => $is_sended,
@@ -262,7 +268,7 @@ class Original_Mail_Forms
   {
     $res = $func($params);
     $response = new WP_REST_Response($res);
-    if (is_wp_error($response)) {
+    if (is_wp_error($response) && property_exists($response, 'get_error_data')) {
       $error_data = $response->get_error_data();
       $status = !empty($error_data['status']) ? $error_data['status'] : 404;
       $response->set_status($status);
@@ -1442,6 +1448,10 @@ class Original_Mail_Forms
       //メールID
       $post_data['mail_id'] = $this->get_mail_id($linked_mail_form->ID);
 
+      //送信前のフック
+      $post_id = get_the_ID();
+      do_action('omf_before_send_mail', $post_data, $linked_mail_form, $post_id);
+
       //自動返信メール送信処理
       $is_sended_reply = $this->send_reply_mail($post_data);
       //管理者宛メール送信処理
@@ -1451,6 +1461,9 @@ class Original_Mail_Forms
       if ($is_sended) {
         //送信後にメールIDを更新
         $this->update_mail_id($linked_mail_form->ID, $post_data['mail_id']);
+
+        //送信後のフック
+        do_action('omf_after_send_mail', $post_data, $linked_mail_form, $post_id);
       }
 
       return $is_sended;
@@ -1528,6 +1541,9 @@ class Original_Mail_Forms
     ];
     $tag_to_text = array_merge($post_data, $default_tags);
 
+    //送信前のフック
+    do_action('omf_before_send_reply_mail', $tag_to_text, $mail_to, $form_title, $mail_template, $mail_from, $from_name);
+
     //件名
     $reply_subject     = $this->replace_form_mail_tags($form_title, $tag_to_text);
     //宛先
@@ -1554,6 +1570,11 @@ class Original_Mail_Forms
       //メールヘッダー
       $reply_headers
     );
+
+    if ($is_sended_reply) {
+      //送信後のフック
+      do_action('omf_after_send_reply_mail', $tag_to_text, $reply_mailaddress, $reply_subject, $reply_message, $reply_headers);
+    }
 
     return $is_sended_reply;
   }
@@ -1588,6 +1609,9 @@ class Original_Mail_Forms
     ];
     $tag_to_text = array_merge($post_data, $default_tags);
 
+    //送信前のフック
+    do_action('omf_before_send_admin_mail', $tag_to_text, $mail_to, $form_title, $mail_template, $mail_from, $from_name);
+
     //件名
     $admin_subject     = $this->replace_form_mail_tags($form_title, $tag_to_text);
     //宛先
@@ -1614,6 +1638,11 @@ class Original_Mail_Forms
       //メールヘッダー
       $admin_headers
     );
+
+    if ($is_sended_admin) {
+      //送信後のフック
+      do_action('omf_after_send_admin_mail', $tag_to_text, $admin_mailaddress, $admin_subject, $admin_message, $admin_headers);
+    }
 
     return $is_sended_admin;
   }
