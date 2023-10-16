@@ -440,6 +440,27 @@ function my_custom_reply_mail($message_body, $tags) {
 add_filter('omf_reply_mail', 'my_custom_reply_mail', 10, 2);
 ```
 
+### メールタグの内容変更
+
+```
+/**
+ * メールタグの内容変更
+ *
+ * @param String $replacement_text 現在のメールタグの置換内容
+ * @param String $tag メールタグのキー
+ * @return String カスタマイズ後のメールタグの置換内容
+ */
+add_filter('omf_mail_tag', function ($replacement_text, $tag) {
+  if ($tag === 'type') {
+    $replacement_text = 'カスタマイズ';
+  }
+
+  return $replacement_text;
+}, 10, 2);
+```
+
+この場合は{type}というメールタグが「カスタマイズ」に置換される。
+
 ## アクションフック
 
 ### メール送信前

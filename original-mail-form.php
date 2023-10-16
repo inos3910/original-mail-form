@@ -1701,12 +1701,13 @@ class Original_Mail_Forms
 
     if (!empty($matches[1])) {
       foreach ($matches[1] as $tag) {
-        $replacementText = isset($tag_to_text[$tag]) ? $tag_to_text[$tag] : '';
-        if (empty($replacementText)) {
+        $replacement_text = isset($tag_to_text[$tag]) ? $tag_to_text[$tag] : '';
+        $replacement_text = apply_filters('omf_mail_tag', $replacement_text, $tag);
+        if (empty($replacement_text)) {
           continue;
         }
 
-        $text = str_replace("{" . $tag . "}", $replacementText, $text);
+        $text = str_replace("{" . $tag . "}", $replacement_text, $text);
       }
     }
 
