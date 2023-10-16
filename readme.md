@@ -439,3 +439,85 @@ function my_custom_reply_mail($message_body, $tags) {
 }
 add_filter('omf_reply_mail', 'my_custom_reply_mail', 10, 2);
 ```
+
+## アクションフック
+
+### メール送信前
+
+```
+/**
+ * メール送信前
+ *
+ * @param String $post_data フォーム送信情報
+ * @param Array $linked_mail_form メールフォームの情報
+ * @param Array $post_id フォーム送信時の記事ID
+ */
+add_action('omf_before_send_mail', function ($post_data, $linked_mail_form, $post_id) {
+  /*
+   * 送信前にゴニョゴニョ
+  **/
+}, 10, 3);
+```
+
+### メール送信後
+
+```
+/**
+ * メール送信後
+ *
+ * @param Array $post_data フォーム送信情報
+ * @param Object $linked_mail_form メールフォームの情報
+ * @param String $post_id フォーム送信時の記事ID
+ */
+add_action('omf_after_send_mail', function ($post_data, $linked_mail_form, $post_id) {
+  /*
+   * 送信後にゴニョゴニョ
+  **/
+}, 10, 3);
+```
+
+#### 自動返信送信前
+
+```
+/**
+ * メール送信後
+ *
+ * @param Arrray $tags メールタグ情報
+ * @param String $mail_to 送信先メールアドレス
+ * @param String $form_title 件名
+ * @param String $mail_template メールテンプレート
+ * @param String $mail_from 送信元メールアドレス
+ * @param String $from_name 送信元の名前
+ */
+add_action('omf_before_send_reply_mail', function ($tags, $mail_to, $form_title, $mail_template, $mail_from, $from_name) {
+  /*
+   * 送信後にゴニョゴニョ
+  **/
+}, 10, 6);
+```
+
+#### 自動返信送信後
+
+```
+/**
+ * メール送信後
+ *
+ * @param Arrray $tags メールタグ情報
+ * @param String $reply_mailaddress 送信先メールアドレス
+ * @param String $reply_subject 件名
+ * @param String $reply_message メッセージ内容
+ * @param String $reply_headers ヘッダー情報
+ */
+add_action('omf_after_send_reply_mail', function ($tags, $reply_mailaddress, $reply_subject, $reply_message, $reply_headers) {
+  /*
+   * 送信後にゴニョゴニョ
+  **/
+}, 10, 6);
+```
+
+#### 管理者宛 送信前／送信後
+
+- `omf_before_send_admin_mail`
+- `omf_after_send_admin_mail`
+
+使い方は自動返信と同じ。
