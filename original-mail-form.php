@@ -1339,11 +1339,11 @@ class Original_Mail_Forms
         $error_type = $throwsSpamAway->error_type;
         $message_str = "";
         /**
-         エラー種類
-        'must_word'         必須キーワード
-        'ng_word'           NGキーワード
-        'url_count_over'    リンク数オーバー
-        'not_japanese'      日本語不足
+         * エラー種類
+         *'must_word'         必須キーワード
+         *'ng_word'           NGキーワード
+         *'url_count_over'    リンク数オーバー
+         *'not_japanese'      日本語不足
          */
         switch ($error_type) {
           case "must_word":
