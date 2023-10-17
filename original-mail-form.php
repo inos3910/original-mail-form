@@ -598,6 +598,8 @@ class Original_Mail_Forms
     if ($auth) {
       //各要素を取得
       $post_data = !empty($_POST) ? array_map([$this, 'custom_escape'], $_POST) : [];
+      //送信データをセッションで保持
+      $_SESSION[$this->post_data_session_name] = $this->filter_post_keys($post_data);
 
       //検証
       $errors = $this->validate_mail_form_data($post_data);
@@ -606,9 +608,6 @@ class Original_Mail_Forms
         $_SESSION[$this->errors_session_name] = $errors;
         return;
       }
-
-      //送信データをセッションで保持
-      $_SESSION[$this->post_data_session_name] = $this->filter_post_keys($post_data);
 
       // 検証OKの場合は確認画面へ
       session_regenerate_id(true);
@@ -876,6 +875,13 @@ class Original_Mail_Forms
       //カタカナ or ひらがな
       elseif ($key === 'kana') {
         $error_message = $this->validate_kana($data, $value);
+        if (!empty($error_message)) {
+          $errors[] = $error_message;
+        }
+      }
+      //日付
+      elseif ($key === 'date') {
+        $error_message = $this->validate_date($data, $value);
         if (!empty($error_message)) {
           $errors[] = $error_message;
         }
@@ -1168,6 +1174,52 @@ class Original_Mail_Forms
     $is_kana = !empty($data) ? preg_match('/^[ァ-ヾぁ-んー]+$/u', $data) === 1 : false;
     if (!$is_kana) {
       $error = "全角カタカナもしくはひらがなで入力してください";
+    }
+
+    return $error;
+  }
+
+  /**
+   * 日付を検証する
+   * @param  String $data  検証するデータ
+   * @param  String $value 検証条件
+   * @return String        エラーメッセージ
+   */
+  public function validate_date($data, $value)
+  {
+    $error = '';
+
+    //検証フラグがOFFの時はスキップ
+    if (intval($value) !== 1) {
+      return $error;
+    }
+
+    $date_formats = [
+      'Y.m.d',
+      'Y.m.d（D）',
+      'Y-m-d',
+      'Y-m-d（D）',
+      'Y/m/d',
+      'Y/m/d（D）',
+      'Y年m月d日',
+      'Y年m月d日（D）',
+      'Y-n-j',
+      'Y-n-j（D）',
+      'Y.n.j',
+      'Y.n.j（D）',
+      'Y/n/j',
+      'Y/n/j（D）',
+      'Y年n月j日',
+      'Y年n月j日（D）',
+    ];
+
+    foreach ($date_formats as $format) {
+      $dateTime = DateTime::createFromFormat($format, $data);
+      if ($dateTime && $dateTime->format($format) === $data) {
+        return $error;
+      } else {
+        $error = "日付の形式で入力してください";
+      }
     }
 
     return $error;
@@ -2441,6 +2493,7 @@ class Original_Mail_Forms
           $kana             = !empty($value['kana']) ? $value['kana'] : '';
           $throws_spam_away = !empty($value['throws_spam_away']) ? $value['throws_spam_away'] : '';
           $matching_char    = !empty($value['matching_char']) ? $value['matching_char'] : '';
+          $date             = !empty($value['date']) ? $value['date'] : '';
       ?>
 
           <div class="omf-metabox__list js-omf-repeat-field" data-omf-validation-count="<?php echo esc_attr($key) ?>" draggable="true">
@@ -2532,6 +2585,12 @@ class Original_Mail_Forms
                 <span>カタカナ or ひらがな</span>
                 <span>
                   <input type="checkbox" name="<?php echo esc_attr("{$meta_key}[{$key}][kana]") ?>" value="1" <?php if ($kana) echo esc_attr(' checked') ?>>
+                </span>
+              </div>
+              <div class="omf-metabox__row">
+                <span>日付</span>
+                <span>
+                  <input type="checkbox" name="<?php echo esc_attr("{$meta_key}[{$key}][date]") ?>" value="1" <?php if ($date) echo esc_attr(' checked') ?>>
                 </span>
               </div>
               <div class="omf-metabox__row">
