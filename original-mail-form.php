@@ -1211,15 +1211,9 @@ class Original_Mail_Forms
     foreach ($date_formats as $format) {
       $dateTime = DateTime::createFromFormat($format, $data);
       if ($dateTime) {
-        // 日付の妥当性をチェック
-        $errors = DateTime::getLastErrors();
-        if ($errors['warning_count'] === 0 && $errors['error_count'] === 0) {
-          continue;
-        } else {
-          //条件と合致した時点で終了
-          $is_error = false;
-          break;
-        }
+        //条件と合致した時点で終了
+        $is_error = false;
+        break;
       }
     }
 
