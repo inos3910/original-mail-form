@@ -1194,32 +1194,37 @@ class Original_Mail_Forms
       return $error;
     }
 
+    //エラーフラグ
+    $is_error = true;
+
     $date_formats = [
-      'Y.m.d',
-      'Y.m.d（D）',
-      'Y-m-d',
-      'Y-m-d（D）',
-      'Y/m/d',
-      'Y/m/d（D）',
+      'Y#m#d',
+      'Y#m#d（???）',
       'Y年m月d日',
-      'Y年m月d日（D）',
-      'Y-n-j',
-      'Y-n-j（D）',
-      'Y.n.j',
-      'Y.n.j（D）',
-      'Y/n/j',
-      'Y/n/j（D）',
+      'Y年m月d日（???）',
+      'Y#n#j',
+      'Y#n#j（???）',
       'Y年n月j日',
-      'Y年n月j日（D）',
+      'Y年n月j日（???）'
     ];
 
     foreach ($date_formats as $format) {
       $dateTime = DateTime::createFromFormat($format, $data);
-      if ($dateTime && $dateTime->format($format) === $data) {
-        return $error;
-      } else {
-        $error = "日付の形式で入力してください";
+      if ($dateTime) {
+        // 日付の妥当性をチェック
+        $errors = DateTime::getLastErrors();
+        if ($errors['warning_count'] === 0 && $errors['error_count'] === 0) {
+          continue;
+        } else {
+          //条件と合致した時点で終了
+          $is_error = false;
+          break;
+        }
       }
+    }
+
+    if ($is_error) {
+      $error = "日付の形式で入力してください";
     }
 
     return $error;
