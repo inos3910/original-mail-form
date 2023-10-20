@@ -13,8 +13,14 @@ class OMF_Validation
       return;
     }
 
+    //POSTにキーがない場合は未送信なのでスキップ
     $post_key = $validation['target'];
-    $data     = !empty($post_data[$post_key]) ? $post_data[$post_key] : '';
+    if (!isset($post_data[$post_key])) {
+      return;
+    }
+
+    //検証するデータ
+    $data = !empty($post_data[$post_key]) ? $post_data[$post_key] : '';
 
     $errors = [];
 
