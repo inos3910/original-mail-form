@@ -326,9 +326,12 @@ class Original_Mail_Forms
       $post_data = $_SESSION[$this->session_name_post_data];
     }
 
-    //POSTがある場合はPOSTで上書き
+    //POSTがある場合は上書き
     if (!empty($_POST)) {
-      $post_data = array_map([$this, 'custom_escape'], $_POST);
+      $posts = array_map([$this, 'custom_escape'], $_POST);
+      foreach ((array)$posts as $key => $value) {
+        $post_data[$key] = $value;
+      }
       $post_data = $this->filter_post_keys($post_data);
     }
 
@@ -645,6 +648,7 @@ class Original_Mail_Forms
     if (filter_input(INPUT_POST, 'submit_back') === "back") {
       //認証フラグをオフ
       $_SESSION[$this->session_name_auth] = false;
+      $_SESSION[$this->session_name_post_data] = $this->get_post_values();
       session_write_close();
       //入力画面に戻す
       wp_safe_redirect(esc_url(home_url($page_pathes['entry'])), 307);
