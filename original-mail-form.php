@@ -596,14 +596,14 @@ class Original_Mail_Forms
   {
     //戻るボタン
     if (filter_input(INPUT_POST, 'submit_back') === "back") {
-      //戻るフラグをオン
-      $_SESSION[$this->session_name_back] = true;
-      //認証フラグをオフ
-      $_SESSION[$this->session_name_auth] = false;
-      $_SESSION[$this->session_name_post_data] = $this->get_post_values();
-      session_write_close();
-      wp_safe_redirect(esc_url(home_url($page_pathes['entry'])));
-      exit;
+      //戻るフラグがオンの場合
+      if (!empty($_SESSION[$this->session_name_back]) && $_SESSION[$this->session_name_back] === true) {
+        //認証フラグをオフ
+        $_SESSION[$this->session_name_auth] = false;
+        session_write_close();
+        wp_safe_redirect(esc_url(home_url($page_pathes['entry'])));
+        exit;
+      }
     }
 
     //確認ボタンではない場合
@@ -729,6 +729,17 @@ class Original_Mail_Forms
           wp_safe_redirect(esc_url(home_url($page_pathes['entry'])));
           exit;
         }
+
+        //認証OKの場合
+        //メール送信以外の場合はそのまま表示
+        if (filter_input(INPUT_POST, 'send') !== 'send') {
+          return;
+        }
+
+        //データ取得
+        $post_data = $this->get_post_values();
+        // メール送信処理
+        $this->mail_send_handler($page_pathes, $post_data);
       }
     }
     //POSTがない場合
