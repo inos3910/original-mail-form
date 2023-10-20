@@ -367,8 +367,9 @@ class Original_Mail_Forms
     }
 
     $recaptcha_field_name = !empty(get_option('omf_recaptcha_field_name')) ? get_option('omf_recaptcha_field_name') : 'g-recaptcha-response';
+    $site_key = get_option('omf_recaptcha_site_key');
 ?>
-    <input type="hidden" name="<?php echo esc_attr($recaptcha_field_name) ?>" id="g-recaptcha-response">
+    <input type="hidden" name="<?php echo esc_attr($recaptcha_field_name) ?>" id="g-recaptcha-response" data-sitekey="<?php echo esc_attr($site_key) ?>">
 <?php
   }
 
@@ -1267,12 +1268,6 @@ class Original_Mail_Forms
       }
     );";
     wp_add_inline_script('recaptcha-script', $custom_script);
-
-    //サイトキーを変数で出力
-    $recaptcha_site_key_script = "
-    var reCAPTCHA_site_key = '{$recaptcha_site_key}';
-    ";
-    wp_add_inline_script('recaptcha-script', $recaptcha_site_key_script, 'before');
   }
 
   /**
