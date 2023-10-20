@@ -43,6 +43,12 @@ class Original_Mail_Forms
   private $session_name_error;
 
   /**
+   * 戻るセッション名
+   * @var string
+   */
+  private $session_name_back;
+
+  /**
    * construct
    */
   public function __construct()
@@ -473,6 +479,7 @@ class Original_Mail_Forms
     $session_name_post_data = "{$session_name_prefix}_data";
     $session_name_auth = "{$session_name_prefix}_auth";
     $session_name_error = "{$session_name_prefix}_errors";
+    $session_name_back = "{$session_name_prefix}_back";
 
     //送信データセッションを破棄
     if (isset($_SESSION[$session_name_post_data])) {
@@ -490,6 +497,12 @@ class Original_Mail_Forms
     if (isset($_SESSION[$session_name_error])) {
       $_SESSION[$session_name_error] = [];
       unset($_SESSION[$session_name_error]);
+    }
+
+    //戻るセッションを破棄
+    if (isset($_SESSION[$session_name_back])) {
+      $_SESSION[$session_name_back] = false;
+      unset($_SESSION[$session_name_back]);
     }
   }
 
@@ -571,6 +584,8 @@ class Original_Mail_Forms
     $this->session_name_auth = "{$this->session_name_prefix}_auth";
     //エラーセッション名を更新
     $this->session_name_error = "{$this->session_name_prefix}_errors";
+    //戻るセッション名を更新
+    $this->session_name_back = "{$this->session_name_prefix}_back";
   }
 
   /**
@@ -581,6 +596,8 @@ class Original_Mail_Forms
   {
     //戻るボタン
     if (filter_input(INPUT_POST, 'submit_back') === "back") {
+      //戻るフラグをオン
+      $_SESSION[$this->session_name_back] = true;
       //認証フラグをオフ
       $_SESSION[$this->session_name_auth] = false;
       $_SESSION[$this->session_name_post_data] = $this->get_post_values();
@@ -591,6 +608,20 @@ class Original_Mail_Forms
 
     //確認ボタンではない場合
     if (filter_input(INPUT_POST, 'confirm') !== 'confirm') {
+      //戻るフラグがある場合
+      if (!empty($_SESSION[$this->session_name_back]) && $_SESSION[$this->session_name_back] === true) {
+        //戻るフラグをオフ
+        $_SESSION[$this->session_name_back] = false;
+        unset($_SESSION[$this->session_name_back]);
+      }
+      //戻るフラグがない場合
+      else {
+        //エラーがなければ送信データをクリア
+        if (empty($_SESSION[$this->session_name_error])) {
+          $_SESSION[$this->session_name_post_data] = [];
+          unset($_SESSION[$this->session_name_post_data]);
+        }
+      }
       return;
     }
 
@@ -647,6 +678,8 @@ class Original_Mail_Forms
   {
     //戻るボタンの場合
     if (filter_input(INPUT_POST, 'submit_back') === "back") {
+      //戻るフラグをオン
+      $_SESSION[$this->session_name_back] = true;
       //認証フラグをオフ
       $_SESSION[$this->session_name_auth] = false;
       $_SESSION[$this->session_name_post_data] = $this->get_post_values();
@@ -689,6 +722,7 @@ class Original_Mail_Forms
         //nonce認証NG
         if (!$auth) {
           $post_data = $this->get_post_values();
+          $_SESSION[$this->session_name_back] = true;
           $_SESSION[$this->session_name_auth] = false;
           $_SESSION[$this->session_name_post_data] = $this->filter_post_keys($post_data);
           session_write_close();
