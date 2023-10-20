@@ -13,6 +13,7 @@
     "css-mqpacker": "^7.0.0",
     "esbuild": "^0.19.3",
     "esbuild-loader": "^4.0.2",
+    "glob": "^10.3.10",
     "mini-css-extract-plugin": "^2.7.6",
     "postcss": "^8.4.30",
     "postcss-loader": "^7.3.3",

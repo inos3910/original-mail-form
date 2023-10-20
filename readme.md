@@ -2,12 +2,13 @@
 
 ## バージョン
 
-v1.0 （2023-10-12）
+v1.0 （2023-10-19）
 
 ## 概要
 
 - MW WP Form のクローズに伴い、移行用に作成した簡易なメールフォームプラグイン
-- 入力画面・確認画面・完了画面の 3 つの画面を、投稿または固定ページで 3 ページ用意して使う
+- インストールすると「メールフォーム」というメニューが管理画面に出てくる
+- 入力画面・確認画面・完了画面の 3 つの画面を、投稿または固定ページで 3 ページ用意して使う。**【確認画面が必須】**
 - バリデーション機能あり
 - reCAPTCHA 設定あり
 - ThrowsSpamAway プラグインとの連携機能あり
@@ -29,10 +30,10 @@ v1.0 （2023-10-12）
 - メール内容は DB に保存しない
 - ファイルは送信できない
 - 確認画面が必須（現状、確認画面なしでは動作しない）
-- hook はほとんど無い
-- 個別のエラー画面は設定不可。エラーの場合は入力画面に戻る。
+- hook はほとんど無い。既存のプロジェクトで必要なものだけ追加する予定。
+- 個別のエラー画面は設定不可。エラーの場合は入力画面に戻ってそこでエラーを取得して表示。
 - エラー表示は自分で PHP を使って作成する必要がある
-- ショートコードがないため、プラグイン管理画面上で「表示条件」で表示する固定ページもしくは投稿タイプを選択した上で、該当の投稿・固定ページ上で「メールフォーム連携」を有効化設定する必要がある
+- ショートコードがないため、プラグイン管理画面上の「表示条件」で表示する固定ページもしくは投稿タイプを選択した上で、該当の投稿・固定ページ上で「メールフォーム連携」を有効化設定する必要がある
 - REST API でバリデーション・メール送信ができる
 
 ## 主な使い方
@@ -106,21 +107,21 @@ $message = !empty($values['message']) ? $values['message'] : '';
 $errors  = class_exists('OMF') ? OMF::get_errors() : null;
 if(!empty($errors)){
   ?>
-  <div class="p-form__errors">
+  <div class="errors">
     <h2>入力エラーがあります</h2>
-    <ul class="p-form__errors__list">
+    <ul class="errors__list">
       <?php
       foreach ((array)$errors as $key => $error) {
         foreach((array)$error as $e){
           ?>
-          <li class="p-form__error"><a href="<?php echo esc_attr("#field_{$key}")?>">・<?php echo esc_html($e)?></a></li>
+          <li class="error"><a href="<?php echo esc_attr("#field_{$key}")?>">・<?php echo esc_html($e)?></a></li>
           <?php
         }
       }
       ?>
     </ul>
   </div>
-  <!-- /.p-form__errors -->
+  <!-- /.errors -->
   <?php
 }
 ?>
@@ -156,9 +157,11 @@ if(!empty($errors)){
   }
   ?>
 
-  <button type="submit">確認</button>
+  <button type="submit" name="confirm" value="confirm">確認</button>
 </form>
 ```
+
+確認ボタンは`name="confirm" value="confirm"`が必須。
 
 **▼ 確認画面**
 
@@ -176,6 +179,7 @@ $tel     = !empty($values['tel']) ? $values['tel'] : '';
 $message = !empty($values['message']) ? $values['message'] : '';
 ?>
 <form action="" method="post">
+  <button type="submit" name="submit_back" value="back">← 戻る</button>
 
   <p>氏名</p>
   <p><?php echo esc_html($name)?></p>
@@ -195,9 +199,12 @@ $message = !empty($values['message']) ? $values['message'] : '';
     OMF::nonce_field();
   }
   ?>
-  <button type="submit">送信</button>
+  <button type="submit" name="send" value="send">送信</button>
 </form>
 ```
+
+戻るボタンは`name="submit_back" value="back"`が必須。<br>
+送信ボタンは`name="send" value="send"`が必須。
 
 **▼ 送信完了画面**
 
@@ -214,6 +221,7 @@ $message = !empty($values['message']) ? $values['message'] : '';
 
 - メールの送信には `wp_mail()` を使用
 - SMTP 設定は`WP Mail SMTP`などのプラグイン利用を想定 → wp に内蔵されている phpmailer で設定できるように変更する？
+- メールの送信者名は今のところカスタマイズできないので自動返信・管理者宛でそれぞれフィールドを追加予定。
 
 ## REST API
 
@@ -542,3 +550,17 @@ add_action('omf_after_send_reply_mail', function ($tags, $reply_mailaddress, $re
 - `omf_after_send_admin_mail`
 
 使い方は自動返信と同じ。
+
+## MW WP Forms からの移行方法
+
+- MW WP Form を使った元のファイルはいじらずに、新しくカスタムテンプレートファイルを作る
+- テスト環境で動作確認
+- 移行作業
+  1. プラグインをインストール
+  2. 「メールフォーム」からフォームを作成し、メール文面などを設定
+  3. 入力画面、完了画面、確認画面の編集画面で作成したカスタムテンプレートに切り替え、「メールフォーム連携」から作成したフォームのを選択して保存
+  4. MW WP Form の該当のフォームを下書きに変更。もしくは削除
+- 移行作業をフォームの数だけ繰り返す
+
+この手順で移行すれば、ダウンタイムほぼなして切り替え可能。<br>
+→ 固定ページの切り替え時間と MW WP Form のステータス変更の時間はかかるので 1 分ぐらいはかかるかも？

@@ -1,3 +1,5 @@
+import '../sass/style.scss';
+
 class OMF {
   constructor() {
     this.repeatField();
