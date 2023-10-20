@@ -657,36 +657,44 @@ class Original_Mail_Forms
 
     //POSTがある場合
     if (!empty($_POST)) {
-      //nonce取得
-      $nonce   = filter_input(INPUT_POST, 'omf_nonce');
-      $auth    = wp_verify_nonce($nonce, $this->nonce_action);
-      //nonce認証NG
-      if (!$auth) {
-        $post_data = $this->get_post_values();
-        $_SESSION[$this->session_name_auth] = false;
-        $_SESSION[$this->session_name_post_data] = $this->filter_post_keys($post_data);
-        session_write_close();
-        wp_safe_redirect(esc_url(home_url($page_pathes['entry'])));
-        exit;
-      }
+      //セッションがある場合
+      if (
+        !empty($_SESSION[$this->session_name_auth])
+        && $_SESSION[$this->session_name_auth] === true
+      ) {
+        //メール送信以外の場合
+        if (filter_input(INPUT_POST, 'send') !== 'send') {
+          //データを取得して保存
+          $post_data = $this->get_post_values();
+          $_SESSION[$this->session_name_auth] = true;
+          $_SESSION[$this->session_name_post_data] = $this->filter_post_keys($post_data);
+          session_write_close();
+          //リダイレクトする
+          wp_safe_redirect(esc_url(home_url($page_pathes['confirm'])));
+          exit;
+        }
 
-      //メール送信以外の場合
-      if (filter_input(INPUT_POST, 'send') !== 'send') {
-        //データを取得して保存
         $post_data = $this->get_post_values();
         $_SESSION[$this->session_name_auth] = true;
-        $_SESSION[$this->session_name_post_data] = $this->filter_post_keys($post_data);
-        session_write_close();
-        //リダイレクトする
-        wp_safe_redirect(esc_url(home_url($page_pathes['confirm'])));
-        exit;
+        $_SESSION[$this->session_name_post_data] = $post_data;
+        // メール送信処理
+        $this->mail_send_handler($page_pathes, $post_data);
       }
-
-      $post_data = $this->get_post_values();
-      $_SESSION[$this->session_name_auth] = true;
-      $_SESSION[$this->session_name_post_data] = $post_data;
-      // メール送信処理
-      $this->mail_send_handler($page_pathes, $post_data);
+      //セッションがない場合
+      else {
+        //nonce取得
+        $nonce   = filter_input(INPUT_POST, 'omf_nonce');
+        $auth    = wp_verify_nonce($nonce, $this->nonce_action);
+        //nonce認証NG
+        if (!$auth) {
+          $post_data = $this->get_post_values();
+          $_SESSION[$this->session_name_auth] = false;
+          $_SESSION[$this->session_name_post_data] = $this->filter_post_keys($post_data);
+          session_write_close();
+          wp_safe_redirect(esc_url(home_url($page_pathes['entry'])));
+          exit;
+        }
+      }
     }
     //POSTがない場合
     else {
