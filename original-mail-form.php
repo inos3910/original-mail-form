@@ -1258,7 +1258,7 @@ class Original_Mail_Forms
         $replacement_text = isset($tag_to_text[$tag]) ? $tag_to_text[$tag] : '';
         $replacement_text = apply_filters('omf_mail_tag', $replacement_text, $tag);
         if (empty($replacement_text)) {
-          continue;
+          $replacement_text = '';
         }
 
         $text = str_replace("{" . $tag . "}", $replacement_text, $text);
