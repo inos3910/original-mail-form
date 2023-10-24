@@ -687,22 +687,22 @@ class OMF_Admin
       <?php
       if (!empty($values)) :
         foreach ((array)$values as $key => $value) :
-          $target           = !empty($value['target']) ? $value['target'] : '';
-          $min              = !empty($value['min']) ? $value['min'] : '';
-          $max              = !empty($value['max']) ? $value['max'] : '';
-          $required         = !empty($value['required']) ? $value['required'] : '';
-          $tel              = !empty($value['tel']) ? $value['tel'] : '';
-          $email            = !empty($value['email']) ? $value['email'] : '';
-          $url              = !empty($value['url']) ? $value['url'] : '';
-          $numeric          = !empty($value['numeric']) ? $value['numeric'] : '';
-          $alpha            = !empty($value['alpha']) ? $value['alpha'] : '';
-          $alphanumeric     = !empty($value['alphanumeric']) ? $value['alphanumeric'] : '';
-          $katakana         = !empty($value['katakana']) ? $value['katakana'] : '';
-          $hiragana         = !empty($value['hiragana']) ? $value['hiragana'] : '';
-          $kana             = !empty($value['kana']) ? $value['kana'] : '';
-          $throws_spam_away = !empty($value['throws_spam_away']) ? $value['throws_spam_away'] : '';
-          $matching_char    = !empty($value['matching_char']) ? $value['matching_char'] : '';
-          $date             = !empty($value['date']) ? $value['date'] : '';
+          $target           = !empty($value['target']) ? sanitize_text_field(wp_unslash($value['target'])) : '';
+          $min              = !empty($value['min']) ? sanitize_text_field(wp_unslash($value['min'])) : '';
+          $max              = !empty($value['max']) ? sanitize_text_field(wp_unslash($value['max'])) : '';
+          $required         = !empty($value['required']) ? sanitize_text_field(wp_unslash($value['required'])) : '';
+          $tel              = !empty($value['tel']) ? sanitize_text_field(wp_unslash($value['tel'])) : '';
+          $email            = !empty($value['email']) ? sanitize_text_field(wp_unslash($value['email'])) : '';
+          $url              = !empty($value['url']) ? sanitize_text_field(wp_unslash($value['url'])) : '';
+          $numeric          = !empty($value['numeric']) ? sanitize_text_field(wp_unslash($value['numeric'])) : '';
+          $alpha            = !empty($value['alpha']) ? sanitize_text_field(wp_unslash($value['alpha'])) : '';
+          $alphanumeric     = !empty($value['alphanumeric']) ? sanitize_text_field(wp_unslash($value['alphanumeric'])) : '';
+          $katakana         = !empty($value['katakana']) ? sanitize_text_field(wp_unslash($value['katakana'])) : '';
+          $hiragana         = !empty($value['hiragana']) ? sanitize_text_field(wp_unslash($value['hiragana'])) : '';
+          $kana             = !empty($value['kana']) ? sanitize_text_field(wp_unslash($value['kana'])) : '';
+          $throws_spam_away = !empty($value['throws_spam_away']) ? sanitize_text_field(wp_unslash($value['throws_spam_away'])) : '';
+          $matching_char    = !empty($value['matching_char']) ? sanitize_text_field(wp_unslash($value['matching_char'])) : '';
+          $date             = !empty($value['date']) ? sanitize_text_field(wp_unslash($value['date'])) : '';
       ?>
 
           <div class="omf-metabox__list js-omf-repeat-field" data-omf-validation-count="<?php echo esc_attr($key) ?>" draggable="true">
@@ -932,6 +932,7 @@ class OMF_Admin
   public function omf_meta_box_textarea($post, $title, $meta_key, $description = null)
   {
     $value = get_post_meta($post->ID, $meta_key, true);
+    $value = !empty($value) ? sanitize_text_field(wp_unslash($value)) : '';
   ?>
     <div class="omf-metabox">
       <div class="omf-metabox__item">
@@ -968,6 +969,7 @@ class OMF_Admin
   public function omf_meta_box_boolean($post, $title, $meta_key)
   {
     $value = get_post_meta($post->ID, $meta_key, true);
+    $value = !empty($value) ? sanitize_text_field(wp_unslash($value)) : '';
   ?>
     <div class="omf-metabox omf-metabox--side">
       <p>
@@ -997,6 +999,7 @@ class OMF_Admin
   public function omf_meta_box_text($post, $title, $meta_key, $description = null)
   {
     $value = get_post_meta($post->ID, $meta_key, true);
+    $value = !empty($value) ? sanitize_text_field(wp_unslash($value)) : '';
   ?>
     <div class="omf-metabox">
       <div class="omf-metabox__item">
@@ -1034,6 +1037,7 @@ class OMF_Admin
   {
 
     $value = get_post_meta($post->ID, $meta_key, true);
+    $value = !empty($value) ? sanitize_text_field(wp_unslash($value)) : '';
 
     $args = [
       'public' => true,
@@ -1070,6 +1074,7 @@ class OMF_Admin
   public function omf_meta_box_number($post, $title, $meta_key, $description = null)
   {
     $value = get_post_meta($post->ID, $meta_key, true);
+    $value = !empty($value) ? sanitize_text_field(wp_unslash($value)) : '';
   ?>
     <div class="omf-metabox">
       <div class="omf-metabox__item">
@@ -1099,6 +1104,7 @@ class OMF_Admin
   public function omf_meta_box_side_text($post, $title, $meta_key, $description = null)
   {
     $value = get_post_meta($post->ID, $meta_key, true);
+    $value = !empty($value) ? sanitize_text_field(wp_unslash($value)) : '';
   ?>
     <div class="omf-metabox omf-metabox--side">
       <div class="omf-metabox__item">
@@ -1140,6 +1146,7 @@ class OMF_Admin
     }
 
     $value = get_post_meta($post->ID, $meta_key, true);
+    $value = !empty($value) ? sanitize_text_field(wp_unslash($value)) : '';
 
   ?>
     <div class="omf-metabox omf-metabox--side">

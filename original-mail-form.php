@@ -394,7 +394,7 @@ class Original_Mail_Forms
       return;
     }
 
-    $linked_mail_form_slug = get_post_meta($current_page_id, 'cf_omf_select', true);
+    $linked_mail_form_slug = $this->custom_escape(get_post_meta($current_page_id, 'cf_omf_select', true));
     if (empty($linked_mail_form_slug)) {
       return;
     }
@@ -436,9 +436,9 @@ class Original_Mail_Forms
       return $ids;
     }
 
-    $entry_page_path    = get_post_meta($linked_mail_form->ID, 'cf_omf_screen_entry', true);
-    $confirm_page_path  = get_post_meta($linked_mail_form->ID, 'cf_omf_screen_confirm', true);
-    $complete_page_path = get_post_meta($linked_mail_form->ID, 'cf_omf_screen_complete', true);
+    $entry_page_path    = $this->custom_escape(get_post_meta($linked_mail_form->ID, 'cf_omf_screen_entry', true));
+    $confirm_page_path  = $this->custom_escape(get_post_meta($linked_mail_form->ID, 'cf_omf_screen_confirm', true));
+    $complete_page_path = $this->custom_escape(get_post_meta($linked_mail_form->ID, 'cf_omf_screen_complete', true));
 
     $ids['entry']       = url_to_postid($entry_page_path);
     $ids['confirm']     = url_to_postid($confirm_page_path);
@@ -520,7 +520,7 @@ class Original_Mail_Forms
 
     //現在のページのID取得
     $current_page_id    = get_the_ID();
-    $omf_form_slug      = get_post_meta($current_page_id, 'cf_omf_select', true);
+    $omf_form_slug      = $this->custom_escape(get_post_meta($current_page_id, 'cf_omf_select', true));
     $omf_form           = !empty($omf_form_slug) ? get_page_by_path($omf_form_slug, OBJECT, OMF_Config::NAME) : null;
     //フォーム設定がないページはセッションをクリア
     if (empty($omf_form)) {
@@ -530,15 +530,16 @@ class Original_Mail_Forms
 
     //画面設定からパスを取得
     $page_pathes = [
-      'entry'    => get_post_meta($omf_form->ID, 'cf_omf_screen_entry', true),
-      'confirm'  => get_post_meta($omf_form->ID, 'cf_omf_screen_confirm', true),
-      'complete' => get_post_meta($omf_form->ID, 'cf_omf_screen_complete', true)
+      'entry'    => $this->custom_escape(get_post_meta($omf_form->ID, 'cf_omf_screen_entry', true)),
+      'confirm'  => $this->custom_escape(get_post_meta($omf_form->ID, 'cf_omf_screen_confirm', true)),
+      'complete' => $this->custom_escape(get_post_meta($omf_form->ID, 'cf_omf_screen_complete', true))
     ];
 
     //表示条件からページ情報を取得
     $conditions =  get_post_meta($omf_form->ID, 'cf_omf_condition_post', true);
     $pages = [];
     foreach ((array)$conditions as $cond) {
+      $cond = $this->custom_escape($cond);
       foreach ((array)$page_pathes as $key => $path) {
         if (!empty($pages[$key])) {
           continue;
@@ -857,6 +858,7 @@ class Original_Mail_Forms
 
     //バリデーション設定
     foreach ((array)$validations as $valid) {
+      $valid = array_map([$this, 'custom_escape'], $valid);
       $error_message = OMF_Validation::validate($post_data, $valid);
       if (!empty($error_message)) {
         $errors[$valid['target']] = $error_message;
@@ -892,7 +894,7 @@ class Original_Mail_Forms
       return false;
     }
 
-    $is_recaptcha = get_post_meta($linked_mail_form->ID, 'cf_omf_recaptcha', true);
+    $is_recaptcha = $this->custom_escape(get_post_meta($linked_mail_form->ID, 'cf_omf_recaptcha', true));
     if (empty($is_recaptcha)) {
       return false;
     }
@@ -1072,6 +1074,11 @@ class Original_Mail_Forms
    */
   private function custom_escape($input)
   {
+    //空の場合は空文字を返す
+    if (empty($input)) {
+      return '';
+    }
+
     $input = sanitize_text_field(wp_unslash($input));
     $input = wp_strip_all_tags($input);
     return htmlspecialchars($input, ENT_QUOTES | ENT_HTML5, 'UTF-8', false);
@@ -1084,11 +1091,10 @@ class Original_Mail_Forms
    */
   private function get_mail_id($form_id)
   {
-    $mail_id = get_post_meta($form_id, 'cf_omf_mail_id', true);
+    $mail_id = $this->custom_escape(get_post_meta($form_id, 'cf_omf_mail_id', true));
     if (empty($mail_id)) {
       $mail_id = 1;
     } else {
-      $mail_id = intval(sanitize_text_field(wp_unslash($mail_id)));
       ++$mail_id;
     }
 
@@ -1121,12 +1127,12 @@ class Original_Mail_Forms
     }
 
     //メール情報を取得
-    $form_title    = get_post_meta($linked_mail_form->ID, 'cf_omf_reply_title', true);
-    $mail_to       = get_post_meta($linked_mail_form->ID, 'cf_omf_reply_to', true);
-    $mail_template = get_post_meta($linked_mail_form->ID, 'cf_omf_reply_mail', true);
-    $mail_from     = get_post_meta($linked_mail_form->ID, 'cf_omf_reply_from', true);
+    $form_title    = $this->custom_escape(get_post_meta($linked_mail_form->ID, 'cf_omf_reply_title', true));
+    $mail_to       = $this->custom_escape(get_post_meta($linked_mail_form->ID, 'cf_omf_reply_to', true));
+    $mail_template = $this->custom_escape(get_post_meta($linked_mail_form->ID, 'cf_omf_reply_mail', true));
+    $mail_from     = $this->custom_escape(get_post_meta($linked_mail_form->ID, 'cf_omf_reply_from', true));
     $mail_from     = !empty($mail_from) ? str_replace(PHP_EOL, '', $mail_from) : '';
-    $from_name     = get_post_meta($linked_mail_form->ID, 'cf_omf_reply_from_name', true);
+    $from_name     = $this->custom_escape(get_post_meta($linked_mail_form->ID, 'cf_omf_reply_from_name', true));
     $from_name     = !empty($from_name) ? $from_name : get_bloginfo('name');
     $from_name     = !empty($from_name) ? str_replace(PHP_EOL, '', $from_name) : '';
 
@@ -1190,12 +1196,12 @@ class Original_Mail_Forms
     }
 
     //メール情報を取得
-    $form_title    = get_post_meta($linked_mail_form->ID, 'cf_omf_admin_title', true);
-    $mail_to       = get_post_meta($linked_mail_form->ID, 'cf_omf_admin_to', true);
-    $mail_template = get_post_meta($linked_mail_form->ID, 'cf_omf_admin_mail', true);
-    $mail_from     = get_post_meta($linked_mail_form->ID, 'cf_omf_admin_from', true);
+    $form_title    = $this->custom_escape(get_post_meta($linked_mail_form->ID, 'cf_omf_admin_title', true));
+    $mail_to       = $this->custom_escape(get_post_meta($linked_mail_form->ID, 'cf_omf_admin_to', true));
+    $mail_template = $this->custom_escape(get_post_meta($linked_mail_form->ID, 'cf_omf_admin_mail', true));
+    $mail_from     = $this->custom_escape(get_post_meta($linked_mail_form->ID, 'cf_omf_admin_from', true));
     $mail_from     = !empty($mail_from) ? str_replace(PHP_EOL, '', $mail_from) : '';
-    $from_name     = get_post_meta($linked_mail_form->ID, 'cf_omf_admin_from_name', true);
+    $from_name     = $this->custom_escape(get_post_meta($linked_mail_form->ID, 'cf_omf_admin_from_name', true));
     $from_name     = !empty($from_name) ? $from_name : get_bloginfo('name');
     $from_name     = !empty($from_name) ? str_replace(PHP_EOL, '', $from_name) : '';
 
