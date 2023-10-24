@@ -833,7 +833,7 @@ class Original_Mail_Forms
     if ($is_recaptcha) {
       $recaptcha = $this->verify_google_recaptcha();
       if (!$recaptcha) {
-        $errors['recaptcha'] = ['reCAPTCHA認証に失敗しました。'];
+        $errors['recaptcha'] = ['フォーム認証エラーのためもう一度送信してください。'];
       }
     }
 
