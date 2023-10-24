@@ -152,7 +152,7 @@ class Original_Mail_Forms
     return $this->rest_response(function ($params) {
 
       //フォーム認証
-      $nonce = isset($_SERVER['HTTP_X_WP_NONCE']) ? sanitize_text_field($_SERVER['HTTP_X_WP_NONCE']) : '';
+      $nonce = isset($_SERVER['HTTP_X_WP_NONCE']) ? sanitize_text_field(wp_unslash($_SERVER['HTTP_X_WP_NONCE'])) : '';
       $auth = wp_verify_nonce($nonce, 'wp_rest');
 
       //nonce認証NG
@@ -196,7 +196,7 @@ class Original_Mail_Forms
     }
     return $this->rest_response(function ($params) {
       //フォーム認証
-      $nonce = isset($_SERVER['HTTP_X_WP_NONCE']) ? sanitize_text_field($_SERVER['HTTP_X_WP_NONCE']) : '';
+      $nonce = isset($_SERVER['HTTP_X_WP_NONCE']) ? sanitize_text_field(wp_unslash($_SERVER['HTTP_X_WP_NONCE'])) : '';
       $auth = wp_verify_nonce($nonce, 'wp_rest');
       //nonce認証OK
       if (!$auth) {
@@ -1087,7 +1087,7 @@ class Original_Mail_Forms
     if (empty($mail_id)) {
       $mail_id = 1;
     } else {
-      $mail_id = intval(sanitize_text_field($mail_id));
+      $mail_id = intval(sanitize_text_field(wp_unslash($mail_id)));
       ++$mail_id;
     }
 
