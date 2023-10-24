@@ -96,6 +96,9 @@ class Original_Mail_Forms
     ini_set('session.use_only_cookies', '1');
     ini_set('session.cookie_secure', '1');
     ini_set('session.cookie_httponly', '1');
+    ini_set('session.entropy_file', '/dev/urandom');
+    ini_set('session.entropy_length', '32');
+
     if (!$this->is_rest() && session_status() !== PHP_SESSION_ACTIVE) {
       session_start();
       header('Expires:-1');
