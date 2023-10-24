@@ -155,32 +155,30 @@ class Original_Mail_Forms
       $nonce = isset($_SERVER['HTTP_X_WP_NONCE']) ? sanitize_text_field($_SERVER['HTTP_X_WP_NONCE']) : '';
       $auth = wp_verify_nonce($nonce, 'wp_rest');
 
-      //nonce認証OK
-      if ($auth) {
-        $param = $params->get_params();
-        //各要素を取得
-        $post_data = !empty($param) ? array_map([$this, 'custom_escape'], $param) : [];
-        //ページID
-        $post_id = $post_data['post_id'];
-        //検証
-        $errors = $this->validate_mail_form_data($post_data, $post_id);
-        //エラーがある場合は入力画面に戻す
-        if (!empty($errors)) {
-          return [
-            'valid' => false,
-            'errors' => $errors,
-            'data' => $post_data
-          ];
-        } else {
-          return [
-            'valid' => true,
-            'data' => $post_data
-          ];
-        }
-      }
       //nonce認証NG
-      else {
+      if (!$auth) {
         return new WP_Error('failed', __('認証NG'), ['status' => 404]);
+      }
+
+      $param = $params->get_params();
+      //各要素を取得
+      $post_data = !empty($param) ? array_map([$this, 'custom_escape'], $param) : [];
+      //ページID
+      $post_id = $post_data['post_id'];
+      //検証
+      $errors = $this->validate_mail_form_data($post_data, $post_id);
+      //エラーがある場合は入力画面に戻す
+      if (!empty($errors)) {
+        return [
+          'valid' => false,
+          'errors' => $errors,
+          'data' => $post_data
+        ];
+      } else {
+        return [
+          'valid' => true,
+          'data' => $post_data
+        ];
       }
     }, $params);
   }
@@ -200,88 +198,85 @@ class Original_Mail_Forms
       //フォーム認証
       $nonce = isset($_SERVER['HTTP_X_WP_NONCE']) ? sanitize_text_field($_SERVER['HTTP_X_WP_NONCE']) : '';
       $auth = wp_verify_nonce($nonce, 'wp_rest');
-
       //nonce認証OK
-      if ($auth) {
-        $param = $params->get_params();
-        //各要素を取得
-        $post_data = !empty($param) ? array_map([$this, 'custom_escape'], $param) : [];
-        //ページID
-        $post_id = $post_data['post_id'];
-        //検証
-        $errors = $this->validate_mail_form_data($post_data, $post_id);
-        //バリデーションエラーがある場合はエラーを返す
-        if (!empty($errors)) {
-          return [
-            'valid' => false,
-            'errors' => $errors,
-            'data' => $post_data
-          ];
-        }
-
-        //メールフォームを取得
-        $linked_mail_form = $this->get_linked_mail_form($post_id);
-        if (empty($linked_mail_form)) {
-          return;
-        }
-
-        // 検証OKの場合は認証フラグを立てる
-        session_regenerate_id(true);
-        $session_name_prefix = OMF_Config::PREFIX . "{$linked_mail_form->post_name}";
-        //認証セッション名を更新
-        $session_name_auth = "{$session_name_prefix}_auth";
-        $_SESSION[$session_name_auth] = true;
-        session_write_close();
-
-        //メールIDを追加
-        $post_data['mail_id'] = $this->get_mail_id($linked_mail_form->ID);
-
-        //送信前のフック
-        do_action('omf_before_send_mail', $post_data, $linked_mail_form, $post_id);
-
-        //自動返信メール送信処理
-        $is_sended_reply = $this->send_reply_mail($post_data, $post_id);
-        //管理者宛メール送信処理
-        $is_sended_admin = $this->send_admin_mail($post_data, $post_id);
-        $is_sended = $is_sended_reply && $is_sended_admin;
-        //送信成功
-        if ($is_sended) {
-
-          //完了画面（リダイレクト先）を取得
-          $screen_ids = $this->get_form_page_ids($linked_mail_form);
-          $complete_page_id = !empty($screen_ids) ? $screen_ids['complete'] : '';
-          $complete_page_url = !empty($complete_page_id) ? get_permalink($complete_page_id) : '';
-          //送信後にメールIDを更新
-          $this->update_mail_id($linked_mail_form->ID, $post_data['mail_id']);
-
-          //送信後のフック
-          do_action('omf_after_send_mail', $post_data, $linked_mail_form, $post_id);
-
-          return [
-            'is_sended' => $is_sended,
-            'data' => $post_data,
-            'redirect_url' => $complete_page_url
-          ];
-        }
-        //送信失敗
-        else {
-          $errors = [];
-          if (!$is_sended_reply) {
-            $errors['reply_mail'] = ['自動返信メールの送信処理に失敗しました'];
-          }
-          if (!$is_sended_admin) {
-            $errors['admin_mail'] = ['管理者宛メールの送信処理に失敗しました'];
-          }
-          return [
-            'is_sended' => $is_sended,
-            'data' => $post_data,
-            'errors' => $errors,
-          ];
-        }
-      }
-      //nonce認証NG
-      else {
+      if (!$auth) {
         return new WP_Error('failed', __('認証NG'), ['status' => 404]);
+      }
+
+      $param = $params->get_params();
+      //各要素を取得
+      $post_data = !empty($param) ? array_map([$this, 'custom_escape'], $param) : [];
+      //ページID
+      $post_id = $post_data['post_id'];
+      //検証
+      $errors = $this->validate_mail_form_data($post_data, $post_id);
+      //バリデーションエラーがある場合はエラーを返す
+      if (!empty($errors)) {
+        return [
+          'valid' => false,
+          'errors' => $errors,
+          'data' => $post_data
+        ];
+      }
+
+      //メールフォームを取得
+      $linked_mail_form = $this->get_linked_mail_form($post_id);
+      if (empty($linked_mail_form)) {
+        return;
+      }
+
+      // 検証OKの場合は認証フラグを立てる
+      session_regenerate_id(true);
+      $session_name_prefix = OMF_Config::PREFIX . "{$linked_mail_form->post_name}";
+      //認証セッション名を更新
+      $session_name_auth = "{$session_name_prefix}_auth";
+      $_SESSION[$session_name_auth] = true;
+      session_write_close();
+
+      //メールIDを追加
+      $post_data['mail_id'] = $this->get_mail_id($linked_mail_form->ID);
+
+      //送信前のフック
+      do_action('omf_before_send_mail', $post_data, $linked_mail_form, $post_id);
+
+      //自動返信メール送信処理
+      $is_sended_reply = $this->send_reply_mail($post_data, $post_id);
+      //管理者宛メール送信処理
+      $is_sended_admin = $this->send_admin_mail($post_data, $post_id);
+      $is_sended = $is_sended_reply && $is_sended_admin;
+      //送信成功
+      if ($is_sended) {
+
+        //完了画面（リダイレクト先）を取得
+        $screen_ids = $this->get_form_page_ids($linked_mail_form);
+        $complete_page_id = !empty($screen_ids) ? $screen_ids['complete'] : '';
+        $complete_page_url = !empty($complete_page_id) ? get_permalink($complete_page_id) : '';
+        //送信後にメールIDを更新
+        $this->update_mail_id($linked_mail_form->ID, $post_data['mail_id']);
+
+        //送信後のフック
+        do_action('omf_after_send_mail', $post_data, $linked_mail_form, $post_id);
+
+        return [
+          'is_sended' => $is_sended,
+          'data' => $post_data,
+          'redirect_url' => $complete_page_url
+        ];
+      }
+      //送信失敗
+      else {
+        $errors = [];
+        if (!$is_sended_reply) {
+          $errors['reply_mail'] = ['自動返信メールの送信処理に失敗しました'];
+        }
+        if (!$is_sended_admin) {
+          $errors['admin_mail'] = ['管理者宛メールの送信処理に失敗しました'];
+        }
+        return [
+          'is_sended' => $is_sended,
+          'data' => $post_data,
+          'errors' => $errors,
+        ];
       }
     }, $params);
   }
@@ -554,15 +549,15 @@ class Original_Mail_Forms
 
     //フォーム入力ページ
     if ($current_page_id === $pages['entry']->ID) {
-      $this->contact_enter_page_redirect($page_pathes);
+      $this->contact_enter_page_redirect($page_pathes, $pages);
     }
     //確認画面
     elseif ($current_page_id === $pages['confirm']->ID) {
-      $this->contact_confirm_page_redirect($page_pathes);
+      $this->contact_confirm_page_redirect($page_pathes, $pages);
     }
     //完了画面
     elseif ($current_page_id === $pages['complete']->ID) {
-      $this->contact_complete_page_redirect($page_pathes);
+      $this->contact_complete_page_redirect($page_pathes, $pages);
     }
     //それ以外
     else {
@@ -596,8 +591,9 @@ class Original_Mail_Forms
   /**
    * 入力ページ（初期ページ）のリダイレクト処理
    * @param  array $page_pathes
+   * @param  array $pages
    */
-  private function contact_enter_page_redirect($page_pathes)
+  private function contact_enter_page_redirect($page_pathes, $pages)
   {
     //戻るボタン
     if (filter_input(INPUT_POST, 'submit_back') === "back") {
@@ -635,6 +631,17 @@ class Original_Mail_Forms
     $auth    = wp_verify_nonce($nonce, $this->nonce_action);
     //nonce認証NG
     if (!$auth) {
+      $_SESSION[$this->session_name_auth] = false;
+      return;
+    }
+
+    //リファラー認証
+    $referer = wp_get_referer();
+    $referer_post_id = url_to_postid($referer);
+    $referer_post = !empty($referer_post_id) ? get_post($referer_post_id) : null;
+    $referer_post_slug = !empty($referer_post) ? $referer_post->post_name : null;
+    //リファラー認証NG
+    if (empty($referer_post) || $referer_post_slug !== $pages['entry']->post_name) {
       $_SESSION[$this->session_name_auth] = false;
       return;
     }
@@ -678,8 +685,9 @@ class Original_Mail_Forms
   /**
    * 確認画面のリダイレクト処理
    * @param  array $page_pathes
+   * @param  array $pages
    */
-  private function contact_confirm_page_redirect($page_pathes)
+  private function contact_confirm_page_redirect($page_pathes, $pages)
   {
     //戻るボタンの場合
     if (filter_input(INPUT_POST, 'submit_back') === "back") {
@@ -717,7 +725,7 @@ class Original_Mail_Forms
         $_SESSION[$this->session_name_auth] = true;
         $_SESSION[$this->session_name_post_data] = $post_data;
         // メール送信処理
-        $this->mail_send_handler($page_pathes, $post_data);
+        $this->mail_send_handler($page_pathes, $pages, $post_data);
       }
       //セッションがない場合
       else {
@@ -726,6 +734,22 @@ class Original_Mail_Forms
         $auth    = wp_verify_nonce($nonce, $this->nonce_action);
         //nonce認証NG
         if (!$auth) {
+          $post_data = $this->get_post_values();
+          $_SESSION[$this->session_name_back] = true;
+          $_SESSION[$this->session_name_auth] = false;
+          $_SESSION[$this->session_name_post_data] = $this->filter_post_keys($post_data);
+          session_write_close();
+          wp_safe_redirect(esc_url(home_url($page_pathes['entry'])));
+          exit;
+        }
+
+        //リファラー認証
+        $referer = wp_get_referer();
+        $referer_post_id = url_to_postid($referer);
+        $referer_post = !empty($referer_post_id) ? get_post($referer_post_id) : null;
+        $referer_post_slug = !empty($referer_post) ? $referer_post->post_name : null;
+        //リファラー認証NG
+        if (empty($referer_post) || $referer_post_slug !== $pages['confirm']->post_name) {
           $post_data = $this->get_post_values();
           $_SESSION[$this->session_name_back] = true;
           $_SESSION[$this->session_name_auth] = false;
@@ -744,7 +768,7 @@ class Original_Mail_Forms
         //データ取得
         $post_data = $this->get_post_values();
         // メール送信処理
-        $this->mail_send_handler($page_pathes, $post_data);
+        $this->mail_send_handler($page_pathes, $pages, $post_data);
       }
     }
     //POSTがない場合
@@ -763,7 +787,7 @@ class Original_Mail_Forms
         //データ取得
         $post_data = $this->get_post_values();
         // メール送信処理
-        $this->mail_send_handler($page_pathes, $post_data);
+        $this->mail_send_handler($page_pathes, $pages, $post_data);
       }
       //POSTもセッションもない場合
       else {
@@ -778,8 +802,9 @@ class Original_Mail_Forms
   /**
    * 完了画面のリダイレクト処理
    * @param  array $page_pathes
+   * @param  array $pages
    */
-  private function contact_complete_page_redirect($page_pathes)
+  private function contact_complete_page_redirect($page_pathes, $pages)
   { //POSTがある場合はリダイレクト
     if (!empty($_POST)) {
       session_write_close();
@@ -938,13 +963,15 @@ class Original_Mail_Forms
   /**
    * メール送信のエラーハンドラー
    *
-   * @param [type] $page_pathes
+   * @param Array $page_pathes
+   * @param Array $pages
+   * @param Array $post_data
    * @return void
    */
-  private function mail_send_handler($page_pathes, $post_data = null)
+  private function mail_send_handler($page_pathes, $pages, $post_data = null)
   {
     // メール送信処理
-    $send = $this->send($page_pathes, $post_data);
+    $send = $this->send($page_pathes, $pages, $post_data);
     //メール送信完了の場合
     if ($send === true) {
       //完了画面にリダイレクト
@@ -968,60 +995,71 @@ class Original_Mail_Forms
 
   /**
    * 送信処理
+   * @param Array $page_pathes
+   * @param Array $pages
+   * @param Array $post_data
    * @return boolean
    */
-  private function send($page_pathes, $post_data = null)
+  private function send($page_pathes, $pages, $post_data = null)
   {
 
     //フォーム認証
-    $nonce = filter_input(INPUT_POST, 'omf_nonce', FILTER_SANITIZE_SPECIAL_CHARS);
+    $nonce = filter_input(INPUT_POST, 'omf_nonce');
     $auth  = wp_verify_nonce($nonce, $this->nonce_action);
-
-    //認証OKの場合
-    if ($auth) {
-
-      //各要素を取得
-      if (empty($post_data)) {
-        $post_data = !empty($_SESSION[$this->session_name_post_data]) ? array_map([$this, 'custom_escape'], $_SESSION[$this->session_name_post_data]) : [];
-      }
-
-      //検証
-      $errors = $this->validate_mail_form_data($post_data);
-      //エラーがある場合は入力画面に戻す
-      if (!empty($errors)) {
-        $_SESSION[$this->session_name_error] = $errors;
-        session_write_close();
-        wp_safe_redirect(esc_url(home_url($page_pathes['entry'])));
-        exit;
-      }
-
-      //メールフォームを取得
-      $linked_mail_form = $this->get_linked_mail_form();
-      //メールID
-      $post_data['mail_id'] = $this->get_mail_id($linked_mail_form->ID);
-
-      //送信前のフック
-      $post_id = get_the_ID();
-      do_action('omf_before_send_mail', $post_data, $linked_mail_form, $post_id);
-
-      //自動返信メール送信処理
-      $is_sended_reply = $this->send_reply_mail($post_data);
-      //管理者宛メール送信処理
-      $is_sended_admin = $this->send_admin_mail($post_data);
-
-      $is_sended = $is_sended_reply && $is_sended_admin;
-      if ($is_sended) {
-        //送信後にメールIDを更新
-        $this->update_mail_id($linked_mail_form->ID, $post_data['mail_id']);
-
-        //送信後のフック
-        do_action('omf_after_send_mail', $post_data, $linked_mail_form, $post_id);
-      }
-
-      return $is_sended;
-    } else {
+    //認証NGの場合
+    if (!$auth) {
       return false;
     }
+
+    //リファラー認証
+    $referer = wp_get_referer();
+    $referer_post_id = url_to_postid($referer);
+    $referer_post = !empty($referer_post_id) ? get_post($referer_post_id) : null;
+    $referer_post_slug = !empty($referer_post) ? $referer_post->post_name : null;
+    //リファラー認証NG
+    if (empty($referer_post) || $referer_post_slug !== $pages['confirm']->post_name) {
+      return false;
+    }
+
+    //各要素を取得
+    if (empty($post_data)) {
+      $post_data = !empty($_SESSION[$this->session_name_post_data]) ? array_map([$this, 'custom_escape'], $_SESSION[$this->session_name_post_data]) : [];
+    }
+
+    //検証
+    $errors = $this->validate_mail_form_data($post_data);
+    //エラーがある場合は入力画面に戻す
+    if (!empty($errors)) {
+      $_SESSION[$this->session_name_error] = $errors;
+      session_write_close();
+      wp_safe_redirect(esc_url(home_url($page_pathes['entry'])));
+      exit;
+    }
+
+    //メールフォームを取得
+    $linked_mail_form = $this->get_linked_mail_form();
+    //メールID
+    $post_data['mail_id'] = $this->get_mail_id($linked_mail_form->ID);
+
+    //送信前のフック
+    $post_id = get_the_ID();
+    do_action('omf_before_send_mail', $post_data, $linked_mail_form, $post_id);
+
+    //自動返信メール送信処理
+    $is_sended_reply = $this->send_reply_mail($post_data);
+    //管理者宛メール送信処理
+    $is_sended_admin = $this->send_admin_mail($post_data);
+
+    $is_sended = $is_sended_reply && $is_sended_admin;
+    if ($is_sended) {
+      //送信後にメールIDを更新
+      $this->update_mail_id($linked_mail_form->ID, $post_data['mail_id']);
+
+      //送信後のフック
+      do_action('omf_after_send_mail', $post_data, $linked_mail_form, $post_id);
+    }
+
+    return $is_sended;
   }
 
   /**
