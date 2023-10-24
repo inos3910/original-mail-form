@@ -209,7 +209,7 @@ class Original_Mail_Forms
         }
 
         // 検証OKの場合は認証フラグを立てる
-        // session_regenerate_id(true);
+        session_regenerate_id(true);
         $session_name_prefix = OMF_Config::PREFIX . "{$linked_mail_form->post_name}";
         //認証セッション名を更新
         $session_name_auth = "{$session_name_prefix}_auth";
@@ -280,8 +280,9 @@ class Original_Mail_Forms
   {
     $res = $func($params);
     $response = new WP_REST_Response($res);
-    if (is_wp_error($response) && property_exists($response, 'get_error_data')) {
-      $error_data = $response->get_error_data();
+    if ($response->is_error()) {
+      $error_response = $response->as_error();
+      $error_data = $error_response->get_error_data();
       $status = !empty($error_data['status']) ? $error_data['status'] : 404;
       $response->set_status($status);
     } else {
@@ -296,6 +297,9 @@ class Original_Mail_Forms
   public function init_sessions()
   {
     if (!$this->is_rest() && session_status() !== PHP_SESSION_ACTIVE) {
+      ini_set('session.use_cookies', '1');
+      ini_set('session.use_only_cookies', '1');
+      ini_set('session.cookie_secure', '1');
       session_start();
       header('Expires:-1');
       header('Cache-Control:');
