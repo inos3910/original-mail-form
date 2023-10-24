@@ -384,10 +384,12 @@ class OMF_Admin
       'cf_omf_reply_mail',
       'cf_omf_reply_to',
       'cf_omf_reply_from',
+      'cf_omf_reply_from_name',
       'cf_omf_admin_title',
       'cf_omf_admin_mail',
       'cf_omf_admin_to',
       'cf_omf_admin_from',
+      'cf_omf_admin_from_name',
       'cf_omf_condition_id',
       'cf_omf_select',
       'cf_omf_screen_entry',
@@ -586,7 +588,8 @@ class OMF_Admin
       EOD;
       $this->omf_meta_box_textarea($post, '自動返信メール本文', 'cf_omf_reply_mail', $description);
       $this->omf_meta_box_text($post, '宛先', 'cf_omf_reply_to');
-      $this->omf_meta_box_text($post, '送信元', 'cf_omf_reply_from');
+      $this->omf_meta_box_text($post, '送信元メールアドレス', 'cf_omf_reply_from');
+      $this->omf_meta_box_text($post, '送信者', 'cf_omf_reply_from_name');
       ?>
     </div>
   <?php
@@ -612,7 +615,8 @@ class OMF_Admin
       EOD;
       $this->omf_meta_box_textarea($post, '管理者宛メール本文', 'cf_omf_admin_mail', $description);
       $this->omf_meta_box_text($post, '宛先', 'cf_omf_admin_to');
-      $this->omf_meta_box_text($post, '送信元', 'cf_omf_admin_from');
+      $this->omf_meta_box_text($post, '送信元メールアドレス', 'cf_omf_admin_from');
+      $this->omf_meta_box_text($post, '送信者', 'cf_omf_admin_from_name');
       ?>
     </div>
   <?php

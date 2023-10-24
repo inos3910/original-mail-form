@@ -88,6 +88,23 @@ class Original_Mail_Forms
   }
 
   /**
+   * セッション有効化
+   */
+  public function init_sessions()
+  {
+    if (!$this->is_rest() && session_status() !== PHP_SESSION_ACTIVE) {
+      ini_set('session.use_cookies', '1');
+      ini_set('session.use_only_cookies', '1');
+      ini_set('session.cookie_secure', '1');
+      ini_set('session.cookie_httponly', '1');
+      session_start();
+      header('Expires:-1');
+      header('Cache-Control:');
+      header('Pragma:');
+    }
+  }
+
+  /**
    * REST API判定
    * @return boolean
    */
@@ -289,22 +306,6 @@ class Original_Mail_Forms
       $response->set_status(200);
     }
     return $response;
-  }
-
-  /**
-   * セッション有効化
-   */
-  public function init_sessions()
-  {
-    if (!$this->is_rest() && session_status() !== PHP_SESSION_ACTIVE) {
-      ini_set('session.use_cookies', '1');
-      ini_set('session.use_only_cookies', '1');
-      ini_set('session.cookie_secure', '1');
-      session_start();
-      header('Expires:-1');
-      header('Cache-Control:');
-      header('Pragma:');
-    }
   }
 
   /**
@@ -1082,7 +1083,10 @@ class Original_Mail_Forms
     $mail_to       = get_post_meta($linked_mail_form->ID, 'cf_omf_reply_to', true);
     $mail_template = get_post_meta($linked_mail_form->ID, 'cf_omf_reply_mail', true);
     $mail_from     = get_post_meta($linked_mail_form->ID, 'cf_omf_reply_from', true);
-    $from_name     = get_bloginfo('name');
+    $mail_from     = !empty($mail_from) ? str_replace(PHP_EOL, '', $mail_from) : '';
+    $from_name     = get_post_meta($linked_mail_form->ID, 'cf_omf_reply_from_name', true);
+    $from_name     = !empty($from_name) ? $from_name : get_bloginfo('name');
+    $from_name     = !empty($from_name) ? str_replace(PHP_EOL, '', $from_name) : '';
 
     //メールタグ
     $default_tags = [
@@ -1109,6 +1113,7 @@ class Original_Mail_Forms
     //メールヘッダー
     $reply_headers[]   = "From: {$from_name} <{$mail_from}>";
     $reply_headers[]   = "Reply-To: {$from_name} <{$mail_from}>";
+    $reply_headers     = implode(PHP_EOL, $reply_headers);
 
     //メール送信処理
     $is_sended_reply = wp_mail(
@@ -1147,7 +1152,10 @@ class Original_Mail_Forms
     $mail_to       = get_post_meta($linked_mail_form->ID, 'cf_omf_admin_to', true);
     $mail_template = get_post_meta($linked_mail_form->ID, 'cf_omf_admin_mail', true);
     $mail_from     = get_post_meta($linked_mail_form->ID, 'cf_omf_admin_from', true);
-    $from_name     = get_bloginfo('name');
+    $mail_from     = !empty($mail_from) ? str_replace(PHP_EOL, '', $mail_from) : '';
+    $from_name     = get_post_meta($linked_mail_form->ID, 'cf_omf_admin_from_name', true);
+    $from_name     = !empty($from_name) ? $from_name : get_bloginfo('name');
+    $from_name     = !empty($from_name) ? str_replace(PHP_EOL, '', $from_name) : '';
 
     //メールタグ
     $default_tags = [
