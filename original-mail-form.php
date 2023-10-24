@@ -925,13 +925,6 @@ class Original_Mail_Forms
     curl_setopt($ch, CURLOPT_TIMEOUT, $timeout);
     curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
 
-    //テストサーバー
-    if ($_SERVER['SERVER_NAME'] === 'testii.mixh.jp') {
-      $username = 'sharesl';
-      $password = 'sharesl-test';
-      curl_setopt($ch, CURLOPT_USERPWD, "{$username}:{$password}");
-    }
-
     $result = curl_exec($ch);
     curl_close($ch);
     return $result;
