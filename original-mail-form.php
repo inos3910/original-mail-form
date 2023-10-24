@@ -354,7 +354,7 @@ class Original_Mail_Forms
    */
   public function nonce_field()
   {
-    wp_nonce_field($this->nonce_action, 'omf_nonce', false);
+    wp_nonce_field($this->nonce_action, 'omf_nonce', true);
   }
 
   /**
