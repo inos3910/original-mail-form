@@ -324,7 +324,11 @@ class OMF_Admin
           <?php
           settings_fields('recaptcha-settings-group');
           do_settings_sections('recaptcha-settings-group');
-          $recaptcha_field_name = !empty(get_option('omf_recaptcha_field_name')) ? get_option('omf_recaptcha_field_name') : 'g-recaptcha-response';
+
+          $recaptcha_site_key = !empty(get_option('omf_recaptcha_site_key')) ? sanitize_text_field(wp_unslash(get_option('omf_recaptcha_site_key'))) : '';
+          $recaptcha_secret_key = !empty(get_option('omf_recaptcha_secret_key')) ? sanitize_text_field(wp_unslash(get_option('omf_recaptcha_secret_key'))) : '';
+          $recaptcha_score = !empty(get_option('omf_recaptcha_score')) ? sanitize_text_field(wp_unslash(get_option('omf_recaptcha_score'))) : '';
+          $recaptcha_field_name = !empty(get_option('omf_recaptcha_field_name')) ? sanitize_text_field(wp_unslash(get_option('omf_recaptcha_field_name'))) : 'g-recaptcha-response';
           ?>
           <p><a href="https://www.google.com/recaptcha/admin" target="_blank" rel="noopener">reCAPTCHA v3 コンソールでキーを取得 →</a></p>
           <table class="form-table">
@@ -332,7 +336,7 @@ class OMF_Admin
               <th scope="row">reCAPTCHA v3 サイトキー</th>
               <td>
                 <p>
-                  <input class="regular-text code" type="text" name="omf_recaptcha_site_key" value="<?php echo esc_attr(get_option('omf_recaptcha_site_key')); ?>">
+                  <input class="regular-text code" type="text" name="omf_recaptcha_site_key" value="<?php echo esc_attr($recaptcha_site_key); ?>">
                 </p>
               </td>
             </tr>
@@ -340,7 +344,7 @@ class OMF_Admin
               <th scope="row">reCAPTCHA v3 シークレットキー</th>
               <td>
                 <p>
-                  <input class="regular-text code" type="text" name="omf_recaptcha_secret_key" value="<?php echo esc_attr(get_option('omf_recaptcha_secret_key')); ?>">
+                  <input class="regular-text code" type="text" name="omf_recaptcha_secret_key" value="<?php echo esc_attr($recaptcha_secret_key); ?>">
                 </p>
               </td>
             </tr>
@@ -348,7 +352,7 @@ class OMF_Admin
               <th scope="row">しきい値（0.0 - 1.0）</th>
               <td>
                 <p>
-                  <input class="small-text" type="number" pattern="\d*" min="0.0" max="1.0" step="0.1" name="omf_recaptcha_score" value="<?php echo esc_attr(get_option('omf_recaptcha_score')) ?>">
+                  <input class="small-text" type="number" pattern="\d*" min="0.0" max="1.0" step="0.1" name="omf_recaptcha_score" value="<?php echo esc_attr($recaptcha_score) ?>">
                 </p>
                 <p class="description">大きいほど判定が厳しくなる。デフォルトでは、0.5。</p>
               </td>

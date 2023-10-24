@@ -375,8 +375,8 @@ class Original_Mail_Forms
       return;
     }
 
-    $recaptcha_field_name = !empty(get_option('omf_recaptcha_field_name')) ? get_option('omf_recaptcha_field_name') : 'g-recaptcha-response';
-    $site_key = get_option('omf_recaptcha_site_key');
+    $recaptcha_field_name = !empty(get_option('omf_recaptcha_field_name')) ? sanitize_text_field(wp_unslash(get_option('omf_recaptcha_field_name'))) : 'g-recaptcha-response';
+    $site_key = !empty(get_option('omf_recaptcha_site_key')) ? sanitize_text_field(wp_unslash(get_option('omf_recaptcha_site_key'))) : '';
 ?>
     <input type="hidden" name="<?php echo esc_attr($recaptcha_field_name) ?>" id="g-recaptcha-response" data-sitekey="<?php echo esc_attr($site_key) ?>">
 <?php
@@ -679,7 +679,7 @@ class Original_Mail_Forms
       return;
     }
 
-    $recaptcha_field_name = !empty(get_option('omf_recaptcha_field_name')) ? get_option('omf_recaptcha_field_name') : 'g-recaptcha-response';
+    $recaptcha_field_name = !empty(get_option('omf_recaptcha_field_name')) ? sanitize_text_field(wp_unslash(get_option('omf_recaptcha_field_name'))) : 'g-recaptcha-response';
     $remove_keys = ['omf_nonce', '_wp_http_referer', $recaptcha_field_name];
     $post_data = array_diff_key($post_data, array_flip($remove_keys));
 
@@ -913,9 +913,13 @@ class Original_Mail_Forms
    */
   private function verify_google_recaptcha()
   {
-    $recaptcha_secret = get_option('omf_recaptcha_secret_key');
-    $recaptcha_field_name = !empty(get_option('omf_recaptcha_field_name')) ? get_option('omf_recaptcha_field_name') : 'g-recaptcha-response';
-    $recaptcha_response = filter_input(INPUT_POST, $recaptcha_field_name, FILTER_SANITIZE_SPECIAL_CHARS);
+    $recaptcha_secret = !empty(get_option('omf_recaptcha_secret_key')) ? sanitize_text_field(wp_unslash(get_option('omf_recaptcha_secret_key'))) : '';
+    $recaptcha_field_name = !empty(get_option('omf_recaptcha_field_name')) ? sanitize_text_field(wp_unslash(get_option('omf_recaptcha_field_name'))) : 'g-recaptcha-response';
+    $recaptcha_response = !empty(filter_input(INPUT_POST, $recaptcha_field_name)) ? sanitize_text_field(wp_unslash(filter_input(INPUT_POST, $recaptcha_field_name))) : '';
+
+    if (empty($recaptcha_secret) || empty($recaptcha_response)) {
+      return false;
+    }
 
     // APIリクエスト
     $recaptch_url = 'https://www.google.com/recaptcha/api/siteverify';
@@ -931,14 +935,7 @@ class Original_Mail_Forms
     // APIレスポンス確認
     $response_data = json_decode($verify_response);
 
-    //成功
-    if (!empty($response_data) && $response_data->success && $response_data->score >= 0.5) {
-      return true;
-    }
-    //失敗
-    else {
-      return false;
-    }
+    return !empty($response_data) && $response_data->success && $response_data->score >= 0.5;
   }
 
   /**
@@ -1075,6 +1072,7 @@ class Original_Mail_Forms
    */
   private function custom_escape($input)
   {
+    $input = sanitize_text_field(wp_unslash($input));
     $input = wp_strip_all_tags($input);
     return htmlspecialchars($input, ENT_QUOTES | ENT_HTML5, 'UTF-8', false);
   }
@@ -1348,7 +1346,7 @@ class Original_Mail_Forms
     }
 
     //JS出力
-    $recaptcha_site_key = get_option('omf_recaptcha_site_key');
+    $recaptcha_site_key = !empty(get_option('omf_recaptcha_site_key')) ? sanitize_text_field(wp_unslash(get_option('omf_recaptcha_site_key'))) : '';
     wp_enqueue_script('recaptcha-script', "https://www.google.com/recaptcha/api.js?render={$recaptcha_site_key}", [], null, true);
 
     $custom_script = "
