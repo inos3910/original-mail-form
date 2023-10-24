@@ -636,9 +636,10 @@ class Original_Mail_Forms
     }
 
     //リファラー認証
-    $referer = wp_get_referer();
-    $referer_post_id = url_to_postid($referer);
-    $referer_post = !empty($referer_post_id) ? get_post($referer_post_id) : null;
+    $referer           = filter_input(INPUT_POST, '_wp_http_referer');
+    $referer           = !empty($referer) ? sanitize_text_field(wp_unslash($referer)) : null;
+    $referer_post_id   = !empty($referer) ? url_to_postid($referer) : null;
+    $referer_post      = !empty($referer_post_id) ? get_post($referer_post_id) : null;
     $referer_post_slug = !empty($referer_post) ? $referer_post->post_name : null;
     //リファラー認証NG
     if (empty($referer_post) || $referer_post_slug !== $pages['entry']->post_name) {
@@ -744,9 +745,10 @@ class Original_Mail_Forms
         }
 
         //リファラー認証
-        $referer = wp_get_referer();
-        $referer_post_id = url_to_postid($referer);
-        $referer_post = !empty($referer_post_id) ? get_post($referer_post_id) : null;
+        $referer           = filter_input(INPUT_POST, '_wp_http_referer');
+        $referer           = !empty($referer) ? sanitize_text_field(wp_unslash($referer)) : null;
+        $referer_post_id   = !empty($referer) ? url_to_postid($referer) : null;
+        $referer_post      = !empty($referer_post_id) ? get_post($referer_post_id) : null;
         $referer_post_slug = !empty($referer_post) ? $referer_post->post_name : null;
         //リファラー認証NG
         if (empty($referer_post) || $referer_post_slug !== $pages['confirm']->post_name) {
@@ -1012,9 +1014,10 @@ class Original_Mail_Forms
     }
 
     //リファラー認証
-    $referer = wp_get_referer();
-    $referer_post_id = url_to_postid($referer);
-    $referer_post = !empty($referer_post_id) ? get_post($referer_post_id) : null;
+    $referer           = filter_input(INPUT_POST, '_wp_http_referer');
+    $referer           = !empty($referer) ? sanitize_text_field(wp_unslash($referer)) : null;
+    $referer_post_id   = !empty($referer) ? url_to_postid($referer) : null;
+    $referer_post      = !empty($referer_post_id) ? get_post($referer_post_id) : null;
     $referer_post_slug = !empty($referer_post) ? $referer_post->post_name : null;
     //リファラー認証NG
     if (empty($referer_post) || $referer_post_slug !== $pages['confirm']->post_name) {
