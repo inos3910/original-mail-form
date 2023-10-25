@@ -27,7 +27,7 @@ class OMF_Admin
       'singular_name'       => 'メールフォーム',
       'add_new'             => '新規追加',
       'add_new_item'        => '新規追加',
-      'edit_item'           => 'フォーム設定を編集',
+      'edit_item'           => 'フォームを編集',
       'new_item'            => '新規追加',
       'view_item'           => 'フォームを表示',
       'search_items'        => 'フォームを検索',
