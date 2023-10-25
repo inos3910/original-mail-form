@@ -1070,18 +1070,33 @@ class Original_Mail_Forms
   /**
    * エスケープ処理
    * @param  string $input
+   * @param  boolean $is_text_field 改行を含むテキストフィールドの場合
    * @return string
    */
-  private function custom_escape($input)
+  private function custom_escape($input, $is_text_field = false)
   {
     //空の場合は空文字を返す
     if (empty($input)) {
       return '';
     }
 
-    $input = sanitize_text_field(wp_unslash($input));
-    $input = wp_strip_all_tags($input);
-    return htmlspecialchars($input, ENT_QUOTES | ENT_HTML5, 'UTF-8', false);
+    //テキストフィールドフラグがある場合
+    if ($is_text_field) {
+      $sanitized = sanitize_textarea_field(wp_unslash($input));
+    }
+    //フラグがない場合
+    else {
+      //改行を含む場合
+      if (preg_match("/\n|\r\n/", $input)) {
+        $sanitized = sanitize_textarea_field(wp_unslash($input));
+      }
+      //含まない場合
+      else {
+        $sanitized = sanitize_text_field(wp_unslash($input));
+      }
+    }
+
+    return $sanitized;
   }
 
   /**
@@ -1129,7 +1144,7 @@ class Original_Mail_Forms
     //メール情報を取得
     $form_title    = $this->custom_escape(get_post_meta($linked_mail_form->ID, 'cf_omf_reply_title', true));
     $mail_to       = $this->custom_escape(get_post_meta($linked_mail_form->ID, 'cf_omf_reply_to', true));
-    $mail_template = $this->custom_escape(get_post_meta($linked_mail_form->ID, 'cf_omf_reply_mail', true));
+    $mail_template = $this->custom_escape(get_post_meta($linked_mail_form->ID, 'cf_omf_reply_mail', true), true);
     $mail_from     = $this->custom_escape(get_post_meta($linked_mail_form->ID, 'cf_omf_reply_from', true));
     $mail_from     = !empty($mail_from) ? str_replace(PHP_EOL, '', $mail_from) : '';
     $from_name     = $this->custom_escape(get_post_meta($linked_mail_form->ID, 'cf_omf_reply_from_name', true));
@@ -1198,7 +1213,7 @@ class Original_Mail_Forms
     //メール情報を取得
     $form_title    = $this->custom_escape(get_post_meta($linked_mail_form->ID, 'cf_omf_admin_title', true));
     $mail_to       = $this->custom_escape(get_post_meta($linked_mail_form->ID, 'cf_omf_admin_to', true));
-    $mail_template = $this->custom_escape(get_post_meta($linked_mail_form->ID, 'cf_omf_admin_mail', true));
+    $mail_template = $this->custom_escape(get_post_meta($linked_mail_form->ID, 'cf_omf_admin_mail', true), true);
     $mail_from     = $this->custom_escape(get_post_meta($linked_mail_form->ID, 'cf_omf_admin_from', true));
     $mail_from     = !empty($mail_from) ? str_replace(PHP_EOL, '', $mail_from) : '';
     $from_name     = $this->custom_escape(get_post_meta($linked_mail_form->ID, 'cf_omf_admin_from_name', true));
