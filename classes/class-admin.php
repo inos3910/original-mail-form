@@ -932,7 +932,7 @@ class OMF_Admin
   public function omf_meta_box_textarea($post, $title, $meta_key, $description = null)
   {
     $value = get_post_meta($post->ID, $meta_key, true);
-    $value = !empty($value) ? sanitize_text_field(wp_unslash($value)) : '';
+    $value = !empty($value) ? sanitize_textarea_field(wp_unslash($value)) : '';
   ?>
     <div class="omf-metabox">
       <div class="omf-metabox__item">
