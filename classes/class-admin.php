@@ -1037,12 +1037,14 @@ class OMF_Admin
   {
 
     $value = get_post_meta($post->ID, $meta_key, true);
-    $value = array_map(function ($val) {
-      if (empty($val)) {
-        return $val;
-      }
-      return sanitize_text_field(wp_unslash($val));
-    }, $value);
+    if (!empty($value)) {
+      $value = array_map(function ($val) {
+        if (empty($val)) {
+          return $val;
+        }
+        return sanitize_text_field(wp_unslash($val));
+      }, $value);
+    }
 
     $args = [
       'public' => true,
