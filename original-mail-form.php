@@ -553,7 +553,7 @@ class Original_Mail_Forms
 
     //フォーム入力ページ
     if ($current_page_id === $pages['entry']->ID) {
-      $this->contact_enter_page_redirect($page_pathes, $pages);
+      $this->contact_entry_page_redirect($page_pathes, $pages);
     }
     //確認画面
     elseif ($current_page_id === $pages['confirm']->ID) {
@@ -597,7 +597,7 @@ class Original_Mail_Forms
    * @param  array $page_pathes
    * @param  array $pages
    */
-  private function contact_enter_page_redirect($page_pathes, $pages)
+  private function contact_entry_page_redirect($page_pathes, $pages)
   {
     //戻るボタン
     if (filter_input(INPUT_POST, 'submit_back') === "back") {
@@ -1356,15 +1356,22 @@ class Original_Mail_Forms
     wp_enqueue_script('recaptcha-script', "https://www.google.com/recaptcha/api.js?render={$recaptcha_site_key}", [], null, true);
 
     $custom_script = "
-    grecaptcha.ready(function() {
-      grecaptcha.execute('{$recaptcha_site_key}',
-      {action: 'homepage' })
-      .then(function(token) {
-        var recaptchaResponse = document.getElementById('g-recaptcha-response');
-        recaptchaResponse.value = token;
-        });
-      }
-    );";
+    grecaptcha.ready(function () {
+      const setToken = () => {
+        grecaptcha
+          .execute('{$recaptcha_site_key}', { action: 'homepage' })
+          .then(function (token) {
+            var recaptchaResponse = document.getElementById(
+              'g-recaptcha-response'
+            );
+            recaptchaResponse.value = token;
+          });
+      };
+      setToken();
+      setInterval(() => {
+        setToken();
+      }, 1000*60);
+    });";
     wp_add_inline_script('recaptcha-script', $custom_script);
   }
 
