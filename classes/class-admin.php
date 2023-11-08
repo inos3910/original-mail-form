@@ -1,4 +1,13 @@
 <?php
+
+if (!defined('ABSPATH')) {
+  exit;
+}
+
+namespace Sharesl\Original\MailForm;
+
+use ZipArchive;
+
 class OMF_Admin
 {
 

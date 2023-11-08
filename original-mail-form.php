@@ -2,14 +2,25 @@
 
 /**
  * Plugin Name: Original Mail Form
- * Plugin URI:
+ * Plugin URI: https://github.com/inos3910/original-mail-form
+ * Update URI: https://github.com/inos3910/original-mail-form
  * Description: メールフォーム設定プラグイン（クラシックテーマ用）
  * Author: SHARESL
  * Author URI: https://sharesl.net/
  * Version: 1.0
  */
 
-class Original_Mail_Forms
+if (!defined('ABSPATH')) {
+  exit;
+}
+
+namespace Sharesl\Original\MailForm;
+
+use WP_REST_Server;
+use WP_Error;
+use WP_REST_Response;
+
+class OMF_Plugin
 {
 
   /**
@@ -63,10 +74,9 @@ class Original_Mail_Forms
   {
     require_once plugin_dir_path(__FILE__) . 'classes/class-config.php';
     require_once plugin_dir_path(__FILE__) . 'classes/class-admin.php';
-    require_once plugin_dir_path(__FILE__) . 'classes/class-omf.php';
 
     //管理画面
-    if (class_exists('OMF_Admin')) {
+    if (class_exists('Sharesl\Original\MailForm\OMF_Admin')) {
       new OMF_Admin();
     }
 
@@ -78,13 +88,6 @@ class Original_Mail_Forms
 
     //REST API
     add_action('rest_api_init', [$this, 'add_custom_endpoint']);
-
-    //フィルターフック追加
-    add_filter('omf_get_errors', [$this, 'get_errors']);
-    add_filter('omf_get_post_values', [$this, 'get_post_values']);
-    add_filter('omf_nonce_field', [$this, 'nonce_field']);
-    add_filter('omf_create_nonce', [$this, 'create_nonce']);
-    add_filter('omf_recaptcha_field', [$this, 'recaptcha_field']);
   }
 
   /**
@@ -377,9 +380,12 @@ class Original_Mail_Forms
 
     $recaptcha_field_name = !empty(get_option('omf_recaptcha_field_name')) ? sanitize_text_field(wp_unslash(get_option('omf_recaptcha_field_name'))) : 'g-recaptcha-response';
     $site_key = !empty(get_option('omf_recaptcha_site_key')) ? sanitize_text_field(wp_unslash(get_option('omf_recaptcha_site_key'))) : '';
-?>
-    <input type="hidden" name="<?php echo esc_attr($recaptcha_field_name) ?>" id="g-recaptcha-response" data-sitekey="<?php echo esc_attr($site_key) ?>">
-<?php
+
+    $html =  <<<EOM
+    <input type="hidden" name="{$recaptcha_field_name}" id="g-recaptcha-response" data-sitekey="{$site_key}">
+    EOM;
+
+    echo $html;
   }
 
   /**
@@ -1418,4 +1424,4 @@ class Original_Mail_Forms
   }
 }
 
-new Original_Mail_Forms();
+new OMF_Plugin();

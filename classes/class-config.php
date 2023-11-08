@@ -1,5 +1,13 @@
 <?php
-class OMF_Config {
+
+if (!defined('ABSPATH')) {
+  exit;
+}
+
+namespace Sharesl\Original\MailForm;
+
+class OMF_Config
+{
   /**
    * ID
    * @var string

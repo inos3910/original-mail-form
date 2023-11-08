@@ -1,4 +1,14 @@
 <?php
+
+if (!defined('ABSPATH')) {
+  exit;
+}
+
+namespace Sharesl\Original\MailForm;
+
+use ThrowsSpamAway;
+use DateTime;
+
 class OMF_Validation
 {
   /**
