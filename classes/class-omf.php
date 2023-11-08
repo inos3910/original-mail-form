@@ -1,9 +1,10 @@
 <?php
+
+namespace Sharesl\Original\MailForm;
+
 if (!defined('ABSPATH')) {
   exit;
 }
-
-namespace Sharesl\Original\MailForm;
 
 class OMF
 {

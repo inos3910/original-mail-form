@@ -10,11 +10,11 @@
  * Version: 1.0
  */
 
+namespace Sharesl\Original\MailForm;
+
 if (!defined('ABSPATH')) {
   exit;
 }
-
-namespace Sharesl\Original\MailForm;
 
 use WP_REST_Server;
 use WP_Error;
