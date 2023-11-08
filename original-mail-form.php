@@ -74,6 +74,7 @@ class OMF_Plugin
   {
     require_once plugin_dir_path(__FILE__) . 'classes/class-config.php';
     require_once plugin_dir_path(__FILE__) . 'classes/class-admin.php';
+    require_once plugin_dir_path(__FILE__) . 'classes/class-omf.php';
 
     //管理画面
     if (class_exists('Sharesl\Original\MailForm\OMF_Admin')) {
@@ -88,6 +89,12 @@ class OMF_Plugin
 
     //REST API
     add_action('rest_api_init', [$this, 'add_custom_endpoint']);
+
+    //フィルターフック追加
+    add_filter('omf_get_errors', [$this, 'get_errors']);
+    add_filter('omf_get_post_values', [$this, 'get_post_values']);
+    add_filter('omf_nonce_field', [$this, 'nonce_field']);
+    add_filter('omf_recaptcha_field', [$this, 'recaptcha_field']);
   }
 
   /**
@@ -356,15 +363,6 @@ class OMF_Plugin
   public function nonce_field()
   {
     wp_nonce_field($this->nonce_action, 'omf_nonce', true);
-  }
-
-  /**
-   * nonceを生成する
-   * @return String
-   */
-  public function create_nonce()
-  {
-    return wp_create_nonce('wp_rest');
   }
 
   /**

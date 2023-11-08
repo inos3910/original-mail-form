@@ -97,14 +97,16 @@ MW WP Form と違い、エディターで作ることを想定していない。
 
 ```
 <?php
-$values  = class_exists('OMF') ? OMF::get_post_values() : null;
+use Sharesl\Original\MailForm\OMF;
+
+$values  = class_exists('Sharesl\Original\MailForm\OMF') ? OMF::get_post_values() : null;
 $name    = !empty($values['name']) ? $values['name'] : '';
 $email   = !empty($values['email']) ? $values['email'] : '';
 $tel     = !empty($values['tel']) ? $values['tel'] : '';
 $message = !empty($values['message']) ? $values['message'] : '';
 
 //エラー
-$errors  = class_exists('OMF') ? OMF::get_errors() : null;
+$errors  = class_exists('Sharesl\Original\MailForm\OMF') ? OMF::get_errors() : null;
 if(!empty($errors)){
   ?>
   <div class="errors">
@@ -149,7 +151,7 @@ if(!empty($errors)){
   </fieldset>
 
   <?php
-  if(class_exists('OMF')){
+  if(class_exists('Sharesl\Original\MailForm\OMF')){
     // nonceフィールドの出力
     OMF::nonce_field();
     // reCAPTCHAフィールドの出力
@@ -172,7 +174,9 @@ if(!empty($errors)){
 
 ```
 <?php
-$values  = class_exists('OMF') ? OMF::get_post_values() : null;
+use Sharesl\Original\MailForm\OMF;
+
+$values  = class_exists('Sharesl\Original\MailForm\OMF') ? OMF::get_post_values() : null;
 $name    = !empty($values['name']) ? $values['name'] : '';
 $email   = !empty($values['email']) ? $values['email'] : '';
 $tel     = !empty($values['tel']) ? $values['tel'] : '';
@@ -194,7 +198,7 @@ $message = !empty($values['message']) ? $values['message'] : '';
   <p><?php echo esc_html($message)?></p>
 
   <?php
-  if(class_exists('OMF')){
+  if(class_exists('Sharesl\Original\MailForm\OMF')){
     // nonceフィールドの出力
     OMF::nonce_field();
   }
