@@ -69,7 +69,9 @@ class OMF {
       'click',
       (e) => {
         e.preventDefault();
-        this.removeRepeatField(e);
+        if (this.repeatCount > 1) {
+          this.removeRepeatField(e);
+        }
       },
       false
     );
@@ -88,6 +90,10 @@ class OMF {
     }
 
     target.remove();
+
+    this.repeatCount = this.getRepeatFieldCount();
+    if (this.repeatCount) {
+    }
   }
 
   /**
