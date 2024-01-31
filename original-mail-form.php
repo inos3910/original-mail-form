@@ -102,14 +102,13 @@ class OMF_Plugin
    */
   public function init_sessions()
   {
-    ini_set('session.use_cookies', '1');
-    ini_set('session.use_only_cookies', '1');
-    ini_set('session.cookie_secure', '1');
-    ini_set('session.cookie_httponly', '1');
-    ini_set('session.entropy_file', '/dev/urandom');
-    ini_set('session.entropy_length', '32');
-
     if (!$this->is_rest() && session_status() !== PHP_SESSION_ACTIVE) {
+      ini_set('session.use_cookies', '1');
+      ini_set('session.use_only_cookies', '1');
+      ini_set('session.cookie_secure', '1');
+      ini_set('session.cookie_httponly', '1');
+      ini_set('session.entropy_file', '/dev/urandom');
+      ini_set('session.entropy_length', '32');
       session_start();
       header('Expires:-1');
       header('Cache-Control:');
