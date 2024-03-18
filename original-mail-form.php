@@ -102,13 +102,14 @@ class OMF_Plugin
    */
   public function init_sessions()
   {
+    ini_set('session.use_cookies', '1');
+    ini_set('session.use_only_cookies', '1');
+    ini_set('session.cookie_secure', '1');
+    ini_set('session.cookie_httponly', '1');
+    ini_set('session.entropy_file', '/dev/urandom');
+    ini_set('session.entropy_length', '32');
+
     if (!$this->is_rest() && session_status() !== PHP_SESSION_ACTIVE) {
-      ini_set('session.use_cookies', '1');
-      ini_set('session.use_only_cookies', '1');
-      ini_set('session.cookie_secure', '1');
-      ini_set('session.cookie_httponly', '1');
-      ini_set('session.entropy_file', '/dev/urandom');
-      ini_set('session.entropy_length', '32');
       session_start();
       header('Expires:-1');
       header('Cache-Control:');
@@ -456,23 +457,8 @@ class OMF_Plugin
    */
   private function clear_sessions_all()
   {
-    //すべてのフォームを取得
-    $args = [
-      'numberposts'   => -1,
-      'post_type'     => OMF_Config::NAME,
-      'post_status'   => 'publish',
-      'no_found_rows' => true,
-    ];
-    $mail_forms = get_posts($args);
-    if (empty($mail_forms)) {
-      return;
-    }
-
-    //すべてのフォームのセッションをクリア
-    foreach ((array)$mail_forms as $form) {
-      $prefix_id = $form->post_name;
-      $this->clear_sessions($prefix_id);
-    }
+    $prefix_id = $this->get_linked_mail_form_slug();
+    $this->clear_sessions($prefix_id);
   }
 
   /**
@@ -568,7 +554,6 @@ class OMF_Plugin
     }
     //それ以外
     else {
-      $this->clear_sessions_all();
       return;
     }
   }
