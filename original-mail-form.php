@@ -609,6 +609,7 @@ class OMF_Plugin
       }
       //戻るフラグがない場合
       else {
+        $_SESSION[$this->session_name_auth] = false;
         //エラーがなければ送信データをクリア
         if (empty($_SESSION[$this->session_name_error])) {
           $_SESSION[$this->session_name_post_data] = [];
@@ -775,6 +776,7 @@ class OMF_Plugin
 
         //メール送信以外の場合はそのまま表示
         if (filter_input(INPUT_POST, 'send') !== 'send') {
+          $post_data = $this->get_post_values();
           return;
         }
 
