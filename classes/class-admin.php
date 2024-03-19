@@ -17,8 +17,9 @@ class OMF_Admin
     add_action('init', [$this, 'create_post_type']);
     add_filter('manage_edit-' . OMF_Config::NAME . '_columns', [$this, 'custom_posts_columns']);
     add_action('manage_' . OMF_Config::NAME . '_posts_custom_column', [$this, 'add_column'], 10, 2);
-    add_action('admin_menu', [$this, 'add_admin_setting_menu']);
+    add_action('admin_menu', [$this, 'add_admin_setting']);
     add_action('admin_menu', [$this, 'add_admin_recaptcha_menu']);
+    add_action('admin_menu', [$this, 'add_admin_update']);
     add_action('add_meta_boxes_' . OMF_Config::NAME, [$this, 'add_meta_box_omf']);
     add_action('add_meta_boxes', [$this, 'add_meta_box_posts']);
     add_action('save_post', [$this, 'save_omf_custom_field']);
@@ -157,24 +158,23 @@ class OMF_Admin
    * 設定オプションページを追加
    * @return [type] [description]
    */
-  public function add_admin_setting_menu()
+  public function add_admin_update()
   {
     add_submenu_page(
       'edit.php?post_type=' . OMF_Config::NAME,
       'プラグインの更新',
       'プラグインの更新',
       'manage_options',
-      'omf_settings',
-      [$this, 'admin_omf_settings_page']
+      'omf_update',
+      [$this, 'admin_omf_update_page']
     );
   }
 
   /**
    * 設定オプション画面のソース
    */
-  public function admin_omf_settings_page()
-  {
-?>
+  public function admin_omf_update_page()
+  { ?>
     <div class="wrap">
       <h1>プラグインの更新</h1>
       <?php
@@ -187,6 +187,64 @@ class OMF_Admin
           <p>Github上で管理している最新のmasterブランチのファイルに更新します。</p>
           <p><a href="https://github.com/inos3910/original-mail-form" target="_blank" rel="noopener">GitHubリポジトリはこちら →</a></p>
           <button class="button" type="submit" name="update_omf" value="1">更新開始</button>
+        </form>
+      </div>
+    </div>
+  <?php
+  }
+
+  /**
+   * 設定オプションページを追加
+   * @return [type] [description]
+   */
+  public function add_admin_setting()
+  {
+    add_submenu_page(
+      'edit.php?post_type=' . OMF_Config::NAME,
+      '設定',
+      '設定',
+      'manage_options',
+      'omf_settings',
+      [$this, 'admin_omf_setting_page']
+    );
+    add_action('admin_init', [$this, 'register_omf_settings']);
+  }
+
+  /**
+   * 設定オプションページ 項目の登録
+   */
+  public function register_omf_settings()
+  {
+    register_setting('omf-settings-group', 'omf_is_rest_api');
+  }
+
+  /**
+   * 設定オプション画面のソース
+   */
+  public function admin_omf_setting_page()
+  { ?>
+    <div class="wrap">
+      <h1>設定</h1>
+      <div class="admin_optional">
+        <form method="post" action="options.php">
+          <?php
+          settings_fields('omf-settings-group');
+          do_settings_sections('omf-settings-group');
+          settings_errors();
+          $is_rest_api = get_option('omf_is_rest_api') === '1';
+          ?>
+          <table class="form-table">
+            <tr>
+              <th scope="row">REST API</th>
+              <td>
+                <label>
+                  <input type="checkbox" name="omf_is_rest_api" value="1" <?php if ($is_rest_api) echo 'checked'; ?>>
+                  有効化
+                </label>
+              </td>
+            </tr>
+          </table>
+          <?php submit_button(); ?>
         </form>
       </div>
     </div>
@@ -333,6 +391,7 @@ class OMF_Admin
           <?php
           settings_fields('recaptcha-settings-group');
           do_settings_sections('recaptcha-settings-group');
+          settings_errors();
 
           $recaptcha_site_key = !empty(get_option('omf_recaptcha_site_key')) ? sanitize_text_field(wp_unslash(get_option('omf_recaptcha_site_key'))) : '';
           $recaptcha_secret_key = !empty(get_option('omf_recaptcha_secret_key')) ? sanitize_text_field(wp_unslash(get_option('omf_recaptcha_secret_key'))) : '';

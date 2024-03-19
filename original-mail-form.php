@@ -131,6 +131,12 @@ class OMF_Plugin
    */
   public function add_custom_endpoint()
   {
+    //REST APIが無効の場合は終了
+    $is_rest_api = get_option('omf_is_rest_api') === '1';
+    if (!$is_rest_api) {
+      return;
+    }
+
     //バリデーションのみ
     register_rest_route(
       'omf-api/v0',
