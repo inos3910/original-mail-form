@@ -1174,6 +1174,15 @@ class OMF_Plugin
     $reply_headers[]   = "Reply-To: {$from_name} <{$mail_from}>";
     $reply_headers     = implode(PHP_EOL, $reply_headers);
 
+    //wp mailのfromを変更
+    add_filter('wp_mail_from', function () use ($mail_from) {
+      return $mail_from;
+    }, PHP_INT_MAX);
+
+    add_filter('wp_mail_from_name', function () use ($from_name) {
+      return $from_name;
+    }, PHP_INT_MAX);
+
     //メール送信処理
     $is_sended_reply = wp_mail(
       //宛先
@@ -1244,6 +1253,15 @@ class OMF_Plugin
     //メールヘッダー
     $admin_headers[]   = "From: {$from_name} <{$mail_from}>";
     $admin_headers[]   = "Reply-To: {$from_name} <{$mail_from}>";
+
+    //wp mailのfromを変更
+    add_filter('wp_mail_from', function () use ($mail_from) {
+      return $mail_from;
+    }, PHP_INT_MAX);
+
+    add_filter('wp_mail_from_name', function () use ($from_name) {
+      return $from_name;
+    }, PHP_INT_MAX);
 
     //メール送信処理
     $is_sended_admin   = wp_mail(
