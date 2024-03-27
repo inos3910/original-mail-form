@@ -60,6 +60,13 @@ class OMF_Plugin
   private $session_name_back;
 
   /**
+   * OMF_Admin class
+   *
+   * @var instance
+   */
+  private $admin;
+
+  /**
    * construct
    */
   public function __construct()
@@ -78,14 +85,13 @@ class OMF_Plugin
 
     //管理画面
     if (class_exists('Sharesl\Original\MailForm\OMF_Admin')) {
-      new OMF_Admin();
+      $this->admin = new OMF_Admin();
     }
 
     //テンプレート
     add_action('parse_request', [$this, 'init_sessions']);
     add_action('template_redirect', [$this, 'redirect_form_pages']);
-    add_action('wp_enqueue_scripts', [$this, 'load_recaptcha_script']);
-    add_action('wp_enqueue_scripts', [$this, 'load_disable_browser_back_script']);
+    add_action('wp_enqueue_scripts', [$this, 'load_scripts']);
 
     //REST API
     add_action('rest_api_init', [$this, 'add_custom_endpoint']);
@@ -676,7 +682,7 @@ class OMF_Plugin
     }
 
     $recaptcha_field_name = !empty(get_option('omf_recaptcha_field_name')) ? sanitize_text_field(wp_unslash(get_option('omf_recaptcha_field_name'))) : 'g-recaptcha-response';
-    $remove_keys = ['omf_nonce', '_wp_http_referer', $recaptcha_field_name];
+    $remove_keys = ['confirm', 'send', 'omf_nonce', '_wp_http_referer', $recaptcha_field_name];
     $post_data = array_diff_key($post_data, array_flip($remove_keys));
 
     return $post_data;
@@ -1276,11 +1282,52 @@ class OMF_Plugin
     );
 
     if ($is_sended_admin) {
+      //DB保存フラグ
+      $is_use_db = get_post_meta($linked_mail_form->ID, 'cf_omf_save_db', true) === '1';
+      if ($is_use_db) {
+        //フラグがある場合は保存処理
+        $data_to_save = array_merge([
+          'omf_mail_title' => $admin_subject,
+          'omf_mail_to'    => $admin_mailaddress,
+          'omf_form_slug'  => $linked_mail_form->post_name
+        ], $tag_to_text);
+        $this->save_data($linked_mail_form->ID, $data_to_save);
+      }
       //送信後のフック
       do_action('omf_after_send_admin_mail', $tag_to_text, $admin_mailaddress, $admin_subject, $admin_message, $admin_headers);
     }
 
     return $is_sended_admin;
+  }
+
+  /**
+   * *DB保存
+   *
+   * @param int $form_id
+   * @param array $data_to_save
+   * @return void
+   */
+  private function save_data($form_id, $data_to_save)
+  {
+    $data_post_type = $this->admin->get_data_post_type_by_id($form_id);
+    if (empty($data_post_type)) {
+      return;
+    }
+
+    $post_id = wp_insert_post([
+      'post_type'   => $data_post_type,
+      'post_title'  => $data_to_save['omf_mail_title'],
+      'post_status' => 'publish',
+      'meta_input'  => $data_to_save
+    ]);
+
+    if (!empty($post_id)) {
+      //スラッグを重複回避でIDにしておく
+      wp_update_post([
+        'ID'        => $post_id,
+        'post_name' => $post_id
+      ]);
+    }
   }
 
   /**
@@ -1348,6 +1395,13 @@ class OMF_Plugin
     }
 
     return $text;
+  }
+
+  //スクリプトの読み込み
+  public function load_scripts()
+  {
+    $this->load_recaptcha_script();
+    $this->load_disable_browser_back_script();
   }
 
 

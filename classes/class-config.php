@@ -19,4 +19,10 @@ class OMF_Config
    * @var string
    */
   const PREFIX = 'omf_';
+
+  /**
+   * 問い合わせデータの投稿タイプ接頭辞
+   * @var string
+   */
+  const DBDATA = 'omf_db_';
 }
