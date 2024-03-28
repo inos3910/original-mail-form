@@ -233,6 +233,14 @@ class OMF_Admin
       return '管理者メール送信先';
     }
 
+    if ($field_key === 'omf_admin_mail_sended') {
+      return '通知メール';
+    }
+
+    if ($field_key === 'omf_reply_mail_sended') {
+      return '自動返信メール';
+    }
+
     if ($field_key === 'site_url') {
       return 'WEBサイトURL';
     }
@@ -371,9 +379,30 @@ class OMF_Admin
     //「日時」列クリア
     unset($columns['date']);
 
-    $columns['slug'] = "スラッグ";
-    $columns['entry'] = "フォーム入力画面";
-    $columns['recaptcha'] = "reCAPTCHA設定";
+    global $wp_query;
+    if (!empty($wp_query->posts)) {
+      $_columns = [];
+      foreach ($wp_query->posts as $post) {
+        $custom_field_keys = get_post_custom_keys($post->ID);
+        if (empty($custom_field_keys)) {
+          continue;
+        }
+
+        foreach ($custom_field_keys as $key) {
+          if (preg_match("/^_/", $key)) {
+            continue;
+          }
+
+          $form_slug = $this->get_form_slug_by_data_post_id($post->ID);
+          $field_key = apply_filters('omf_data_custom_field_key_' . $form_slug, $key);
+          $field_key = $this->replace_custom_field_default_key($field_key);
+
+          $_columns[$key] = $field_key;
+        }
+      }
+
+      $columns = array_merge($columns, $_columns);
+    }
 
     return $columns;
   }
@@ -388,30 +417,12 @@ class OMF_Admin
    */
   public function add_data_column($column_name, $post_id)
   {
-    //スラッグ
-    if ($column_name === 'slug') {
-      $post = get_post($post_id);
-      if (!empty($post)) {
-        echo esc_html($post->post_name);
+    $value = get_post_meta($post_id, $column_name, false);
+    if (!empty($value)) {
+      foreach ((array)$value as $val) {
+        $sanitized = sanitize_textarea_field(wp_unslash($val));
+        echo '<div class="content">' . esc_html($sanitized) . '</div>';
       }
-    }
-    //入力画面
-    elseif ($column_name === 'entry') {
-      $entry_page = get_post_meta($post_id, 'cf_omf_screen_entry', true);
-      echo esc_html($entry_page);
-    }
-    // reCAPTCHA設定
-    elseif ($column_name === 'recaptcha') {
-      $is_recaptcha = get_post_meta($post_id, 'cf_omf_recaptcha', true);
-      if (!empty($is_recaptcha) && $is_recaptcha == 1) {
-        echo esc_html('有効');
-      } else {
-        echo esc_html('無効');
-      }
-    }
-    //それ以外
-    else {
-      return;
     }
   }
 
@@ -446,8 +457,14 @@ class OMF_Admin
   public function add_omf_scripts()
   {
     global $post_type;
-    if ($post_type === OMF_Config::NAME) {
-      wp_enqueue_script('omf-script', plugins_url('../dist/js/main.js', __FILE__), [], '1.0', true);
+    if (!empty($post_type)) {
+      if ($post_type === OMF_Config::NAME) {
+        wp_enqueue_script('omf-script', plugins_url('../dist/js/main.js', __FILE__), [], '1.0', true);
+      }
+
+      if (strncmp($post_type, OMF_Config::DBDATA, strlen(OMF_Config::DBDATA)) === 0) {
+        wp_enqueue_script('omf-data-list-script', plugins_url('../dist/js/data-list.js', __FILE__), [], '1.0', true);
+      }
     }
   }
 

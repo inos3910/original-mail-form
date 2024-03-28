@@ -168,3 +168,28 @@
   gap: 1em;
   padding-block: 0.5em;
 }
+
+body[class*="post-type-omf_db_"] {
+  .omf-table-wrapper {
+    overflow-x: auto;
+    width: 100%;
+  }
+
+  table.wp-list-table {
+    table-layout: auto;
+
+    th:not(.check-column),
+    td:not(.check-column) {
+      min-width: 150px;
+    }
+
+    .content {
+      overflow: hidden;
+      display: -webkit-box;
+      max-height: 60px;
+      text-overflow: ellipsis;
+      -webkit-box-orient: vertical;
+      -webkit-line-clamp: 3;
+    }
+  }
+}

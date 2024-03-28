@@ -267,6 +267,7 @@ class OMF_Plugin
       //自動返信メール送信処理
       $is_sended_reply = $this->send_reply_mail($post_data, $post_id);
       //管理者宛メール送信処理
+      $post_data['omf_reply_mail_sended'] = $is_sended_reply ? '送信成功' : '送信失敗';
       $is_sended_admin = $this->send_admin_mail($post_data, $post_id);
       $is_sended = $is_sended_reply && $is_sended_admin;
       //送信成功
@@ -1112,6 +1113,7 @@ class OMF_Plugin
     //自動返信メール送信処理
     $is_sended_reply = $this->send_reply_mail($post_data);
     //管理者宛メール送信処理
+    $post_data['omf_reply_mail_sended'] = $is_sended_reply ? '送信成功' : '送信失敗';
     $is_sended_admin = $this->send_admin_mail($post_data);
 
     $is_sended = $is_sended_reply && $is_sended_admin;
@@ -1338,40 +1340,61 @@ class OMF_Plugin
       $admin_headers
     );
 
+    //メール送信成功時
     if ($is_sended_admin) {
-      //DB保存フラグ
-      $is_use_db = get_post_meta($linked_mail_form->ID, 'cf_omf_save_db', true) === '1';
-      if ($is_use_db) {
-        //フラグがある場合は保存処理
-        $data_to_save = array_merge([
-          'omf_mail_title' => $admin_subject,
-          'omf_mail_to'    => $admin_mailaddress,
-        ], $tag_to_text);
-        $this->save_data($linked_mail_form->ID, $data_to_save);
-      }
-
-      //Slack通知フラグ
-      $is_slack_notify = get_post_meta($linked_mail_form->ID, 'cf_omf_is_slack_notify', true) === '1';
-      if ($is_slack_notify) {
-        $slack_webhook_url = get_post_meta($linked_mail_form->ID, 'cf_omf_slack_webhook_url', true);
-        $slack_channel = get_post_meta($linked_mail_form->ID, 'cf_omf_slack_channel', true);
-
-        //Slackに内容を送信
-        $this->send_slack([
-          'webhook_url' => $slack_webhook_url,
-          'channel'     => $slack_channel,
-          'subject'     => $admin_subject,
-          'message'     => $admin_message,
-          'post_data'   => $tag_to_text,
-          'form'        => $linked_mail_form
-        ]);
-      }
-
       //送信後のフック
       do_action('omf_after_send_admin_mail', $tag_to_text, $admin_mailaddress, $admin_subject, $admin_message, $admin_headers);
     }
 
+    //DB保存
+    $data_to_save = array_merge([
+      'omf_mail_title'        => $admin_subject,
+      'omf_mail_to'           => $admin_mailaddress,
+    ], $tag_to_text);
+
+    //自動返信メールのすぐ下に通知メールの送信結果を追加する
+    $data_to_save = $this->add_after_key($data_to_save, 'omf_reply_mail_sended', $is_sended_admin ? '送信成功' : '送信失敗', 'omf_admin_mail_sended');
+
+    $this->save_data($linked_mail_form, $data_to_save);
+
+    //Slack通知
+    $this->send_slack([
+      'subject'        => $admin_subject,
+      'message'        => $admin_message,
+      'post_data'      => $tag_to_text,
+      'form'           => $linked_mail_form,
+      'is_mail_sended' => $is_sended_admin
+    ]);
+
     return $is_sended_admin;
+  }
+
+  /**
+   * 指定したキーの次に追加する
+   *
+   * @param array $array
+   * @param string $key
+   * @param any $value
+   * @param string $new_key
+   * @return void
+   */
+  public function add_after_key($array, $key, $value, $new_key)
+  {
+    $keys = array_keys($array);
+    $key_index = array_search($key, $keys);
+    $new_keys = array_merge(
+      array_slice($keys, 0, $key_index + 1),
+      array($new_key),
+      array_slice($keys, $key_index + 1)
+    );
+
+    $new_values = array_merge(
+      array_slice($array, 0, $key_index + 1),
+      array($value),
+      array_slice($array, $key_index + 1)
+    );
+
+    return array_combine($new_keys, $new_values);
   }
 
   /**
@@ -1382,20 +1405,28 @@ class OMF_Plugin
    */
   private function send_slack($data)
   {
-    $webhook_url = $data['webhook_url'] ?? '';
-    $channel     = $data['channel'] ?? '';
+    $form = $data['form'] ?? '';
+    if (empty($form)) {
+      return;
+    }
+
+    $is_slack_notify = get_post_meta($form->ID, 'cf_omf_is_slack_notify', true) === '1';
+    if (!$is_slack_notify) {
+      return;
+    }
+
+    $webhook_url = get_post_meta($form->ID, 'cf_omf_slack_webhook_url', true);
+    $channel = get_post_meta($form->ID, 'cf_omf_slack_channel', true);
     $subject     = $data['subject'] ?? '';
     $message     = $data['message'] ?? '';
     $post_data   = $data['post_data'] ?? '';
-    $form        = $data['form'] ?? '';
 
     //データが空の場合は終了
     if (
       empty($webhook_url) ||
       empty($channel) ||
       empty($message) ||
-      empty($post_data) ||
-      empty($form)
+      empty($post_data)
     ) {
       return;
     }
@@ -1425,13 +1456,22 @@ class OMF_Plugin
   /**
    * *DB保存
    *
-   * @param int $form_id
+   * @param WP_Post $form
    * @param array $data_to_save
    * @return void
    */
-  private function save_data($form_id, $data_to_save)
+  private function save_data($form, $data_to_save)
   {
-    $data_post_type = $this->admin->get_data_post_type_by_id($form_id);
+    if (empty($form) || empty($data_to_save)) {
+      return;
+    }
+
+    $is_use_db = get_post_meta($form->ID, 'cf_omf_save_db', true) === '1';
+    if (!$is_use_db) {
+      return;
+    }
+
+    $data_post_type = $this->admin->get_data_post_type_by_id($form->ID);
     if (empty($data_post_type)) {
       return;
     }
