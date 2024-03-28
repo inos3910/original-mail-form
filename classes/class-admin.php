@@ -107,6 +107,12 @@ class OMF_Admin
       ];
       register_post_type($data_post_type, $data_args);
 
+      //送信データ一覧のカラムを編集
+      add_filter("manage_edit-{$data_post_type}_columns", [$this, 'custom_data_columns']);
+      //送信データ一覧のカラムを追加
+      add_action("manage_{$data_post_type}_posts_custom_column", [$this, 'add_data_column'], 10, 2);
+
+      //詳細ページにメタボックス追加
       add_action("add_meta_boxes_{$data_post_type}", [$this, 'add_meta_box_data_detail']);
     }
   }
@@ -203,28 +209,22 @@ class OMF_Admin
   //送信データの投稿IDから連携しているフォームのスラッグ名を取得
   public function get_form_slug_by_data_post_id($data_id)
   {
-    //CFから取得
-    $form_slug = get_post_meta($data_id, 'omf_form_slug', true);
     //CFがない場合
-    if (empty($form_slug)) {
-      //投稿タイプ名から取得
-      $data_post_type = get_post_type($data_id);
-      preg_match('/' . OMF_Config::DBDATA . '(\d+)/', $data_post_type, $matches);
-      $form_id = $matches[1] ?? null;
-      if (!empty($form_id)) {
-        $form_slug = get_post_field('post_name', $form_id);
-      }
+    if (empty($data_id)) {
+      return;
     }
+
+    //投稿タイプ名から取得
+    $data_post_type = get_post_type($data_id);
+    preg_match('/' . OMF_Config::DBDATA . '(\d+)/', $data_post_type, $matches);
+    $form_id = $matches[1] ?? null;
+    $form_slug = !empty($form_id) ? get_post_field('post_name', $form_id) : '';
     return $form_slug;
   }
 
   //プラグイン側で生成されるカスタムフィールドのキーの名前を日本語に置き換える
   public function replace_custom_field_default_key($field_key)
   {
-    if ($field_key === 'omf_form_slug') {
-      return 'フォームスラッグ';
-    }
-
     if ($field_key === 'omf_mail_title') {
       return '件名';
     }
@@ -332,6 +332,61 @@ class OMF_Admin
    * @return void
    */
   public function add_column($column_name, $post_id)
+  {
+    //スラッグ
+    if ($column_name === 'slug') {
+      $post = get_post($post_id);
+      if (!empty($post)) {
+        echo esc_html($post->post_name);
+      }
+    }
+    //入力画面
+    elseif ($column_name === 'entry') {
+      $entry_page = get_post_meta($post_id, 'cf_omf_screen_entry', true);
+      echo esc_html($entry_page);
+    }
+    // reCAPTCHA設定
+    elseif ($column_name === 'recaptcha') {
+      $is_recaptcha = get_post_meta($post_id, 'cf_omf_recaptcha', true);
+      if (!empty($is_recaptcha) && $is_recaptcha == 1) {
+        echo esc_html('有効');
+      } else {
+        echo esc_html('無効');
+      }
+    }
+    //それ以外
+    else {
+      return;
+    }
+  }
+
+  /**
+   * 送信データ投稿タイプ一覧画面のカスタマイズ
+   *
+   * @param [type] $columns
+   * @return void
+   */
+  public function custom_data_columns($columns)
+  {
+    //「日時」列クリア
+    unset($columns['date']);
+
+    $columns['slug'] = "スラッグ";
+    $columns['entry'] = "フォーム入力画面";
+    $columns['recaptcha'] = "reCAPTCHA設定";
+
+    return $columns;
+  }
+
+
+  /**
+   * 送信データ投稿タイプ一覧画面に値を出力
+   *
+   * @param [type] $column_name
+   * @param [type] $post_id
+   * @return void
+   */
+  public function add_data_column($column_name, $post_id)
   {
     //スラッグ
     if ($column_name === 'slug') {
@@ -830,8 +885,12 @@ class OMF_Admin
       'cf_omf_screen_complete',
       'cf_omf_recaptcha',
       'cf_omf_save_db',
-      'cf_omf_mail_id'
+      'cf_omf_mail_id',
+      'cf_omf_is_slack_notify',
+      'cf_omf_slack_webhook_url',
+      'cf_omf_slack_channel'
     ];
+
     foreach ((array)$update_meta_keys as $key) {
       if (isset($_POST[$key])) {
         update_post_meta($post_id, $key, sanitize_textarea_field($_POST[$key]));
@@ -893,6 +952,8 @@ class OMF_Admin
     add_meta_box('omf-metabox-validation', 'バリデーション設定', [$this, 'validation_meta_box_callback'], OMF_Config::NAME, 'normal', 'default');
     //メールID
     add_meta_box('omf-metabox-mail_id', 'メールID', [$this, 'mail_id_meta_box_callback'], OMF_Config::NAME, 'side', 'default');
+    //slack通知
+    add_meta_box('omf-metabox-slack_notify', 'Slack通知', [$this, 'slack_notify_meta_box_callback'], OMF_Config::NAME, 'normal', 'default');
   }
 
   //すべてのフォームを取得
@@ -1107,6 +1168,23 @@ class OMF_Admin
     <div class="omf-metabox-wrapper">
       <?php
       $this->omf_meta_box_number($post, 'メールID', 'cf_omf_mail_id', 'メール本文内{mail_id}として使える。フォーム送信毎に自動で1ずつ増加する。');
+      ?>
+    </div>
+  <?php
+  }
+
+  /**
+   * Slack通知
+   * @param WP_Post $post
+   */
+  public function slack_notify_meta_box_callback($post)
+  {
+  ?>
+    <div class="omf-metabox-wrapper">
+      <?php
+      $this->omf_meta_box_boolean($post, '送信内容をSlackに通知する', 'cf_omf_is_slack_notify');
+      $this->omf_meta_box_text($post, 'Webhook URL', 'cf_omf_slack_webhook_url', 'SlackアプリのIncoming Webhookで生成されるWebhook URL');
+      $this->omf_meta_box_text($post, 'チャンネル名', 'cf_omf_slack_channel', '先頭の # は不要');
       ?>
     </div>
   <?php

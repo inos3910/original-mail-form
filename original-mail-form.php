@@ -935,6 +935,10 @@ class OMF_Plugin
     $endpoint = "{$recaptch_url}?{$request_params_query}";
 
     $verify_response = $this->curl_get_contents($endpoint);
+    //curl取得エラーの場合
+    if (empty($verify_response) || is_wp_error($verify_response)) {
+      return false;
+    }
 
     // APIレスポンス確認
     $response_data = json_decode($verify_response);
@@ -958,10 +962,63 @@ class OMF_Plugin
     curl_setopt($ch, CURLOPT_URL, $url);
     curl_setopt($ch, CURLOPT_HEADER, false);
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, $timeout);
     curl_setopt($ch, CURLOPT_TIMEOUT, $timeout);
     curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+    curl_setopt($ch, CURLOPT_FAILONERROR, true);
 
     $result = curl_exec($ch);
+
+    //エラー
+    $errno = curl_errno($ch);
+    $error = curl_error($ch);
+    if (CURLE_OK !== $errno) {
+      return new WP_Error('curl_error', __($error), ['status' => $errno]);
+    }
+
+    curl_close($ch);
+    return $result;
+  }
+
+
+  /**
+   * curlでPOST送信
+   * @param string url
+   * @param array post_data
+   * @param int timeout
+   **/
+  private function curl_post_contents($url, $post_data, $header = null, $timeout = 60)
+  {
+    // 送信データをURLエンコード
+    $data = wp_json_encode($post_data);
+
+    $ch = curl_init();
+
+    $header = !empty($header) ? $header : [
+      "Content-Type: application/json",
+      'Cache-Control: no-cache',
+      'Pragma: no-cache'
+    ];
+
+    curl_setopt($ch, CURLOPT_HTTPHEADER, $header);
+    curl_setopt($ch, CURLOPT_URL, $url);
+    curl_setopt($ch, CURLOPT_CUSTOMREQUEST, 'POST');
+    curl_setopt($ch, CURLOPT_POSTFIELDS, $data);
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+    curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, $timeout);
+    curl_setopt($ch, CURLOPT_TIMEOUT, $timeout);
+    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+    curl_setopt($ch, CURLOPT_FAILONERROR, true);
+
+    $result = curl_exec($ch);
+
+    //エラー
+    $errno = curl_errno($ch);
+    $error = curl_error($ch);
+    if (CURLE_OK !== $errno) {
+      return new WP_Error('curl_error', __($error), ['status' => $errno]);
+    }
+
     curl_close($ch);
     return $result;
   }
@@ -1289,15 +1346,80 @@ class OMF_Plugin
         $data_to_save = array_merge([
           'omf_mail_title' => $admin_subject,
           'omf_mail_to'    => $admin_mailaddress,
-          'omf_form_slug'  => $linked_mail_form->post_name
         ], $tag_to_text);
         $this->save_data($linked_mail_form->ID, $data_to_save);
       }
+
+      //Slack通知フラグ
+      $is_slack_notify = get_post_meta($linked_mail_form->ID, 'cf_omf_is_slack_notify', true) === '1';
+      if ($is_slack_notify) {
+        $slack_webhook_url = get_post_meta($linked_mail_form->ID, 'cf_omf_slack_webhook_url', true);
+        $slack_channel = get_post_meta($linked_mail_form->ID, 'cf_omf_slack_channel', true);
+
+        //Slackに内容を送信
+        $this->send_slack([
+          'webhook_url' => $slack_webhook_url,
+          'channel'     => $slack_channel,
+          'subject'     => $admin_subject,
+          'message'     => $admin_message,
+          'post_data'   => $tag_to_text,
+          'form'        => $linked_mail_form
+        ]);
+      }
+
       //送信後のフック
       do_action('omf_after_send_admin_mail', $tag_to_text, $admin_mailaddress, $admin_subject, $admin_message, $admin_headers);
     }
 
     return $is_sended_admin;
+  }
+
+  /**
+   * Slackに通知内容を送信
+   *
+   * @param array $data
+   * @return void
+   */
+  private function send_slack($data)
+  {
+    $webhook_url = $data['webhook_url'] ?? '';
+    $channel     = $data['channel'] ?? '';
+    $subject     = $data['subject'] ?? '';
+    $message     = $data['message'] ?? '';
+    $post_data   = $data['post_data'] ?? '';
+    $form        = $data['form'] ?? '';
+
+    //データが空の場合は終了
+    if (
+      empty($webhook_url) ||
+      empty($channel) ||
+      empty($message) ||
+      empty($post_data) ||
+      empty($form)
+    ) {
+      return;
+    }
+
+    $form_title = get_the_title($form->ID);
+    $form_title = $this->custom_escape($form_title);
+
+    $notify_data = [
+      "channel"     => "#{$channel}", //チャンネル名
+      "username"    => "メールフォーム", //BOT名
+      "icon_emoji"  => ":seal:", //アイコン
+      "attachments" => [
+        [
+          "pretext"     => "▼通知：{$form_title}",
+          "color"       => "#10afaa",
+          "title"       => $subject,
+          "text"        => ">>>\n{$message}",
+          "footer"      => !empty($post_data['site_name']) ? $post_data['site_name'] : '',
+          "footer_icon" => get_site_icon_url(),
+        ]
+      ]
+    ];
+
+    $this->curl_post_contents($webhook_url, $notify_data);
   }
 
   /**
