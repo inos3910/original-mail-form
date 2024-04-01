@@ -60,6 +60,13 @@ class OMF_Plugin
   private $session_name_back;
 
   /**
+   * 送信済みフラグセッション名
+   *
+   * @var string
+   */
+  private $session_name_sent;
+
+  /**
    * OMF_Admin class
    *
    * @var instance
@@ -375,7 +382,21 @@ class OMF_Plugin
    */
   public function nonce_field()
   {
+    //nonceを出力
     wp_nonce_field($this->nonce_action, 'omf_nonce', true);
+
+    //token発行（二重送信対策）
+    $token = '';
+    //初期画面
+    if ($this->is_page('entry')) {
+      $token = uniqid('', true);
+      $_SESSION['omf_token'] = $token;
+    }
+    //初期画面以外
+    else {
+      $token = !empty($_SESSION['omf_token']) ? $_SESSION['omf_token'] : '';
+    }
+    echo '<input type="hidden" name="omf_token" value="' . $token . '">';
   }
 
   /**
@@ -440,6 +461,25 @@ class OMF_Plugin
   }
 
   /**
+   * フォームを設置するページのパスを取得
+   *
+   * @param string $form_id
+   * @return array
+   */
+  public function get_form_page_pathes($form_id)
+  {
+    if (empty($form_id)) {
+      return;
+    }
+
+    return [
+      'entry'    => $this->custom_escape(get_post_meta($form_id, 'cf_omf_screen_entry', true)),
+      'confirm'  => $this->custom_escape(get_post_meta($form_id, 'cf_omf_screen_confirm', true)),
+      'complete' => $this->custom_escape(get_post_meta($form_id, 'cf_omf_screen_complete', true))
+    ];
+  }
+
+  /**
    * フォームを設置するページのIDを取得
    * @param  WP_Post $linked_mail_form メールフォームページのオブジェクト
    * @return array
@@ -453,13 +493,15 @@ class OMF_Plugin
       return $ids;
     }
 
-    $entry_page_path    = $this->custom_escape(get_post_meta($linked_mail_form->ID, 'cf_omf_screen_entry', true));
-    $confirm_page_path  = $this->custom_escape(get_post_meta($linked_mail_form->ID, 'cf_omf_screen_confirm', true));
-    $complete_page_path = $this->custom_escape(get_post_meta($linked_mail_form->ID, 'cf_omf_screen_complete', true));
+    //画面設定からパスを取得
+    $page_pathes = $this->get_form_page_pathes($linked_mail_form->ID);
+    if (empty($page_pathes)) {
+      return $ids;
+    }
 
-    $ids['entry']       = url_to_postid($entry_page_path);
-    $ids['confirm']     = url_to_postid($confirm_page_path);
-    $ids['complete']    = url_to_postid($complete_page_path);
+    foreach ((array)$page_pathes as $key => $value) {
+      $ids[$key] = url_to_postid($value);
+    }
 
     return $ids;
   }
@@ -485,6 +527,7 @@ class OMF_Plugin
     $session_name_auth = "{$session_name_prefix}_auth";
     $session_name_error = "{$session_name_prefix}_errors";
     $session_name_back = "{$session_name_prefix}_back";
+    $session_name_sent = "{$session_name_prefix}_sent";
 
     //送信データセッションを破棄
     if (isset($_SESSION[$session_name_post_data])) {
@@ -509,6 +552,68 @@ class OMF_Plugin
       $_SESSION[$session_name_back] = false;
       unset($_SESSION[$session_name_back]);
     }
+
+    //戻るセッションを破棄
+    if (isset($_SESSION[$session_name_sent])) {
+      $_SESSION[$session_name_sent] = false;
+      unset($_SESSION[$session_name_sent]);
+    }
+  }
+
+  /**
+   * 固定ページIDからそのページで有効なフォームの各画面のページ情報を取得
+   *
+   * @return void
+   */
+  public function get_form_set_pages($page_id = null)
+  {
+    $form = $this->get_linked_mail_form($page_id);
+    $pages = $this->get_active_form_pages($form->ID);
+    return $pages;
+  }
+
+  /**
+   * フォームが有効なページを取得
+   *
+   * @param [type] $form_id
+   * @return array
+   */
+  public function get_active_form_pages($form_id, $page_pathes = null)
+  {
+    $pages = [];
+    if (empty($form_id)) {
+      return  $pages;
+    }
+
+    $page_pathes = !empty($page_pathes) ? $page_pathes : $this->get_form_page_pathes($form_id);
+    $conditions =  get_post_meta($form_id, 'cf_omf_condition_post', true);
+    if (empty($conditions) || empty($page_pathes)) {
+      return $pages;
+    }
+
+    foreach ((array)$conditions as $cond) {
+      $cond = $this->custom_escape($cond);
+      foreach ((array)$page_pathes as $key => $path) {
+        if (!empty($pages[$key])) {
+          continue;
+        }
+        $pages[$key] = !empty($path) ? get_page_by_path($path, OBJECT, $cond) : null;
+      }
+    }
+    return $pages;
+  }
+
+  /**
+   * 現在のページを引数の画面設定パスから判定
+   *
+   * @param string $page_slug
+   * @return boolean
+   */
+  public function is_page($page_slug)
+  {
+    $current_page_id = get_the_ID();
+    $pages = $this->get_form_set_pages($current_page_id);
+    return $current_page_id === $pages[$page_slug]->ID;
   }
 
 
@@ -521,37 +626,20 @@ class OMF_Plugin
     }
 
     //現在のページのID取得
-    $current_page_id    = get_the_ID();
-    $omf_form_slug      = $this->custom_escape(get_post_meta($current_page_id, 'cf_omf_select', true));
-    $omf_form           = !empty($omf_form_slug) ? get_page_by_path($omf_form_slug, OBJECT, OMF_Config::NAME) : null;
+    $current_page_id = get_the_ID();
+    $form = $this->get_linked_mail_form($current_page_id);
     //フォーム設定がないページはセッションをクリア
-    if (empty($omf_form)) {
+    if (empty($form)) {
       $this->clear_sessions_all();
       return;
     }
 
-    //画面設定からパスを取得
-    $page_pathes = [
-      'entry'    => $this->custom_escape(get_post_meta($omf_form->ID, 'cf_omf_screen_entry', true)),
-      'confirm'  => $this->custom_escape(get_post_meta($omf_form->ID, 'cf_omf_screen_confirm', true)),
-      'complete' => $this->custom_escape(get_post_meta($omf_form->ID, 'cf_omf_screen_complete', true))
-    ];
-
     //表示条件からページ情報を取得
-    $conditions =  get_post_meta($omf_form->ID, 'cf_omf_condition_post', true);
-    $pages = [];
-    foreach ((array)$conditions as $cond) {
-      $cond = $this->custom_escape($cond);
-      foreach ((array)$page_pathes as $key => $path) {
-        if (!empty($pages[$key])) {
-          continue;
-        }
-        $pages[$key] = !empty($path) ? get_page_by_path($path, OBJECT, $cond) : null;
-      }
-    }
+    $page_pathes = $this->get_form_page_pathes($form->ID);
+    $pages = $this->get_active_form_pages($form->ID, $page_pathes);
 
     //セッション接頭辞を一意にする
-    $this->update_session_names($omf_form_slug);
+    $this->update_session_names($form->post_name);
 
     //フォーム入力ページ
     if ($current_page_id === $pages['entry']->ID) {
@@ -591,6 +679,49 @@ class OMF_Plugin
     $this->session_name_error = "{$this->session_name_prefix}_errors";
     //戻るセッション名を更新
     $this->session_name_back = "{$this->session_name_prefix}_back";
+    //送信完了セッション名を更新
+    $this->session_name_sent = "{$this->session_name_prefix}_sent";
+  }
+
+  /**
+   * nonce認証
+   *
+   * @return boolean
+   */
+  private function is_valid_nonce()
+  {
+    $nonce   = filter_input(INPUT_POST, 'omf_nonce');
+    return wp_verify_nonce($nonce, $this->nonce_action);
+  }
+
+  /**
+   * リファラー認証
+   *
+   * @param string $slug ページスラッグ名
+   * @return boolean
+   */
+  private function is_valid_referer($slug)
+  {
+    //リファラー認証
+    $referer           = filter_input(INPUT_POST, '_wp_http_referer');
+    $referer           = !empty($referer) ? sanitize_text_field(wp_unslash($referer)) : null;
+    $referer_post_id   = !empty($referer) ? url_to_postid($referer) : null;
+    $referer_post      = !empty($referer_post_id) ? get_post($referer_post_id) : null;
+    $referer_post_slug = !empty($referer_post) ? $referer_post->post_name : null;
+
+    return !empty($referer_post) && $referer_post_slug === $slug;
+  }
+
+  /**
+   * トークン認証
+   *
+   * @return boolean
+   */
+  private function is_valid_token()
+  {
+    $token = $this->custom_escape(filter_input(INPUT_POST, 'omf_token'));
+    $session_token = !empty($_SESSION['omf_token']) ? $_SESSION['omf_token'] : '';
+    return !empty($token) && $token === $session_token;
   }
 
   /**
@@ -600,7 +731,7 @@ class OMF_Plugin
    */
   private function contact_entry_page_redirect($page_pathes, $pages)
   {
-    //戻るボタン
+    //戻るボタンの場合
     if (filter_input(INPUT_POST, 'submit_back') === "back") {
       //戻るフラグがオンの場合
       if (!empty($_SESSION[$this->session_name_back]) && $_SESSION[$this->session_name_back] === true) {
@@ -632,23 +763,26 @@ class OMF_Plugin
       return;
     }
 
-    //フォーム認証
-    $nonce   = filter_input(INPUT_POST, 'omf_nonce');
-    $auth    = wp_verify_nonce($nonce, $this->nonce_action);
+    //nonce認証
+    $is_valid_nonce = $this->is_valid_nonce();
     //nonce認証NG
-    if (!$auth) {
+    if (!$is_valid_nonce) {
       $_SESSION[$this->session_name_auth] = false;
       return;
     }
 
     //リファラー認証
-    $referer           = filter_input(INPUT_POST, '_wp_http_referer');
-    $referer           = !empty($referer) ? sanitize_text_field(wp_unslash($referer)) : null;
-    $referer_post_id   = !empty($referer) ? url_to_postid($referer) : null;
-    $referer_post      = !empty($referer_post_id) ? get_post($referer_post_id) : null;
-    $referer_post_slug = !empty($referer_post) ? $referer_post->post_name : null;
+    $is_valid_referer = $this->is_valid_referer($pages['entry']->post_name);
     //リファラー認証NG
-    if (empty($referer_post) || $referer_post_slug !== $pages['entry']->post_name) {
+    if (!$is_valid_referer) {
+      $_SESSION[$this->session_name_auth] = false;
+      return;
+    }
+
+    //token検証
+    $is_valid_token = $this->is_valid_token();
+    //token検証NG
+    if (!$is_valid_token) {
       $_SESSION[$this->session_name_auth] = false;
       return;
     }
@@ -683,7 +817,7 @@ class OMF_Plugin
     }
 
     $recaptcha_field_name = !empty(get_option('omf_recaptcha_field_name')) ? sanitize_text_field(wp_unslash(get_option('omf_recaptcha_field_name'))) : 'g-recaptcha-response';
-    $remove_keys = ['confirm', 'send', 'omf_nonce', '_wp_http_referer', $recaptcha_field_name];
+    $remove_keys = ['confirm', 'send', 'omf_nonce', '_wp_http_referer', 'omf_token', $recaptcha_field_name];
     $post_data = array_diff_key($post_data, array_flip($remove_keys));
 
     return $post_data;
@@ -736,11 +870,10 @@ class OMF_Plugin
       }
       //セッションがない場合
       else {
-        //nonce取得
-        $nonce   = filter_input(INPUT_POST, 'omf_nonce');
-        $auth    = wp_verify_nonce($nonce, $this->nonce_action);
+        //nonce認証
+        $is_valid_nonce = $this->is_valid_nonce();
         //nonce認証NG
-        if (!$auth) {
+        if (!$is_valid_nonce) {
           $post_data = $this->get_post_values();
           $_SESSION[$this->session_name_back] = true;
           $_SESSION[$this->session_name_auth] = false;
@@ -751,13 +884,21 @@ class OMF_Plugin
         }
 
         //リファラー認証
-        $referer           = filter_input(INPUT_POST, '_wp_http_referer');
-        $referer           = !empty($referer) ? sanitize_text_field(wp_unslash($referer)) : null;
-        $referer_post_id   = !empty($referer) ? url_to_postid($referer) : null;
-        $referer_post      = !empty($referer_post_id) ? get_post($referer_post_id) : null;
-        $referer_post_slug = !empty($referer_post) ? $referer_post->post_name : null;
+        $is_valid_referer = $this->is_valid_referer($pages['confirm']->post_name);
         //リファラー認証NG
-        if (empty($referer_post) || $referer_post_slug !== $pages['confirm']->post_name) {
+        if (!$is_valid_referer) {
+          $post_data = $this->get_post_values();
+          $_SESSION[$this->session_name_back] = true;
+          $_SESSION[$this->session_name_auth] = false;
+          $_SESSION[$this->session_name_post_data] = $this->filter_post_keys($post_data);
+          session_write_close();
+          wp_safe_redirect(esc_url(home_url($page_pathes['entry'])));
+          exit;
+        }
+
+        //token検証
+        $is_valid_token = $this->is_valid_token();
+        if (!$is_valid_token) {
           $post_data = $this->get_post_values();
           $_SESSION[$this->session_name_back] = true;
           $_SESSION[$this->session_name_auth] = false;
@@ -786,17 +927,7 @@ class OMF_Plugin
         !empty($_SESSION[$this->session_name_auth])
         && $_SESSION[$this->session_name_auth] === true
       ) {
-
-        //メール送信以外の場合はそのまま表示
-        if (filter_input(INPUT_POST, 'send') !== 'send') {
-          $post_data = $this->get_post_values();
-          return;
-        }
-
-        //データ取得
-        $post_data = $this->get_post_values();
-        // メール送信処理
-        $this->mail_send_handler($page_pathes, $pages, $post_data);
+        return;
       }
       //POSTもセッションもない場合
       else {
@@ -1073,23 +1204,26 @@ class OMF_Plugin
   private function send($page_pathes, $pages, $post_data = null)
   {
 
-    //フォーム認証
-    $nonce = filter_input(INPUT_POST, 'omf_nonce');
-    $auth  = wp_verify_nonce($nonce, $this->nonce_action);
+    //nonce認証
+    $is_valid_nonce = $this->is_valid_nonce();
     //認証NGの場合
-    if (!$auth) {
+    if (!$is_valid_nonce) {
       return false;
     }
 
     //リファラー認証
-    $referer           = filter_input(INPUT_POST, '_wp_http_referer');
-    $referer           = !empty($referer) ? sanitize_text_field(wp_unslash($referer)) : null;
-    $referer_post_id   = !empty($referer) ? url_to_postid($referer) : null;
-    $referer_post      = !empty($referer_post_id) ? get_post($referer_post_id) : null;
-    $referer_post_slug = !empty($referer_post) ? $referer_post->post_name : null;
+    $is_valid_referer = $this->is_valid_referer($pages['confirm']->post_name);
     //リファラー認証NG
-    if (empty($referer_post) || $referer_post_slug !== $pages['confirm']->post_name) {
+    if (!$is_valid_referer) {
       return false;
+    }
+
+    //token検証
+    $is_valid_token = $this->is_valid_token();
+    //token検証NG
+    if (!$is_valid_token) {
+      //送信済みフラグの有無で判定
+      return !empty($_SESSION[$this->session_name_sent]) && $_SESSION[$this->session_name_sent] === true;
     }
 
     //各要素を取得
@@ -1126,6 +1260,14 @@ class OMF_Plugin
     if ($is_sended) {
       //送信後にメールIDを更新
       $this->update_mail_id($linked_mail_form->ID, $post_data['mail_id']);
+
+      //送信後にトークンを破棄（二重送信防止）
+      if (!empty($_SESSION['omf_token'])) {
+        unset($_SESSION['omf_token']);
+      }
+
+      //送信済みフラグ（二重送信防止）
+      $_SESSION[$this->session_name_sent] = true;
 
       //送信後のフック
       do_action('omf_after_send_mail', $post_data, $linked_mail_form, $post_id);
