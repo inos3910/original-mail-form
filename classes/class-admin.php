@@ -306,9 +306,11 @@ class OMF_Admin
       unset($columns['date']);
     }
 
-    $columns['slug'] = "スラッグ";
-    $columns['entry'] = "フォーム入力画面";
+    $columns['slug']      = "スラッグ";
+    $columns['entry']     = "フォーム入力画面";
     $columns['recaptcha'] = "reCAPTCHA設定";
+    $columns['save_db']   = "データベース保存";
+    $columns['slack']     = "Slack通知";
 
     // 「日時」列を再セット
     if (isset($date)) {
@@ -344,6 +346,24 @@ class OMF_Admin
     elseif ($column_name === 'recaptcha') {
       $is_recaptcha = get_post_meta($post_id, 'cf_omf_recaptcha', true);
       if (!empty($is_recaptcha) && $is_recaptcha == 1) {
+        echo esc_html('有効');
+      } else {
+        echo esc_html('無効');
+      }
+    }
+    // データベース保存
+    elseif ($column_name === 'save_db') {
+      $is_use_db = get_post_meta($post_id, 'cf_omf_save_db', true);
+      if ($is_use_db === '1') {
+        echo esc_html('有効');
+      } else {
+        echo esc_html('無効');
+      }
+    }
+    // Slack通知
+    elseif ($column_name === 'slack') {
+      $is_use_db = get_post_meta($post_id, 'cf_omf_is_slack_notify', true);
+      if ($is_use_db === '1') {
         echo esc_html('有効');
       } else {
         echo esc_html('無効');
