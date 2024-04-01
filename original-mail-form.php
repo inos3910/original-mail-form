@@ -947,6 +947,12 @@ class OMF_Plugin
     return !empty($response_data) && $response_data->success && $response_data->score >= 0.5;
   }
 
+  //本番環境判定
+  function is_production()
+  {
+    return (defined('WP_ENV') && WP_ENV === 'production');
+  }
+
   /**
    * curlでデータ取得する関数
    * @param  string  $url
@@ -965,7 +971,7 @@ class OMF_Plugin
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
     curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, $timeout);
     curl_setopt($ch, CURLOPT_TIMEOUT, $timeout);
-    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, $this->is_production());
     curl_setopt($ch, CURLOPT_FAILONERROR, true);
 
     $result = curl_exec($ch);
@@ -1008,7 +1014,7 @@ class OMF_Plugin
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
     curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, $timeout);
     curl_setopt($ch, CURLOPT_TIMEOUT, $timeout);
-    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, false);
+    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, $this->is_production());
     curl_setopt($ch, CURLOPT_FAILONERROR, true);
 
     $result = curl_exec($ch);

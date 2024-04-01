@@ -127,10 +127,12 @@ class OMF_Admin
   {
     //送信データ詳細
     add_meta_box('omf-metabox-data-detail', '送信データ詳細', [$this, 'data_detail_meta_box_callback'], $post->post_type, 'normal', 'default');
+    //メモ
+    add_meta_box('omf-metabox-data-memo', 'メモ', [$this, 'data_memo_meta_box_callback'], $post->post_type, 'normal', 'default');
   }
 
   /**
-   * 送信データのソース
+   * 送信データ詳細ページのソース
    *
    * @return void
    */
@@ -143,34 +145,14 @@ class OMF_Admin
     $fields = $this->filter_hidden_custom_field($all_fields);
     if (!empty($fields)) {
     ?>
-      <style>
-        .omf_data_frame {
-          padding: 1em;
-        }
-
-        .omf_data_table {
-          border-collapse: collapse;
-        }
-
-        .omf_data_table th,
-        .omf_data_table td {
-          padding: 1em;
-          border: 1px solid #ccc;
-          line-height: 1.4;
-        }
-
-        .omf_data_table th {
-          text-align: left;
-        }
-
-        .omf_data_table td .pre {
-          white-space: pre-wrap;
-        }
-      </style>
-      <div class="omf_data_frame">
-        <table class="omf_data_table">
+      <div class="omf-data__frame">
+        <table class="omf-data__table">
           <?php
           foreach ((array)$fields as $key => $value) :
+            //メモはスキップ
+            if ($key === 'cf_omf_data_memo') {
+              continue;
+            }
           ?>
             <tr>
               <th>
@@ -204,6 +186,11 @@ class OMF_Admin
     }
     ?>
   <?php
+  }
+
+  public function data_memo_meta_box_callback($post)
+  {
+    $this->omf_meta_box_textarea($post, 'メモ', 'cf_omf_data_memo');
   }
 
   //送信データの投稿IDから連携しているフォームのスラッグ名を取得
@@ -389,7 +376,8 @@ class OMF_Admin
         }
 
         foreach ($custom_field_keys as $key) {
-          if (preg_match("/^_/", $key)) {
+          //隠しデータとメモ機能はスキップ
+          if (preg_match("/^_/", $key) || $key === 'cf_omf_data_memo') {
             continue;
           }
 
@@ -426,6 +414,17 @@ class OMF_Admin
     }
   }
 
+  /**
+   * 引数の投稿タイプが送信データの投稿タイプかどうかの判定
+   *
+   * @param string $post_type
+   * @return boolean
+   */
+  public function is_omf_data_post_type($post_type)
+  {
+    return !empty($post_type) && strncmp($post_type, OMF_Config::DBDATA, strlen(OMF_Config::DBDATA)) === 0;
+  }
+
   //CSS・JSの追加
   public function add_omf_srcs()
   {
@@ -442,10 +441,8 @@ class OMF_Admin
 
     //送信データの場合は新規投稿ボタンを非表示にする
     global $post_type;
-    if (!empty($post_type)) {
-      if (strncmp($post_type, OMF_Config::DBDATA, strlen(OMF_Config::DBDATA)) === 0) {
-        echo '<style>.wrap .wp-heading-inline + .page-title-action{display: none;}</style>';
-      }
+    if ($this->is_omf_data_post_type($post_type)) {
+      echo '<style>.wrap .wp-heading-inline + .page-title-action{display: none;}</style>';
     }
   }
 
@@ -462,7 +459,7 @@ class OMF_Admin
         wp_enqueue_script('omf-script', plugins_url('../dist/js/main.js', __FILE__), [], '1.0', true);
       }
 
-      if (strncmp($post_type, OMF_Config::DBDATA, strlen(OMF_Config::DBDATA)) === 0) {
+      if ($this->is_omf_data_post_type($post_type)) {
         wp_enqueue_script('omf-data-list-script', plugins_url('../dist/js/data-list.js', __FILE__), [], '1.0', true);
       }
     }
@@ -569,7 +566,11 @@ class OMF_Admin
   {
 
     global $post_type;
-    if (strncmp($post_type, OMF_Config::DBDATA, strlen(OMF_Config::DBDATA)) === 0) {
+    if (empty($post_type)) {
+      return $actions;
+    }
+
+    if ($this->is_omf_data_post_type($post_type)) {
       unset($actions['edit']); //編集
       unset($actions['inline hide-if-no-js']); //クイック編集
       unset($actions['trash']); //ゴミ箱
@@ -905,7 +906,8 @@ class OMF_Admin
       'cf_omf_mail_id',
       'cf_omf_is_slack_notify',
       'cf_omf_slack_webhook_url',
-      'cf_omf_slack_channel'
+      'cf_omf_slack_channel',
+      'cf_omf_data_memo'
     ];
 
     foreach ((array)$update_meta_keys as $key) {
