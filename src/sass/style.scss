@@ -1,5 +1,5 @@
 .omf-metabox-wrapper {
-  padding: 10px;
+  padding: 1em;
 
   *,
   *::before,
@@ -9,7 +9,8 @@
 }
 
 .omf-metabox {
-  margin-block: 9px;
+  margin-block: 1em;
+  // padding: 1em;
 }
 
 .omf-metabox--side {
@@ -192,4 +193,28 @@ body[class*="post-type-omf_db_"] {
       -webkit-line-clamp: 3;
     }
   }
+}
+
+.omf-data__frame {
+  padding: 1em;
+}
+
+.omf-data__table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.omf-data__table th,
+.omf-data__table td {
+  padding: 1em;
+  border: 1px solid #ccc;
+  line-height: 1.4;
+}
+
+.omf-data__table th {
+  text-align: left;
+}
+
+.omf-data__table td .pre {
+  white-space: pre-wrap;
 }
