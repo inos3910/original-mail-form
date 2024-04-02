@@ -779,14 +779,6 @@ class OMF_Plugin
       return;
     }
 
-    //token検証
-    $is_valid_token = $this->is_valid_token();
-    //token検証NG
-    if (!$is_valid_token) {
-      $_SESSION[$this->session_name_auth] = false;
-      return;
-    }
-
     //各要素を取得
     $post_data = !empty($_POST) ? array_map([$this, 'custom_escape'], $_POST) : [];
 
