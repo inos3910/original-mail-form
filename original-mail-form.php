@@ -1583,7 +1583,7 @@ class OMF_Plugin
           "pretext"     => "▼通知：{$form_title}",
           "color"       => "#10afaa",
           "title"       => $subject,
-          "text"        => ">>>\n{$message}",
+          "text"        => "───────────────────\n{$message}",
           "footer"      => !empty($post_data['site_name']) ? $post_data['site_name'] : '',
           "footer_icon" => get_site_icon_url(),
         ]
