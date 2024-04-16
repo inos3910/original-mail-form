@@ -7,6 +7,8 @@ if (!defined('ABSPATH')) {
 }
 
 use ZipArchive;
+use RecursiveIteratorIterator;
+use RecursiveDirectoryIterator;
 
 trait OMF_Trait_Update
 {
@@ -129,18 +131,38 @@ trait OMF_Trait_Update
     $files_to_delete = [];
 
     // 元のディレクトリ内のファイルを取得
-    $source_files = array_diff(scandir($source_dir), ['.', '..']);
+    $source_files = $this->get_files_recursive($source_dir);
 
     // 比較対象のディレクトリ内のファイルを取得
-    $target_files = array_diff(scandir($target_dir), ['.', '..']);
+    $target_files = $this->get_files_recursive($target_dir);
 
     // 元のディレクトリにあるが、比較対象のディレクトリにないファイルを取得
     $diff = array_diff($source_files, $target_files);
 
     foreach ($diff as $file) {
-      $files_to_delete[] = $source_dir . '/' . $file;
+      $files_to_delete[] = $file;
     }
 
     return $files_to_delete;
+  }
+
+  /**
+   * ディレクトリ内のファイルを再帰的に取得する
+   *
+   * @param string $dir ディレクトリパス
+   * @return array ファイルのパスの配列
+   */
+  private function get_files_recursive(string $dir): array
+  {
+    $files = [];
+    $items = new RecursiveIteratorIterator(new RecursiveDirectoryIterator($dir));
+
+    foreach ($items as $item) {
+      if ($item->isFile()) {
+        $files[] = $item->getPathname();
+      }
+    }
+
+    return $files;
   }
 }
