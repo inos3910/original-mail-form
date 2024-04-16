@@ -9,133 +9,248 @@ if (!defined('ABSPATH')) {
 use ThrowsSpamAway;
 use DateTime;
 
-class OMF_Validation
+trait OMF_Trait_Validation
 {
+  use OMF_Trait_Form;
+
+  /**
+   * フォームデータの検証
+   *
+   * @param array $post_data
+   * @param integer|null $post_id
+   * @return array
+   */
+  public function validate_mail_form_data(array $post_data, int $post_id = null): array
+  {
+    $errors = [];
+
+    //連携しているメールフォームを取得
+    $form = $this->get_form($post_id);
+    if (empty($form)) {
+      return $errors['undefined'] = ['メールフォームにエラーが起きました'];
+    }
+
+    //バリデーション設定を取得
+    $validations = get_post_meta($form->ID, 'cf_omf_validation', true);
+    if (empty($validations)) {
+      return $errors;
+    }
+
+    //バリデーション設定
+    foreach ((array)$validations as $valid) {
+      $valid = array_map([__NAMESPACE__ . '\OMF_Utils', 'custom_escape'], $valid);
+      $error_message = $this->validate($post_data, $valid);
+      if (!empty($error_message)) {
+        $errors[$valid['target']] = $error_message;
+      }
+    }
+
+    //reCAPTCHA
+    $is_recaptcha = $this->can_use_recaptcha($post_id);
+    if ($is_recaptcha) {
+      $recaptcha = $this->verify_google_recaptcha();
+      if (!$recaptcha) {
+        $errors['recaptcha'] = ['フォーム認証エラーのためもう一度送信してください。'];
+      }
+    }
+
+    return $errors;
+  }
+
+  /**
+   * reCAPTCHA設定の有無を判定
+   *
+   * @param integer|null $post_id
+   * @return boolean
+   */
+  public function can_use_recaptcha(int $post_id = null): bool
+  {
+    //reCAPTCHAのキーを確認
+    if (empty(get_option('omf_recaptcha_secret_key')) || empty(get_option('omf_recaptcha_site_key'))) {
+      return false;
+    }
+
+    //reCAPTCHA設定を確認
+    $form = $this->get_form($post_id);
+    if (empty($form)) {
+      return false;
+    }
+
+    $is_recaptcha = OMF_Utils::custom_escape(get_post_meta($form->ID, 'cf_omf_recaptcha', true));
+    if (empty($is_recaptcha)) {
+      return false;
+    }
+
+    //入力画面のみ
+    $current_page_id = get_the_ID();
+    $page_ids        = $this->get_form_page_ids($form);
+    if ($page_ids['entry'] !== $current_page_id) {
+      return false;
+    }
+
+    return $is_recaptcha;
+  }
+
+  /**
+   * reCAPTCHA認証処理
+   * @return boolean
+   */
+  private function verify_google_recaptcha(): bool
+  {
+    $recaptcha_secret = !empty(get_option('omf_recaptcha_secret_key')) ? sanitize_text_field(wp_unslash(get_option('omf_recaptcha_secret_key'))) : '';
+    $recaptcha_field_name = !empty(get_option('omf_recaptcha_field_name')) ? sanitize_text_field(wp_unslash(get_option('omf_recaptcha_field_name'))) : 'g-recaptcha-response';
+    $recaptcha_response = !empty(filter_input(INPUT_POST, $recaptcha_field_name)) ? sanitize_text_field(wp_unslash(filter_input(INPUT_POST, $recaptcha_field_name))) : '';
+
+    if (empty($recaptcha_secret) || empty($recaptcha_response)) {
+      return false;
+    }
+
+    // APIリクエスト
+    $recaptch_url = 'https://www.google.com/recaptcha/api/siteverify';
+    $recaptcha_params = [
+      'secret' => $recaptcha_secret,
+      'response' => $recaptcha_response,
+    ];
+    $request_params_query =  http_build_query($recaptcha_params);
+    $endpoint = "{$recaptch_url}?{$request_params_query}";
+
+    $verify_response = OMF_Utils::curl_get($endpoint);
+    //curl取得エラーの場合
+    if (empty($verify_response) || is_wp_error($verify_response)) {
+      return false;
+    }
+
+    // APIレスポンス確認
+    $response_data = json_decode($verify_response);
+
+    return !empty($response_data) && $response_data->success && $response_data->score >= 0.5;
+  }
+
   /**
    * データを検証
-   * @param  Array $post_data 検証するデータ
-   * @param  String $validation 検証条件
+   * @param  array $post_data 検証するデータ
+   * @param  array $validation 検証条件
    * @return array エラー文
    */
-  public static function validate($post_data, $validation)
+  private function validate(array $post_data, array $validation): array
   {
+    $errors = [];
+
     if (empty($validation)) {
-      return;
+      return $errors;
     }
 
     //POSTにキーがない場合は未送信なのでスキップ
     $post_key = $validation['target'];
     if (!isset($post_data[$post_key])) {
-      return;
+      return $errors;
     }
 
     //検証するデータ
     $data = !empty($post_data[$post_key]) ? $post_data[$post_key] : '';
 
-    $errors = [];
-
     foreach ((array)$validation as $key => $value) {
       //最小文字数
       if ($key === 'min') {
-        $error_message = self::validate_min($data, $value);
+        $error_message = $this->validate_min($data, $value);
         if (!empty($error_message)) {
           $errors[] = $error_message;
         }
       }
       //最大文字数
       elseif ($key === 'max') {
-        $error_message = self::validate_max($data, $value);
+        $error_message = $this->validate_max($data, $value);
         if (!empty($error_message)) {
           $errors[] = $error_message;
         }
       }
       //必須
       elseif ($key === 'required') {
-        $error_message = self::validate_required($data, $value);
+        $error_message = $this->validate_required($data, $value);
         if (!empty($error_message)) {
           $errors[] = $error_message;
         }
       }
       //電話番号
       elseif ($key === 'tel') {
-        $error_message = self::validate_tel($data, $value);
+        $error_message = $this->validate_tel($data, $value);
         if (!empty($error_message)) {
           $errors[] = $error_message;
         }
       }
       //メールアドレス
       elseif ($key === 'email') {
-        $error_message = self::validate_email($data, $value);
+        $error_message = $this->validate_email($data, $value);
         if (!empty($error_message)) {
           $errors[] = $error_message;
         }
       }
       //URL
       elseif ($key === 'url') {
-        $error_message = self::validate_url($data, $value);
+        $error_message = $this->validate_url($data, $value);
         if (!empty($error_message)) {
           $errors[] = $error_message;
         }
       }
       //半角数字
       elseif ($key === 'numeric') {
-        $error_message = self::validate_numeric($data, $value);
+        $error_message = $this->validate_numeric($data, $value);
         if (!empty($error_message)) {
           $errors[] = $error_message;
         }
       }
       //半角英字
       elseif ($key === 'alpha') {
-        $error_message = self::validate_alpha($data, $value);
+        $error_message = $this->validate_alpha($data, $value);
         if (!empty($error_message)) {
           $errors[] = $error_message;
         }
       }
       //半角英数字
       elseif ($key === 'alphanumeric') {
-        $error_message = self::validate_alpha_numeric($data, $value);
+        $error_message = $this->validate_alpha_numeric($data, $value);
         if (!empty($error_message)) {
           $errors[] = $error_message;
         }
       }
       //カタカナ
       elseif ($key === 'katakana') {
-        $error_message = self::validate_katakana($data, $value);
+        $error_message = $this->validate_katakana($data, $value);
         if (!empty($error_message)) {
           $errors[] = $error_message;
         }
       }
       //ひらがな
       elseif ($key === 'hiragana') {
-        $error_message = self::validate_hiragana($data, $value);
+        $error_message = $this->validate_hiragana($data, $value);
         if (!empty($error_message)) {
           $errors[] = $error_message;
         }
       }
       //カタカナ or ひらがな
       elseif ($key === 'kana') {
-        $error_message = self::validate_kana($data, $value);
+        $error_message = $this->validate_kana($data, $value);
         if (!empty($error_message)) {
           $errors[] = $error_message;
         }
       }
       //日付
       elseif ($key === 'date') {
-        $error_message = self::validate_date($data, $value);
+        $error_message = $this->validate_date($data, $value);
         if (!empty($error_message)) {
           $errors[] = $error_message;
         }
       }
       //ThrowsSpamAway
       elseif ($key === 'throws_spam_away') {
-        $error_message = self::validate_throws_spam_away($data, $value);
+        $error_message = $this->validate_throws_spam_away($data, $value);
         if (!empty($error_message)) {
           $errors[] = $error_message;
         }
       }
       //一致する文字
       elseif ($key === 'matching_char') {
-        $error_message = self::validate_matching_char($data, $value);
+        $error_message = $this->validate_matching_char($data, $value);
         if (!empty($error_message)) {
           $errors[] = $error_message;
         }
@@ -148,11 +263,11 @@ class OMF_Validation
 
   /**
    * 最小文字数を検証する
-   * @param  String $data  検証するデータ
-   * @param  String $value 検証条件
-   * @return String        エラーメッセージ
+   * @param  string $data  検証するデータ
+   * @param  integer|string $value 検証条件
+   * @return string エラーメッセージ
    */
-  public static function validate_min($data, $value)
+  private function validate_min(string $data, int|string $value): string
   {
     $error = '';
     if (intval($value) === 0) {
@@ -167,11 +282,11 @@ class OMF_Validation
 
   /**
    * 最大文字数を検証する
-   * @param  String $data  検証するデータ
-   * @param  String $value 検証条件
-   * @return String        エラーメッセージ
+   * @param  string $data  検証するデータ
+   * @param  integer|string $value 検証条件
+   * @return string        エラーメッセージ
    */
-  public static function validate_max($data, $value)
+  private function validate_max(string $data, int|string $value): string
   {
     $error = '';
     if (intval($value) === 0) {
@@ -186,11 +301,11 @@ class OMF_Validation
 
   /**
    * 必須項目を検証する
-   * @param  String $data  検証するデータ
-   * @param  String $value 検証条件
-   * @return String        エラーメッセージ
+   * @param  string $data  検証するデータ
+   * @param  integer|string $value 検証条件
+   * @return string        エラーメッセージ
    */
-  public static function validate_required($data, $value)
+  private function validate_required(string $data, int|string $value): string
   {
     $error = '';
 
@@ -208,11 +323,11 @@ class OMF_Validation
 
   /**
    * 電話番号を検証する
-   * @param  String $data  検証するデータ
-   * @param  String $value 検証条件
-   * @return String        エラーメッセージ
+   * @param  string $data  検証するデータ
+   * @param  integer|string $value 検証条件
+   * @return string        エラーメッセージ
    */
-  public static function validate_tel($data, $value)
+  private function validate_tel(string $data, int|string $value): string
   {
     $error = '';
 
@@ -236,11 +351,11 @@ class OMF_Validation
 
   /**
    * メールアドレスを検証する
-   * @param  String $data  検証するデータ
-   * @param  String $value 検証条件
-   * @return String        エラーメッセージ
+   * @param  string $data  検証するデータ
+   * @param  integer|string $value 検証条件
+   * @return string        エラーメッセージ
    */
-  public static function validate_email($data, $value)
+  private function validate_email(string $data, int|string $value): string
   {
     $error = '';
 
@@ -259,11 +374,11 @@ class OMF_Validation
 
   /**
    * URLを検証する
-   * @param  String $data  検証するデータ
-   * @param  String $value 検証条件
-   * @return String        エラーメッセージ
+   * @param  string $data  検証するデータ
+   * @param  integer|string $value 検証条件
+   * @return string        エラーメッセージ
    */
-  public static function validate_url($data, $value)
+  private function validate_url(string $data, int|string $value): string
   {
     $error = '';
 
@@ -282,11 +397,11 @@ class OMF_Validation
 
   /**
    * 半角数字を検証する
-   * @param  String $data  検証するデータ
-   * @param  String $value 検証条件
-   * @return String        エラーメッセージ
+   * @param  string $data  検証するデータ
+   * @param  integer|string $value 検証条件
+   * @return string        エラーメッセージ
    */
-  public static function validate_numeric($data, $value)
+  private function validate_numeric(string $data, int|string $value): string
   {
     $error = '';
 
@@ -305,11 +420,11 @@ class OMF_Validation
 
   /**
    * 半角英字を検証する
-   * @param  String $data  検証するデータ
-   * @param  String $value 検証条件
-   * @return String        エラーメッセージ
+   * @param  string $data  検証するデータ
+   * @param  integer|string $value 検証条件
+   * @return string        エラーメッセージ
    */
-  public static function validate_alpha($data, $value)
+  private function validate_alpha(string $data, int|string $value): string
   {
     $error = '';
 
@@ -328,11 +443,11 @@ class OMF_Validation
 
   /**
    * 半角英数字を検証する
-   * @param  String $data  検証するデータ
-   * @param  String $value 検証条件
-   * @return String        エラーメッセージ
+   * @param  string $data  検証するデータ
+   * @param  integer|string $value 検証条件
+   * @return string        エラーメッセージ
    */
-  public static function validate_alpha_numeric($data, $value)
+  private function validate_alpha_numeric(string $data, int|string $value): string
   {
     $error = '';
 
@@ -351,11 +466,11 @@ class OMF_Validation
 
   /**
    * カタカナを検証する
-   * @param  String $data  検証するデータ
-   * @param  String $value 検証条件
-   * @return String        エラーメッセージ
+   * @param  string $data  検証するデータ
+   * @param  integer|string $value 検証条件
+   * @return string        エラーメッセージ
    */
-  public static function validate_katakana($data, $value)
+  private function validate_katakana(string $data, int|string $value): string
   {
     $error = '';
 
@@ -374,11 +489,11 @@ class OMF_Validation
 
   /**
    * ひらがなを検証する
-   * @param  String $data  検証するデータ
-   * @param  String $value 検証条件
-   * @return String        エラーメッセージ
+   * @param  string $data  検証するデータ
+   * @param  integer|string $value 検証条件
+   * @return string        エラーメッセージ
    */
-  public static function validate_hiragana($data, $value)
+  private function validate_hiragana(string $data, int|string $value): string
   {
     $error = '';
 
@@ -398,11 +513,11 @@ class OMF_Validation
 
   /**
    * カタカナ or ひらがなを検証する
-   * @param  String $data  検証するデータ
-   * @param  String $value 検証条件
-   * @return String        エラーメッセージ
+   * @param  string $data  検証するデータ
+   * @param  integer|string $value 検証条件
+   * @return string        エラーメッセージ
    */
-  public static function validate_kana($data, $value)
+  private function validate_kana(string $data, int|string $value): string
   {
     $error = '';
 
@@ -421,11 +536,11 @@ class OMF_Validation
 
   /**
    * 日付を検証する
-   * @param  String $data  検証するデータ
-   * @param  String $value 検証条件
-   * @return String        エラーメッセージ
+   * @param  string $data  検証するデータ
+   * @param  integer|string $value 検証条件
+   * @return string        エラーメッセージ
    */
-  public static function validate_date($data, $value)
+  private function validate_date(string $data, int|string $value): string
   {
     $error = '';
 
@@ -467,11 +582,11 @@ class OMF_Validation
 
   /**
    * Throws SPAM Awayを検証する
-   * @param  String $data  検証するデータ
-   * @param  String $value 検証条件
-   * @return String        エラーメッセージ
+   * @param  string $data  検証するデータ
+   * @param  integer|string $value 検証条件
+   * @return string        エラーメッセージ
    */
-  public static function validate_throws_spam_away($data, $value)
+  private function validate_throws_spam_away(string $data, int|string $value): string
   {
     $error = '';
 
@@ -480,7 +595,7 @@ class OMF_Validation
       return $error;
     }
 
-    $check_spam = self::throws_spam_away($data);
+    $check_spam = $this->throws_spam_away($data);
 
     //スパム判定された場合
     if ($check_spam['valid'] === false) {
@@ -493,11 +608,11 @@ class OMF_Validation
 
   /**
    * 一致する文字列を検証する
-   * @param  String $data  検証するデータ
-   * @param  String $value 検証条件
-   * @return String        エラーメッセージ
+   * @param  string $data  検証するデータ
+   * @param  integer|string $value 検証条件
+   * @return string        エラーメッセージ
    */
-  public static function validate_matching_char($data, $value)
+  private function validate_matching_char(string $data, int|string $value): string
   {
     $error = '';
 
@@ -521,7 +636,7 @@ class OMF_Validation
    * @param  string $value 検証する文字列
    * @return array 検証結果
    */
-  public static function throws_spam_away($value)
+  private function throws_spam_away(string $value): array
   {
     //ファイルの存在確認
     $filename = WP_PLUGIN_DIR . '/throws-spam-away/throws_spam_away.class.php';
