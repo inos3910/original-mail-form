@@ -64,7 +64,9 @@ trait OMF_Trait_Update
     // ファイル差分を取得し、削除されるべきファイルを削除
     $files_to_delete = $this->get_file_diff($plugin_dir, $target_dir);
     foreach ($files_to_delete as $file) {
-      unlink($file);
+      if (file_exists($file)) {
+        unlink($file);
+      }
     }
     //ファイルの移動
     $this->move_files($target_dir, $plugin_dir);
