@@ -21,7 +21,8 @@ trait OMF_Trait_Update
     require_once(ABSPATH . 'wp-admin/includes/file.php');
 
     $github_repo_url = 'https://github.com/inos3910/original-mail-form/archive/master.zip';
-    $plugin_dir = plugin_dir_path(__FILE__) . '../';
+    // $plugin_dir = plugin_dir_path(__FILE__) . '../';
+    $plugin_dir = plugin_dir_path(__DIR__);
 
     $response = wp_safe_remote_get($github_repo_url);
 
@@ -59,15 +60,14 @@ trait OMF_Trait_Update
     //一時ファイルを削除
     unlink($temp_zip_path);
 
-    //ファイルの移動
     $target_dir = $plugin_dir . "original-mail-form-master/";
-    $this->move_files($target_dir, $plugin_dir);
-
     // ファイル差分を取得し、削除されるべきファイルを削除
     $files_to_delete = $this->get_file_diff($plugin_dir, $target_dir);
     foreach ($files_to_delete as $file) {
       unlink($file);
     }
+    //ファイルの移動
+    $this->move_files($target_dir, $plugin_dir);
 
     // メッセージを表示
     echo '<div class="updated"><p>プラグインが更新されました。</p></div>';
