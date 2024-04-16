@@ -15,7 +15,7 @@ trait OMF_Trait_Update
    *
    * @return void
    */
-  public function update_plugin_from_github()
+  private function update_plugin_from_github()
   {
     //WP_Filesystem
     require_once(ABSPATH . 'wp-admin/includes/file.php');
@@ -63,6 +63,12 @@ trait OMF_Trait_Update
     $target_dir = $plugin_dir . "original-mail-form-master/";
     $this->move_files($target_dir, $plugin_dir);
 
+    // ファイル差分を取得し、削除されるべきファイルを削除
+    $files_to_delete = $this->get_file_diff($plugin_dir, $target_dir);
+    foreach ($files_to_delete as $file) {
+      unlink($file);
+    }
+
     // メッセージを表示
     echo '<div class="updated"><p>プラグインが更新されました。</p></div>';
   }
@@ -74,7 +80,7 @@ trait OMF_Trait_Update
    * @param string $destination 任意の場所
    * @return void
    */
-  public function move_files(string $source, string $destination)
+  private function move_files(string $source, string $destination)
   {
     if (!is_dir($source)) {
       return;
@@ -107,5 +113,32 @@ trait OMF_Trait_Update
 
     //ディレクトリ削除
     rmdir($source);
+  }
+
+  /**
+   * 2つのディレクトリ間のファイル差分を取得
+   *
+   * @param string $source_dir 元のディレクトリ
+   * @param string $target_dir 比較対象のディレクトリ
+   * @return array 削除されるべきファイルのパス
+   */
+  private function get_file_diff(string $source_dir, string $target_dir): array
+  {
+    $files_to_delete = [];
+
+    // 元のディレクトリ内のファイルを取得
+    $source_files = array_diff(scandir($source_dir), ['.', '..']);
+
+    // 比較対象のディレクトリ内のファイルを取得
+    $target_files = array_diff(scandir($target_dir), ['.', '..']);
+
+    // 元のディレクトリにあるが、比較対象のディレクトリにないファイルを取得
+    $diff = array_diff($source_files, $target_files);
+
+    foreach ($diff as $file) {
+      $files_to_delete[] = $source_dir . '/' . $file;
+    }
+
+    return $files_to_delete;
   }
 }
