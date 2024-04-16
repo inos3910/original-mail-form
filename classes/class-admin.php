@@ -7,14 +7,17 @@ if (!defined('ABSPATH')) {
 }
 
 use ZipArchive;
+use WP_Post;
 
 class OMF_Admin
 {
+  use OMF_Trait_Form, OMF_Trait_Cryptor, OMF_Trait_Google_Auth;
 
   public function __construct()
   {
     //管理画面
-    add_action('init', [$this, 'create_post_type']);
+    add_action('init', [$this, 'init']);
+    add_action('admin_init', [$this, 'redirects']);
     add_filter('manage_edit-' . OMF_Config::NAME . '_columns', [$this, 'custom_posts_columns']);
     add_action('manage_' . OMF_Config::NAME . '_posts_custom_column', [$this, 'add_column'], 10, 2);
     add_action('admin_menu', [$this, 'add_admin_submenus']);
@@ -25,10 +28,72 @@ class OMF_Admin
     add_action('post_row_actions', [$this, 'admin_omf_data_list_row'], 10, 2);
   }
 
+  //初期化
+  public function init()
+  {
+    $this->create_post_type();
+    $this->create_save_data_post_types();
+  }
+
+  //リダイレクト
+  public function redirects()
+  {
+    $this->oauth_redirect();
+    $this->disconnect_oauth_redirect();
+  }
+
   /**
-   * メールフォーム投稿タイプを作成
+   * CSS・JSの追加
+   *
+   * @return void
    */
-  public function create_post_type()
+  public function add_omf_srcs()
+  {
+    $this->add_omf_styles();
+    $this->add_omf_scripts();
+  }
+
+  /**
+   * CSSの追加
+   *
+   * @return void
+   */
+  public function add_omf_styles()
+  {
+    wp_enqueue_style('omf-admin-style', plugins_url('../dist/css/style.css', __FILE__));
+
+    //送信データの場合は新規投稿ボタンを非表示にする
+    global $post_type;
+    if (!empty($post_type) && $this->is_omf_data_post_type($post_type)) {
+      echo '<style>.wrap .wp-heading-inline + .page-title-action{display: none;}</style>';
+    }
+  }
+
+  /**
+   * JSを追加
+   *
+   * @return void
+   */
+  public function add_omf_scripts()
+  {
+    global $post_type;
+    if (!empty($post_type)) {
+      if ($post_type === OMF_Config::NAME) {
+        wp_enqueue_script('omf-script', plugins_url('../dist/js/main.js', __FILE__), [], '1.0', true);
+      }
+
+      if ($this->is_omf_data_post_type($post_type)) {
+        wp_enqueue_script('omf-data-list-script', plugins_url('../dist/js/data-list.js', __FILE__), [], '1.0', true);
+      }
+    }
+  }
+
+  /**
+   *メールフォーム投稿タイプを作成
+   *
+   * @return void
+   */
+  private function create_post_type()
   {
     $labels = [
       'name'                => 'メールフォーム',
@@ -63,9 +128,16 @@ class OMF_Admin
         'title'
       ]
     ];
-    //投稿タイプの登録
     register_post_type(OMF_Config::NAME, $args);
+  }
 
+  /**
+   * 送信データ投稿タイプを作成
+   *
+   * @return void
+   */
+  private function create_save_data_post_types()
+  {
     //フォームを取得
     $mail_forms = $this->get_forms();
     if (empty($mail_forms)) {
@@ -118,12 +190,54 @@ class OMF_Admin
   }
 
   /**
+   * サブメニューの追加
+   *
+   * @return void
+   */
+  public function add_admin_submenus()
+  {
+    $this->add_admin_setting();
+    $this->add_admin_recaptcha_settings();
+    $this->add_admin_data_settings();
+    $this->add_admin_google_settings();
+    $this->add_admin_update_settings();
+  }
+
+  /**
+   * 設定オプションページを追加
+   *
+   * @return void
+   */
+  public function add_admin_setting()
+  {
+    add_submenu_page(
+      'edit.php?post_type=' . OMF_Config::NAME,
+      '設定',
+      '設定',
+      'manage_options',
+      'omf_settings',
+      [$this, 'load_admin_template']
+    );
+    add_action('admin_init', [$this, 'register_omf_settings']);
+  }
+
+  /**
+   * 設定オプションページ 項目の登録
+   *
+   * @return void
+   */
+  public function register_omf_settings()
+  {
+    register_setting('omf-settings-group', 'omf_is_rest_api');
+  }
+
+  /**
    * 送信データ詳細ページにメタボックスを追加
    *
    * @param WP_Post $post
    * @return void
    */
-  public function add_meta_box_data_detail($post)
+  public function add_meta_box_data_detail(WP_Post $post)
   {
     //送信データ詳細
     add_meta_box('omf-metabox-data-detail', '送信データ詳細', [$this, 'data_detail_meta_box_callback'], $post->post_type, 'normal', 'default');
@@ -132,19 +246,19 @@ class OMF_Admin
   }
 
   /**
-   * 送信データ詳細ページのソース
+   * 送信データ詳細のメタボックス
    *
+   * @param WP_Post $post
    * @return void
    */
-  public function data_detail_meta_box_callback($post)
-  { ?>
-    <?php
+  public function data_detail_meta_box_callback(WP_Post $post)
+  {
     $all_fields = get_post_custom($post->ID);
     $form_slug = $this->get_form_slug_by_data_post_id($post->ID);
     $label = get_post_type_object($post->post_type)->label;
     $fields = $this->filter_hidden_custom_field($all_fields);
-    if (!empty($fields)) {
-    ?>
+
+    if (!empty($fields)) { ?>
       <div class="omf-data__frame">
         <table class="omf-data__table">
           <?php
@@ -184,21 +298,30 @@ class OMF_Admin
       </div>
     <?php
     }
-    ?>
-  <?php
   }
 
-  public function data_memo_meta_box_callback($post)
+  /**
+   *メモのメタボックス
+   *
+   * @param WP_Post $post
+   * @return void
+   */
+  public function data_memo_meta_box_callback(WP_Post $post)
   {
     $this->omf_meta_box_textarea($post, 'メモ', 'cf_omf_data_memo');
   }
 
-  //送信データの投稿IDから連携しているフォームのスラッグ名を取得
-  public function get_form_slug_by_data_post_id($data_id)
+  /**
+   * 送信データの投稿IDから連携しているフォームのスラッグ名を取得
+   *
+   * @param integer|string $data_id
+   * @return string
+   */
+  private function get_form_slug_by_data_post_id(int|string $data_id): string
   {
     //CFがない場合
     if (empty($data_id)) {
-      return;
+      return '';
     }
 
     //投稿タイプ名から取得
@@ -209,8 +332,13 @@ class OMF_Admin
     return $form_slug;
   }
 
-  //プラグイン側で生成されるカスタムフィールドのキーの名前を日本語に置き換える
-  public function replace_custom_field_default_key($field_key)
+  /**
+   * プラグイン側で生成されるカスタムフィールドのキーの名前を日本語に置き換える
+   *
+   * @param string $field_key
+   * @return string
+   */
+  private function replace_custom_field_default_key(string  $field_key): string
   {
     if ($field_key === 'omf_mail_title') {
       return '件名';
@@ -259,11 +387,16 @@ class OMF_Admin
     return $field_key;
   }
 
-  //隠しデータはフィルタリングする
-  public function filter_hidden_custom_field($fields)
+  /**
+   * 隠しデータはフィルタリングする
+   *
+   * @param array $fields
+   * @return array
+   */
+  private function filter_hidden_custom_field(array $fields): array
   {
     if (empty($fields)) {
-      return;
+      return [];
     }
 
     $new_fields = [];
@@ -276,28 +409,13 @@ class OMF_Admin
     return $new_fields;
   }
 
-  //IDから送信データの投稿タイプを取得
-  public function get_data_post_type_by_id($form_id)
-  {
-    if (empty($form_id)) {
-      return;
-    }
-
-    if (!preg_match('/^\d+$/', $form_id)) {
-      return;
-    }
-
-    $data_post_type = OMF_Config::DBDATA . $form_id;
-    return $data_post_type;
-  }
-
   /**
    * 投稿タイプ一覧画面のカスタマイズ
    *
-   * @param [type] $columns
-   * @return void
+   * @param array $columns
+   * @return array
    */
-  public function custom_posts_columns($columns)
+  public function custom_posts_columns(array $columns): array
   {
     unset($columns['author']);
     //「日時」列を最後に持ってくる為、一旦クリア
@@ -306,11 +424,12 @@ class OMF_Admin
       unset($columns['date']);
     }
 
-    $columns['slug']      = "スラッグ";
-    $columns['entry']     = "フォーム入力画面";
-    $columns['recaptcha'] = "reCAPTCHA設定";
-    $columns['save_db']   = "データベース保存";
-    $columns['slack']     = "Slack通知";
+    $columns['omf_slug']          = "スラッグ";
+    $columns['omf_entry']         = "フォーム入力画面";
+    $columns['omf_recaptcha']     = "reCAPTCHA設定";
+    $columns['omf_save_db']       = "データベース保存";
+    $columns['omf_slack']         = "Slack通知";
+    $columns['omf_google_sheets'] = "Googleスプレッドシート書き込み";
 
     // 「日時」列を再セット
     if (isset($date)) {
@@ -320,30 +439,29 @@ class OMF_Admin
     return $columns;
   }
 
-
   /**
    * 投稿タイプ一覧画面に値を出力
    *
-   * @param [type] $column_name
-   * @param [type] $post_id
+   * @param string $column_name
+   * @param integer $post_id
    * @return void
    */
-  public function add_column($column_name, $post_id)
+  public function add_column(string $column_name, int $post_id)
   {
     //スラッグ
-    if ($column_name === 'slug') {
+    if ($column_name === 'omf_slug') {
       $post = get_post($post_id);
       if (!empty($post)) {
         echo esc_html($post->post_name);
       }
     }
     //入力画面
-    elseif ($column_name === 'entry') {
+    elseif ($column_name === 'omf_entry') {
       $entry_page = get_post_meta($post_id, 'cf_omf_screen_entry', true);
       echo esc_html($entry_page);
     }
     // reCAPTCHA設定
-    elseif ($column_name === 'recaptcha') {
+    elseif ($column_name === 'omf_recaptcha') {
       $is_recaptcha = get_post_meta($post_id, 'cf_omf_recaptcha', true);
       if (!empty($is_recaptcha) && $is_recaptcha == 1) {
         echo esc_html('有効');
@@ -352,7 +470,7 @@ class OMF_Admin
       }
     }
     // データベース保存
-    elseif ($column_name === 'save_db') {
+    elseif ($column_name === 'omf_save_db') {
       $is_use_db = get_post_meta($post_id, 'cf_omf_save_db', true);
       if ($is_use_db === '1') {
         echo esc_html('有効');
@@ -361,8 +479,17 @@ class OMF_Admin
       }
     }
     // Slack通知
-    elseif ($column_name === 'slack') {
+    elseif ($column_name === 'omf_slack') {
       $is_use_db = get_post_meta($post_id, 'cf_omf_is_slack_notify', true);
+      if ($is_use_db === '1') {
+        echo esc_html('有効');
+      } else {
+        echo esc_html('無効');
+      }
+    }
+    // Googleスプレッドシート書き込み
+    elseif ($column_name === 'omf_google_sheets') {
+      $is_use_db = get_post_meta($post_id, 'cf_omf_is_google_sheets', true);
       if ($is_use_db === '1') {
         echo esc_html('有効');
       } else {
@@ -371,17 +498,17 @@ class OMF_Admin
     }
     //それ以外
     else {
-      return;
+      // 何もしない
     }
   }
 
   /**
    * 送信データ投稿タイプ一覧画面のカスタマイズ
    *
-   * @param [type] $columns
-   * @return void
+   * @param array $columns
+   * @return array
    */
-  public function custom_data_columns($columns)
+  public function custom_data_columns(array $columns): array
   {
     //「日時」列クリア
     unset($columns['date']);
@@ -415,15 +542,14 @@ class OMF_Admin
     return $columns;
   }
 
-
   /**
    * 送信データ投稿タイプ一覧画面に値を出力
    *
-   * @param [type] $column_name
-   * @param [type] $post_id
+   * @param string $column_name
+   * @param integer $post_id
    * @return void
    */
-  public function add_data_column($column_name, $post_id)
+  public function add_data_column(string $column_name, int $post_id)
   {
     $value = get_post_meta($post_id, $column_name, false);
     if (!empty($value)) {
@@ -440,56 +566,17 @@ class OMF_Admin
    * @param string $post_type
    * @return boolean
    */
-  public function is_omf_data_post_type($post_type)
+  public function is_omf_data_post_type(string $post_type): bool
   {
     return !empty($post_type) && strncmp($post_type, OMF_Config::DBDATA, strlen(OMF_Config::DBDATA)) === 0;
   }
 
-  //CSS・JSの追加
-  public function add_omf_srcs()
-  {
-    $this->add_omf_styles();
-    $this->add_omf_scripts();
-  }
-
   /**
-   * CSSの追加
-   */
-  public function add_omf_styles()
-  {
-    wp_enqueue_style('omf-admin-style', plugins_url('../dist/css/style.css', __FILE__));
-
-    //送信データの場合は新規投稿ボタンを非表示にする
-    global $post_type;
-    if ($this->is_omf_data_post_type($post_type)) {
-      echo '<style>.wrap .wp-heading-inline + .page-title-action{display: none;}</style>';
-    }
-  }
-
-  /**
-   * JSを追加
+   * 送信データオプションページを追加
    *
    * @return void
    */
-  public function add_omf_scripts()
-  {
-    global $post_type;
-    if (!empty($post_type)) {
-      if ($post_type === OMF_Config::NAME) {
-        wp_enqueue_script('omf-script', plugins_url('../dist/js/main.js', __FILE__), [], '1.0', true);
-      }
-
-      if ($this->is_omf_data_post_type($post_type)) {
-        wp_enqueue_script('omf-data-list-script', plugins_url('../dist/js/data-list.js', __FILE__), [], '1.0', true);
-      }
-    }
-  }
-
-  /**
-   * 送信データオプションページを追加
-   * @return [type] [description]
-   */
-  public function add_admin_data()
+  public function add_admin_data_settings()
   {
     add_submenu_page(
       'edit.php?post_type=' . OMF_Config::NAME,
@@ -497,92 +584,32 @@ class OMF_Admin
       '送信データ',
       'manage_options',
       'omf_data',
-      [$this, 'admin_omf_data_page']
+      [$this, 'load_admin_template']
     );
   }
 
   /**
-   * 送信データオプション画面のソース
+   * 管理画面テンプレートの読み込み
+   *
+   * @return void
    */
-  public function admin_omf_data_page()
-  { ?>
-    <div class="wrap">
-      <h1>送信データ</h1>
-      <div class="admin_optional">
-
-        <?php
-        $mail_forms = $this->get_forms();
-        if (!empty($mail_forms)) {
-        ?>
-          <table class="wp-list-table widefat fixed striped" cellspacing="0">
-            <thead>
-              <th>フォーム名</th>
-              <th>DB保存件数</th>
-              <th>更新日</th>
-              <th>作成日</th>
-            </thead>
-            <?php
-            foreach ((array)$mail_forms as $form) {
-              $is_use_db = get_post_meta($form->ID, 'cf_omf_save_db', true) === '1';
-              if (!$is_use_db) {
-                continue;
-              }
-
-              $data_post_type = $this->get_data_post_type_by_id($form->ID);
-              if (empty($data_post_type)) {
-                continue;
-              }
-
-              $data_list = get_posts([
-                'posts_per_page'  => -1,
-                'post_type'       => $data_post_type,
-                'post_status'     => 'publish'
-              ]);
-
-              //件数
-              $data_count = count($data_list);
-              //更新日
-              $latest_post_date = '';
-              //作成日
-              $publish_post_date = '';
-
-              if (!empty($data_list)) {
-                // 更新日時でソート
-                usort($data_list, function ($a, $b) {
-                  return $b->post_modified <=> $a->post_modified;
-                });
-                $latest_post = $data_list[0];
-                $latest_post_date = get_the_modified_date('Y年n月j日', $latest_post);
-
-                // 公開日でソート
-                usort($data_list, function ($a, $b) {
-                  return $b->post_date <=> $a->post_date;
-                });
-                $publish_post = $data_list[0];
-                $publish_post_date = get_the_date('Y年n月j日', $publish_post);
-              }
-
-            ?>
-              <tr>
-                <td><a href="<?php echo esc_url(admin_url("edit.php?post_type={$data_post_type}")) ?>"><?php echo esc_html(get_the_title($form->ID)) ?></a></td>
-                <td><?php echo esc_html($data_count) ?>件</td>
-                <td><?php echo esc_html($latest_post_date) ?></td>
-                <td><?php echo esc_html($publish_post_date) ?></td>
-              </tr>
-            <?php
-            }
-            ?>
-          </table>
-        <?php
-        }
-        ?>
-      </div>
-    </div>
-  <?php
+  public function load_admin_template()
+  {
+    $slug = filter_input(INPUT_GET, 'page', FILTER_SANITIZE_FULL_SPECIAL_CHARS);
+    $plugin_root_path = plugin_dir_path(__DIR__);
+    $template_path = "{$plugin_root_path}templates/{$slug}.php";
+    if (file_exists($template_path)) {
+      require_once $template_path;
+    }
   }
 
-  //送信データ一覧の不要な項目を削除
-  public function admin_omf_data_list_row($actions)
+  /**
+   * 送信データ一覧の不要な項目を削除
+   *
+   * @param array $actions
+   * @return array
+   */
+  public function admin_omf_data_list_row(array $actions): array
   {
 
     global $post_type;
@@ -599,11 +626,14 @@ class OMF_Admin
     return $actions;
   }
 
+
+
   /**
    * 更新オプションページを追加
-   * @return [type] [description]
+   *
+   * @return void
    */
-  public function add_admin_update()
+  public function add_admin_update_settings()
   {
     add_submenu_page(
       'edit.php?post_type=' . OMF_Config::NAME,
@@ -611,99 +641,82 @@ class OMF_Admin
       'プラグインの更新',
       'manage_options',
       'omf_update',
-      [$this, 'admin_omf_update_page']
+      [$this, 'load_admin_template']
     );
   }
 
   /**
-   * 更新オプション画面のソース
+   * Google連携設定オプションページを追加
+   *
+   * @return void
    */
-  public function admin_omf_update_page()
-  { ?>
-    <div class="wrap">
-      <h1>プラグインの更新</h1>
-      <?php
-      if (filter_input(INPUT_POST, 'update_omf', FILTER_SANITIZE_NUMBER_INT) === '1') {
-        $this->update_plugin_from_github();
-      }
-      ?>
-      <div class="admin_optional">
-        <form method="post" action="">
-          <p>Github上で管理している最新のmasterブランチのファイルに更新します。</p>
-          <p><a href="https://github.com/inos3910/original-mail-form" target="_blank" rel="noopener">GitHubリポジトリはこちら →</a></p>
-          <button class="button" type="submit" name="update_omf" value="1">更新開始</button>
-        </form>
-      </div>
-    </div>
-  <?php
-  }
-
-  //サブメニューの追加
-  public function add_admin_submenus()
-  {
-    $this->add_admin_setting();
-    $this->add_admin_recaptcha_menu();
-    $this->add_admin_data();
-    $this->add_admin_update();
-  }
-
-  /**
-   * 設定オプションページを追加
-   * @return [type] [description]
-   */
-  public function add_admin_setting()
+  private function add_admin_google_settings()
   {
     add_submenu_page(
       'edit.php?post_type=' . OMF_Config::NAME,
-      '設定',
-      '設定',
+      'Google連携',
+      'Google連携',
       'manage_options',
-      'omf_settings',
-      [$this, 'admin_omf_setting_page']
+      'omf_google_settings',
+      [$this, 'load_admin_template']
     );
-    add_action('admin_init', [$this, 'register_omf_settings']);
+    add_action('admin_init', [$this, 'register_omf_google_settings']);
   }
 
   /**
-   * 設定オプションページ 項目の登録
+   * Google連携設定オプションページ 項目の登録
+   *
+   * @return void
    */
-  public function register_omf_settings()
+  public function register_omf_google_settings()
   {
-    register_setting('omf-settings-group', 'omf_is_rest_api');
+    register_setting('omf-google-settings-group', 'omf_google_client_id');
+    register_setting('omf-google-settings-group', 'omf_google_client_secret');
+    register_setting('omf-google-settings-group', 'omf_google_redirect_uri');
   }
 
   /**
-   * 設定オプション画面のソース
+   * OAuth認証リダイレクト時にトークン生成・保存してリダイレクト
+   *
+   * @return void
    */
-  public function admin_omf_setting_page()
-  { ?>
-    <div class="wrap">
-      <h1>設定</h1>
-      <div class="admin_optional">
-        <form method="post" action="options.php">
-          <?php
-          settings_fields('omf-settings-group');
-          do_settings_sections('omf-settings-group');
-          settings_errors();
-          $is_rest_api = get_option('omf_is_rest_api') === '1';
-          ?>
-          <table class="form-table">
-            <tr>
-              <th scope="row">REST API</th>
-              <td>
-                <label>
-                  <input type="checkbox" name="omf_is_rest_api" value="1" <?php if ($is_rest_api) echo 'checked'; ?>>
-                  有効化
-                </label>
-              </td>
-            </tr>
-          </table>
-          <?php submit_button(); ?>
-        </form>
-      </div>
-    </div>
-  <?php
+  private function oauth_redirect()
+  {
+    $is_oauth_page = isset($_GET['page']) && $_GET['page'] === 'omf_google_settings' && isset($_GET['code']);
+    if (!$is_oauth_page) {
+      return;
+    }
+
+    $client_id     = get_option('omf_google_client_id');
+    $client_secret = get_option('omf_google_client_secret');
+    $redirect_uri  = admin_url('edit.php?post_type=original_mail_forms&page=omf_google_settings');
+    $access_token  = $this->decrypt_secret(get_option('_omf_google_access_token'), 'access_token');
+    $refresh_token  = $this->decrypt_secret(get_option('_omf_google_refresh_token'), 'refresh_token');
+    $this->set_tokens($client_id, $client_secret, $redirect_uri, $access_token, $refresh_token);
+
+    //トークンの保存が終わったらリダイレクト
+    wp_redirect(admin_url('edit.php?post_type=original_mail_forms&page=omf_google_settings'));
+    exit;
   }
+
+  /**
+   * OAuthを解除した後にリダイレクト
+   *
+   * @return void
+   */
+  private function disconnect_oauth_redirect()
+  {
+    $is_remove_oauth_page = isset($_GET['page']) && $_GET['page'] === 'omf_google_settings' && isset($_GET['remove_oauth']) && $_GET['remove_oauth'] === '1';
+    if (!$is_remove_oauth_page) {
+      return;
+    }
+    //OAuth接続を解除
+    $this->remove_google_tokens();
+    //OAuth接続を解除したらリダイレクト
+    wp_redirect(admin_url('edit.php?post_type=original_mail_forms&page=omf_google_settings'));
+    exit;
+  }
+
 
   /**
    * プラグインをmasterブランチに更新
@@ -756,7 +769,7 @@ class OMF_Admin
 
     //ファイルの移動
     $target_dir = $plugin_dir . "original-mail-form-master/";
-    $this->moveFiles($target_dir, $plugin_dir);
+    $this->move_files($target_dir, $plugin_dir);
 
     // メッセージを表示
     echo '<div class="updated"><p>プラグインが更新されました。</p></div>';
@@ -765,11 +778,11 @@ class OMF_Admin
   /**
    * 指定フォルダ内の中身をすべて任意の場所に移動
    *
-   * @param [type] $source 指定フォルダ
-   * @param [type] $destination 任意の場所
+   * @param string $source 指定フォルダ
+   * @param string $destination 任意の場所
    * @return void
    */
-  public function moveFiles($source, $destination)
+  public function move_files(string $source, string $destination)
   {
     if (!is_dir($source)) {
       return;
@@ -786,7 +799,7 @@ class OMF_Admin
           $destinationPath = $destination . '/' . $entry;
 
           if (is_dir($sourcePath)) {
-            $this->moveFiles($sourcePath, $destinationPath);
+            $this->move_files($sourcePath, $destinationPath);
           } else {
             if (file_exists($destinationPath)) {
               // 移動先のファイルが存在する場合は削除
@@ -806,23 +819,26 @@ class OMF_Admin
 
   /**
    * reCAPTCHA設定オプションページを追加
-   * @return [type] [description]
+   *
+   * @return void
    */
-  public function add_admin_recaptcha_menu()
+  public function add_admin_recaptcha_settings()
   {
     add_submenu_page(
       'edit.php?post_type=' . OMF_Config::NAME,
       'reCAPTCHA設定',
       'reCAPTCHA設定',
       'manage_options',
-      'recaptcha_settings',
-      [$this, 'admin_recaptcha_settings_page']
+      'omf_recaptcha_settings',
+      [$this, 'load_admin_template']
     );
     add_action('admin_init', [$this, 'register_recaptcha_settings']);
   }
 
   /**
    * reCAPTCHA設定オプションページ 項目の登録
+   *
+   * @return void
    */
   public function register_recaptcha_settings()
   {
@@ -833,84 +849,36 @@ class OMF_Admin
   }
 
   /**
-   * reCAPTCHA設定オプション画面のソース
-   */
-  public function admin_recaptcha_settings_page()
-  {
-  ?>
-    <div class="wrap">
-      <h1>reCAPTCHA設定</h1>
-      <div class="admin_optional">
-        <form method="post" action="options.php">
-          <?php
-          settings_fields('recaptcha-settings-group');
-          do_settings_sections('recaptcha-settings-group');
-          settings_errors();
-
-          $recaptcha_site_key = !empty(get_option('omf_recaptcha_site_key')) ? sanitize_text_field(wp_unslash(get_option('omf_recaptcha_site_key'))) : '';
-          $recaptcha_secret_key = !empty(get_option('omf_recaptcha_secret_key')) ? sanitize_text_field(wp_unslash(get_option('omf_recaptcha_secret_key'))) : '';
-          $recaptcha_score = !empty(get_option('omf_recaptcha_score')) ? sanitize_text_field(wp_unslash(get_option('omf_recaptcha_score'))) : '';
-          $recaptcha_field_name = !empty(get_option('omf_recaptcha_field_name')) ? sanitize_text_field(wp_unslash(get_option('omf_recaptcha_field_name'))) : 'g-recaptcha-response';
-          ?>
-          <p><a href="https://www.google.com/recaptcha/admin" target="_blank" rel="noopener">reCAPTCHA v3 コンソールでキーを取得 →</a></p>
-          <table class="form-table">
-            <tr>
-              <th scope="row">reCAPTCHA v3 サイトキー</th>
-              <td>
-                <p>
-                  <input class="regular-text code" type="text" name="omf_recaptcha_site_key" value="<?php echo esc_attr($recaptcha_site_key); ?>">
-                </p>
-              </td>
-            </tr>
-            <tr>
-              <th scope="row">reCAPTCHA v3 シークレットキー</th>
-              <td>
-                <p>
-                  <input class="regular-text code" type="text" name="omf_recaptcha_secret_key" value="<?php echo esc_attr($recaptcha_secret_key); ?>">
-                </p>
-              </td>
-            </tr>
-            <tr>
-              <th scope="row">しきい値（0.0 - 1.0）</th>
-              <td>
-                <p>
-                  <input class="small-text" type="number" pattern="\d*" min="0.0" max="1.0" step="0.1" name="omf_recaptcha_score" value="<?php echo esc_attr($recaptcha_score) ?>">
-                </p>
-                <p class="description">大きいほど判定が厳しくなる。デフォルトでは、0.5。</p>
-              </td>
-            </tr>
-            <tr>
-              <th scope="row">reCAPTCHAフィールド名</th>
-              <td>
-                <p>
-                  <input class="regular-text code" type="text" name="omf_recaptcha_field_name" value="<?php echo esc_attr($recaptcha_field_name); ?>">
-                </p>
-                <p class="description">フォーム内に出力されるinput要素のname属性を設定。デフォルトは「g-recaptcha-response」</p>
-              </td>
-            </tr>
-          </table>
-          <?php submit_button(); ?>
-        </form>
-      </div>
-    </div>
-  <?php
-  }
-
-  /**
    * カスタムフィールドの保存
-   * @param  [type] $post_id ページID
+   *
+   * @param integer $post_id
+   * @return void
    */
-  public function save_omf_custom_field($post_id)
+  public function save_omf_custom_field(int $post_id)
   {
     if (defined('DOING_AUTOSAVE') && DOING_AUTOSAVE) return;
 
-    //単一データの場合
+    $this->save_single_custom_fields($post_id);
+    $this->save_array_custom_fields($post_id);
+    $this->save_validation_custom_fields($post_id);
+  }
+
+  /**
+   * 単一データのカスタムフィールド保存
+   *
+   * @param integer $post_id
+   * @return void
+   */
+  private function save_single_custom_fields(int $post_id)
+  {
+    //単一データのフィールド
     $update_meta_keys = [
       'cf_omf_reply_title',
       'cf_omf_reply_mail',
       'cf_omf_reply_to',
       'cf_omf_reply_from',
       'cf_omf_reply_from_name',
+      'cf_omf_reply_address',
       'cf_omf_admin_title',
       'cf_omf_admin_mail',
       'cf_omf_admin_to',
@@ -927,7 +895,10 @@ class OMF_Admin
       'cf_omf_is_slack_notify',
       'cf_omf_slack_webhook_url',
       'cf_omf_slack_channel',
-      'cf_omf_data_memo'
+      'cf_omf_data_memo',
+      'cf_omf_is_google_sheets',
+      'cf_omf_google_sheets_id',
+      'cf_omf_google_sheets_name',
     ];
 
     foreach ((array)$update_meta_keys as $key) {
@@ -935,13 +906,20 @@ class OMF_Admin
         update_post_meta($post_id, $key, sanitize_textarea_field($_POST[$key]));
       }
     }
+  }
 
-    //配列の場合
+  /**
+   * 配列のカスタムフィールド保存
+   *
+   * @param integer $post_id
+   * @return void
+   */
+  private function save_array_custom_fields(int $post_id)
+  {
+    //配列のフィールド
     $update_array_meta_keys = [
       'cf_omf_condition_post'
     ];
-
-    //配列の場合
     foreach ((array)$update_array_meta_keys as $key) {
       if (isset($_POST[$key])) {
         $raw_array = $_POST[$key];
@@ -949,7 +927,16 @@ class OMF_Admin
         update_post_meta($post_id, $key, $sanitized_array);
       }
     }
+  }
 
+  /**
+   * バリデーションのカスタムフィールド保存
+   *
+   * @param integer $post_id
+   * @return void
+   */
+  private function save_validation_custom_fields(int $post_id)
+  {
     //バリデーションの場合
     $valid_key = 'cf_omf_validation';
     if (isset($_POST[$valid_key])) {
@@ -972,6 +959,8 @@ class OMF_Admin
 
   /**
    * メールフォーム投稿ページにメタボックスを追加
+   *
+   * @return void
    */
   public function add_meta_box_omf()
   {
@@ -993,10 +982,16 @@ class OMF_Admin
     add_meta_box('omf-metabox-mail_id', 'メールID', [$this, 'mail_id_meta_box_callback'], OMF_Config::NAME, 'side', 'default');
     //slack通知
     add_meta_box('omf-metabox-slack_notify', 'Slack通知', [$this, 'slack_notify_meta_box_callback'], OMF_Config::NAME, 'normal', 'default');
+    //スプレッドシート連携
+    add_meta_box('omf-metabox-google_sheets', 'Googleスプレッドシート連携', [$this, 'google_sheets_meta_box_callback'], OMF_Config::NAME, 'normal', 'default');
   }
 
-  //すべてのフォームを取得
-  public function get_forms()
+  /**
+   * すべてのフォームを取得
+   *
+   * @return array
+   */
+  private function get_forms(): array
   {
     //すべてのフォームを取得
     $args = [
@@ -1011,6 +1006,8 @@ class OMF_Admin
 
   /**
    * 表示条件に合致した投稿・固定ページにメタボックスを追加する
+   *
+   * @return void
    */
   public function add_meta_box_posts()
   {
@@ -1066,11 +1063,13 @@ class OMF_Admin
 
   /**
    * バリデーション設定
+   *
    * @param WP_Post $post
+   * @return void
    */
-  public function validation_meta_box_callback($post)
+  public function validation_meta_box_callback(WP_Post $post)
   {
-  ?>
+    ?>
     <div class="omf-metabox-wrapper">
       <?php
       $this->omf_meta_box_validation($post, 'バリデーション設定', 'cf_omf_validation');
@@ -1081,9 +1080,11 @@ class OMF_Admin
 
   /**
    * reCAPTCHA設定
+   *
    * @param WP_Post $post
+   * @return void
    */
-  public function recaptcha_meta_box_callback($post)
+  public function recaptcha_meta_box_callback(WP_Post $post)
   {
   ?>
     <div class="omf-metabox-wrapper">
@@ -1096,9 +1097,11 @@ class OMF_Admin
 
   /**
    * データベース保存設定
+   *
    * @param WP_Post $post
+   * @return void
    */
-  public function save_db_meta_box_callback($post)
+  public function save_db_meta_box_callback(WP_Post $post)
   {
   ?>
     <div class="omf-metabox-wrapper">
@@ -1111,9 +1114,11 @@ class OMF_Admin
 
   /**
    * 画面設定
+   *
    * @param WP_Post $post
+   * @return void
    */
-  public function screen_meta_box_callback($post)
+  public function screen_meta_box_callback(WP_Post $post)
   {
   ?>
     <div class="omf-metabox-wrapper">
@@ -1129,9 +1134,11 @@ class OMF_Admin
 
   /**
    * 自動返信メール
+   *
    * @param WP_Post $post
+   * @return void
    */
-  public function reply_mail_meta_box_callback($post)
+  public function reply_mail_meta_box_callback(WP_Post $post)
   {
   ?>
     <div class="omf-metabox-wrapper">
@@ -1149,6 +1156,7 @@ class OMF_Admin
       $this->omf_meta_box_text($post, '宛先', 'cf_omf_reply_to');
       $this->omf_meta_box_text($post, '送信元メールアドレス', 'cf_omf_reply_from');
       $this->omf_meta_box_text($post, '送信者', 'cf_omf_reply_from_name');
+      $this->omf_meta_box_text($post, 'Reply-To（返信先メールアドレス）', 'cf_omf_reply_address');
       ?>
     </div>
   <?php
@@ -1156,9 +1164,11 @@ class OMF_Admin
 
   /**
    * 管理者宛メール
+   *
    * @param WP_Post $post
+   * @return void
    */
-  public function admin_mail_meta_box_callback($post)
+  public function admin_mail_meta_box_callback(WP_Post $post)
   {
   ?>
     <div class="omf-metabox-wrapper">
@@ -1183,9 +1193,11 @@ class OMF_Admin
 
   /**
    * 表示条件
+   *
    * @param WP_Post $post
+   * @return void
    */
-  public function condition_meta_box_callback($post)
+  public function condition_meta_box_callback(WP_Post $post)
   {
   ?>
     <div class="omf-metabox-wrapper">
@@ -1199,9 +1211,11 @@ class OMF_Admin
 
   /**
    * メールID
+   *
    * @param WP_Post $post
+   * @return void
    */
-  public function mail_id_meta_box_callback($post)
+  public function mail_id_meta_box_callback(WP_Post $post)
   {
   ?>
     <div class="omf-metabox-wrapper">
@@ -1214,9 +1228,11 @@ class OMF_Admin
 
   /**
    * Slack通知
+   *
    * @param WP_Post $post
+   * @return void
    */
-  public function slack_notify_meta_box_callback($post)
+  public function slack_notify_meta_box_callback(WP_Post $post)
   {
   ?>
     <div class="omf-metabox-wrapper">
@@ -1230,10 +1246,43 @@ class OMF_Admin
   }
 
   /**
-   * メールフォームを選択
+   * スプレッドシート連携
+   *
    * @param WP_Post $post
+   * @return void
    */
-  public function select_mail_form_meta_box_callback($post)
+  public function google_sheets_meta_box_callback(WP_Post $post)
+  {
+    $values        = $this->get_google_settings_values();
+    $client_id     = $values['client_id'];
+    $client_secret = $values['client_secret'];
+    $redirect_uri  = $values['redirect_uri'];
+    $access_token  = $values['access_token'];
+    $is_credential = !empty($access_token) && !empty($client_id) && !empty($redirect_uri) && !empty($client_secret);
+  ?>
+    <div class="omf-metabox-wrapper">
+      <?php
+      if (!$is_credential) {
+      ?>
+        <p>スプレッドシート連携には<a href="<?php echo esc_url(admin_url('edit.php?post_type=original_mail_forms&page=omf_google_settings')) ?>">Google連携設定</a>が必要です。</p>
+      <?php
+      } else {
+        $this->omf_meta_box_boolean($post, '送信内容をスプレッドシートに書き込む', 'cf_omf_is_google_sheets');
+        $this->omf_meta_box_text($post, 'スプレッドシートID', 'cf_omf_google_sheets_id', 'シートIDはURLから取得(https://docs.google.com/spreadsheets/d/XXXXX/edit#gid=0のXXXXXの部分)');
+        $this->omf_meta_box_text($post, 'シート名', 'cf_omf_google_sheets_name', '画面下部シートタブのいずれかのシートの名前を入力');
+      }
+      ?>
+    </div>
+  <?php
+  }
+
+  /**
+   * メールフォームを選択
+   *
+   * @param WP_Post $post
+   * @return void
+   */
+  public function select_mail_form_meta_box_callback(WP_Post $post)
   {
   ?>
     <div class="omf-metabox-wrapper">
@@ -1246,12 +1295,14 @@ class OMF_Admin
 
   /**
    * バリデーションのメタボックス
-   * @param  WP_Post $post
-   * @param  string $title       タイトル
-   * @param  string $meta_key    カスタムフィールド名
-   * @param  string $description 説明
+   *
+   * @param WP_Post $post
+   * @param string $title
+   * @param string $meta_key
+   * @param string $description
+   * @return void
    */
-  public function omf_meta_box_validation($post, $title, $meta_key, $description = null)
+  public function omf_meta_box_validation(WP_Post $post, string $title, string $meta_key, string $description = '')
   {
     $values = get_post_meta($post->ID, $meta_key, true);
   ?>
@@ -1496,12 +1547,14 @@ class OMF_Admin
 
   /**
    * テキストエリアのメタボックス
-   * @param  WP_Post $post
-   * @param  string $title       タイトル
-   * @param  string $meta_key    カスタムフィールド名
-   * @param  string $description 説明
+   *
+   * @param WP_Post $post
+   * @param string $title
+   * @param string $meta_key
+   * @param string $description
+   * @return void
    */
-  public function omf_meta_box_textarea($post, $title, $meta_key, $description = null)
+  public function omf_meta_box_textarea(WP_Post $post, string $title, string $meta_key, string $description = '')
   {
     $value = get_post_meta($post->ID, $meta_key, true);
     $value = !empty($value) ? sanitize_textarea_field(wp_unslash($value)) : '';
@@ -1534,11 +1587,13 @@ class OMF_Admin
 
   /**
    * 真偽値のメタボックス
-   * @param  WP_Post $post
-   * @param  string $title       タイトル
-   * @param  string $meta_key    カスタムフィールド名
+   *
+   * @param WP_Post $post
+   * @param string $title
+   * @param string $meta_key
+   * @return void
    */
-  public function omf_meta_box_boolean($post, $title, $meta_key)
+  public function omf_meta_box_boolean(WP_Post $post, string $title, string $meta_key)
   {
     $value = get_post_meta($post->ID, $meta_key, true);
     $value = !empty($value) ? sanitize_text_field(wp_unslash($value)) : '';
@@ -1563,12 +1618,14 @@ class OMF_Admin
 
   /**
    * テキストのメタボックス
-   * @param  WP_Post $post
-   * @param  string $title       タイトル
-   * @param  string $meta_key    カスタムフィールド名
-   * @param  string $description 説明
+   *
+   * @param WP_Post $post
+   * @param string $title
+   * @param string $meta_key
+   * @param string $description
+   * @return void
    */
-  public function omf_meta_box_text($post, $title, $meta_key, $description = null)
+  public function omf_meta_box_text(WP_Post $post, string $title, string $meta_key, string $description = '')
   {
     $value = get_post_meta($post->ID, $meta_key, true);
     $value = !empty($value) ? sanitize_text_field(wp_unslash($value)) : '';
@@ -1601,11 +1658,13 @@ class OMF_Admin
 
   /**
    * 投稿タイプ選択のメタボックス
-   * @param  WP_Post $post
-   * @param  string $title       タイトル
-   * @param  string $meta_key    カスタムフィールド名
+   *
+   * @param WP_Post $post
+   * @param string $title
+   * @param string $meta_key
+   * @return void
    */
-  public function omf_meta_box_post_types($post, $title, $meta_key)
+  public function omf_meta_box_post_types(WP_Post $post, string $title, string $meta_key)
   {
 
     $value = get_post_meta($post->ID, $meta_key, true);
@@ -1645,12 +1704,14 @@ class OMF_Admin
 
   /**
    * 数値のメタボックス
-   * @param  WP_Post $post
-   * @param  string $title       タイトル
-   * @param  string $meta_key    カスタムフィールド名
-   * @param  string $description 説明
+   *
+   * @param WP_Post $post
+   * @param string $title
+   * @param string $meta_key
+   * @param string $description
+   * @return void
    */
-  public function omf_meta_box_number($post, $title, $meta_key, $description = null)
+  public function omf_meta_box_number(WP_Post $post, string $title, string $meta_key, string $description = '')
   {
     $value = get_post_meta($post->ID, $meta_key, true);
     $value = !empty($value) ? sanitize_text_field(wp_unslash($value)) : '';
@@ -1675,12 +1736,14 @@ class OMF_Admin
 
   /**
    * テキストのメタボックス（サイド）
-   * @param  WP_Post $post
-   * @param  string $title       タイトル
-   * @param  string $meta_key    カスタムフィールド名
-   * @param  string $description 説明
+   *
+   * @param WP_Post $post
+   * @param string $title
+   * @param string $meta_key
+   * @param string $description
+   * @return void
    */
-  public function omf_meta_box_side_text($post, $title, $meta_key, $description = null)
+  public function omf_meta_box_side_text(WP_Post $post, string $title, string $meta_key, string $description = '')
   {
     $value = get_post_meta($post->ID, $meta_key, true);
     $value = !empty($value) ? sanitize_text_field(wp_unslash($value)) : '';
@@ -1705,11 +1768,13 @@ class OMF_Admin
 
   /**
    * メールフォームを選択のメタボックス
-   * @param  WP_Post $post
-   * @param  string $title       タイトル
-   * @param  string $meta_key    カスタムフィールド名
+   *
+   * @param WP_Post $post
+   * @param string $title
+   * @param string $meta_key
+   * @return void
    */
-  public function omf_meta_box_select_mail_forms($post, $title, $meta_key)
+  public function omf_meta_box_select_mail_forms(WP_Post $post, string $title, string $meta_key)
   {
 
     $mail_forms = $this->get_forms();
