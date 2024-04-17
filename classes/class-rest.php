@@ -67,7 +67,7 @@ class OMF_Rest
    * @param WP_REST_Request $param
    * @return WP_REST_Response
    */
-  public function rest_api_validate(WP_REST_Request $params): mixed
+  public function rest_api_validate(WP_REST_Request $params)
   {
     return $this->rest_response(function () use ($params) {
 
@@ -106,7 +106,7 @@ class OMF_Rest
    * @param WP_REST_Request $param
    * @return WP_REST_Response
    */
-  public function rest_api_send(WP_REST_Request $params): mixed
+  public function rest_api_send(WP_REST_Request $params)
   {
     if (session_status() !== PHP_SESSION_ACTIVE) {
       session_start();
@@ -123,7 +123,6 @@ class OMF_Rest
       $post_data = !empty($param) ? array_map([__NAMESPACE__ . '\OMF_Utils', 'custom_escape'], $param) : [];
       $post_id   = $post_data['post_id'];
       $errors    = $this->validate_mail_form_data($post_data, $post_id);
-
       //バリデーションエラーがある場合はエラーを返す
       if (!empty($errors)) {
         return [
@@ -152,44 +151,85 @@ class OMF_Rest
       do_action('omf_before_send_mail', $post_data, $form, $post_id);
 
       //メール送信
-      $results         = $this->send_mails($post_data, $post_id);
-      $is_sended_reply = $results['is_sended_reply'];
-      $is_sended_admin = $results['is_sended_admin'];
-      $is_sended_both  = $results['is_sended_both'];
+      $send_results = $this->send_mails($post_data, $post_id);
 
-      //送信成功
-      if ($is_sended_both) {
-
-        //メールIDを更新
-        $this->update_mail_id($form->ID, $post_data['mail_id']);
-        //送信後のアクションフック追加
-        do_action('omf_after_send_mail', $post_data, $form, $post_id);
-
-        return [
-          'is_sended'    => $is_sended_both,
-          'data'         => $post_data,
-          'redirect_url' => $this->get_complete_page_url($form)
-        ];
-      }
-      //送信失敗
-      else {
-        $errors = [];
-
-        if (!$is_sended_reply) {
-          $errors['reply_mail'] = ['自動返信メールの送信処理に失敗しました'];
-        }
-
-        if (!$is_sended_admin) {
-          $errors['admin_mail'] = ['通知メールの送信処理に失敗しました'];
-        }
-
-        return [
-          'is_sended' => $is_sended_both,
-          'data'      => $post_data,
-          'errors'    => $errors,
-        ];
-      }
+      //レスポンスを生成
+      $response = $this->create_send_response($send_results, $post_data, $form, $post_id);
+      return $response;
     }, $params);
+  }
+
+  /**
+   * 送信完了時のレスポンスを作成する
+   *
+   * @param array $send_results
+   * @param array $post_data
+   * @param WP_Post|array $form
+   * @param integer|string|null $post_id
+   * @return array
+   */
+  private function create_send_response(array $send_results, array $post_data, WP_Post|array $form, int|string|null $post_id): array
+  {
+    //送信成功
+    if ($send_results['is_sended_both']) {
+      //メールIDを更新
+      $this->update_mail_id($form->ID, $post_data['mail_id']);
+      //送信後のアクションフック追加
+      do_action('omf_after_send_mail', $post_data, $form, $post_id);
+      //レスポンスを生成
+      $result = $this->create_send_success_response($post_data, $form);
+      return $result;
+    }
+    //送信失敗
+    else {
+      $result = $this->create_send_fail_response($send_results['is_sended_reply'], $send_results['is_sended_admin'], $post_data, $form);
+      return $result;
+    }
+  }
+
+  /**
+   * 送信成功時のレスポンスを生成
+   *
+   * @param bool $is_sended
+   * @param array $post_data
+   * @param WP_Post|array $form
+   * @param integer|string|null $post_id
+   * @return array
+   */
+  private function create_send_success_response(array $post_data, WP_Post|array $form): array
+  {
+    return [
+      'is_sended'    => true,
+      'data'         => $post_data,
+      'redirect_url' => $this->get_complete_page_url($form)
+    ];
+  }
+
+  /**
+   * 送信失敗時のレスポンスを生成
+   *
+   * @param boolean $is_sended_reply
+   * @param boolean $is_sended_admin
+   * @param array $post_data
+   * @return array
+   */
+  private function create_send_fail_response(bool $is_sended_reply, bool $is_sended_admin, array $post_data): array
+  {
+    $errors = [];
+
+    if (!$is_sended_reply) {
+      $errors['reply_mail'] = ['自動返信メールの送信処理に失敗しました'];
+    }
+
+    if (!$is_sended_admin) {
+      $errors['admin_mail'] = ['管理者宛メールの送信処理に失敗しました'];
+    }
+
+    return [
+      'is_sended' => false,
+      'data'      => $post_data,
+      'errors'    => $errors,
+    ];
   }
 
   /**
