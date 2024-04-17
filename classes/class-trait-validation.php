@@ -37,11 +37,11 @@ trait OMF_Trait_Validation
     }
 
     //バリデーション設定
-    foreach ((array)$validations as $valid) {
-      $valid = array_map([__NAMESPACE__ . '\OMF_Utils', 'custom_escape'], $valid);
-      $error_message = $this->validate($post_data, $valid);
+    foreach ((array)$validations as $val) {
+      $val = array_map([__NAMESPACE__ . '\OMF_Utils', 'custom_escape'], $val);
+      $error_message = $this->validate($post_data, $val);
       if (!empty($error_message)) {
-        $errors[$valid['target']] = $error_message;
+        $errors[$val['target']] = $error_message;
       }
     }
 
@@ -140,13 +140,8 @@ trait OMF_Trait_Validation
       return $errors;
     }
 
-    //POSTにキーがない場合は未送信なのでスキップ
-    $post_key = $validation['target'];
-    if (!isset($post_data[$post_key])) {
-      return $errors;
-    }
-
     //検証するデータ
+    $post_key = $validation['target'];
     $data = !empty($post_data[$post_key]) ? $post_data[$post_key] : '';
 
     foreach ((array)$validation as $key => $value) {
@@ -164,8 +159,8 @@ trait OMF_Trait_Validation
           $errors[] = $error_message;
         }
       }
-      //必須
-      elseif ($key === 'required') {
+      //必須（値が空の場合も検証）
+      elseif ($key === 'required' || empty($data)) {
         $error_message = $this->validate_required($data, $value);
         if (!empty($error_message)) {
           $errors[] = $error_message;
