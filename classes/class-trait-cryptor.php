@@ -58,8 +58,8 @@ trait OMF_Trait_Cryptor
     $iv_name = '_omf_encryption_iv_' . $name;
     $iv = get_option($iv_name);
     if (empty($iv)) {
-      $iv = base64_encode(openssl_random_pseudo_bytes(openssl_cipher_iv_length('AES-256-CBC')));
-      update_option($iv_name, $iv, 'no');
+      $iv = openssl_random_pseudo_bytes(16);
+      update_option($iv_name, base64_encode($iv), 'no');
     } else {
       $iv = base64_decode($iv);
     }
