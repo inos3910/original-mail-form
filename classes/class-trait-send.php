@@ -8,7 +8,7 @@ if (!defined('ABSPATH')) {
 
 use WP_Post;
 
-trait OMF_Send
+trait OMF_Trait_Send
 {
   use OMF_Trait_Google_Sheets, OMF_Trait_Slack, OMF_Trait_Save_Db;
   /**

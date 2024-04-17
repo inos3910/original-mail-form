@@ -11,7 +11,7 @@ use WP_Post;
 
 class OMF_Page
 {
-  use OMF_Send, OMF_Trait_Validation;
+  use OMF_Trait_Send, OMF_Trait_Validation;
 
   /**
    * セッション接頭辞
