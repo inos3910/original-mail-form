@@ -538,6 +538,14 @@ class OMF_Page
       return;
     }
 
+    //メール送信の場合
+    if ($this->is_mail_send_request()) {
+      //データ取得
+      $post_data = $this->get_post_values();
+      $this->mail_send_handler($page_paths, $pages['entry']->post_name, $post_data);
+      return;
+    }
+
     //確認ボタンではない場合
     if (!$this->is_confirm_button_clicked()) {
       $this->initialize_entry_page_sessions();
@@ -771,7 +779,7 @@ class OMF_Page
     $_SESSION[$this->session_name_auth] = true;
     $_SESSION[$this->session_name_post_data] = $post_data;
     // メール送信処理
-    $this->mail_send_handler($page_paths, $pages, $post_data);
+    $this->mail_send_handler($page_paths, $pages['confirm']->post_name, $post_data);
   }
 
   /**
@@ -793,12 +801,11 @@ class OMF_Page
       return;
     }
 
-    //認証OKの場合
-    //メール送信以外の場合はそのまま表示
+    //メール送信の場合
     if ($this->is_mail_send_request()) {
       //データ取得
       $post_data = $this->get_post_values();
-      $this->mail_send_handler($page_paths, $pages, $post_data);
+      $this->mail_send_handler($page_paths, $pages['confirm']->post_name, $post_data);
       return;
     }
   }
@@ -877,21 +884,21 @@ class OMF_Page
    * メール送信のエラーハンドラー
    *
    * @param array $page_paths
-   * @param array $pages
+   * @param string $referer_slug リファラーページのスラッグ名
    * @param array $post_data
    * @return void
    */
-  private function mail_send_handler(array $page_paths, array $pages, array $post_data = [])
+  private function mail_send_handler(array $page_paths, string $referer_slug, array $post_data = [])
   {
     // メール送信処理
-    $send = $this->send($page_paths, $pages, $post_data);
+    $send = $this->send($page_paths, $referer_slug, $post_data);
     //メール送信完了の場合
     if ($send === true) {
       $this->mail_send_success($page_paths);
     }
     //メール送信失敗の場合
     else {
-      $this->mail_send_fail($page_paths);
+      $this->mail_send_fail($page_paths, $post_data);
     }
   }
 
@@ -914,15 +921,17 @@ class OMF_Page
    * メール送信失敗時
    *
    * @param array $page_paths
+   * @param array $post_data
    * @return void
    */
-  private function mail_send_fail(array $page_paths)
+  private function mail_send_fail(array $page_paths, array $post_data)
   {
     $_SESSION[$this->session_name_auth] = false;
     //エラーメッセージを追加して入力画面にリダイレクト
     $_SESSION[$this->session_name_error] = [
       'send' => ['送信中にエラーが発生しました。お手数ですが、再度送信をお試しください']
     ];
+    $_SESSION[$this->session_name_post_data] = $this->filter_post_keys($post_data);
     session_write_close();
     wp_safe_redirect(esc_url(home_url($page_paths['entry'])));
     exit;
@@ -931,15 +940,15 @@ class OMF_Page
   /**
    * 送信処理
    * @param array $page_paths
-   * @param array $pages
+   * @param string $referer_slug
    * @param array $post_data
    * @return bool
    */
-  private function send(array $page_paths, array $pages, array $post_data = []): bool
+  private function send(array $page_paths, string $referer_slug, array $post_data = []): bool
   {
 
     //nonce認証・リファラー認証
-    $is_authenticate = $this->is_authenticate($pages['confirm']->post_name);
+    $is_authenticate = $this->is_authenticate($referer_slug);
     //認証NGの場合
     if (!$is_authenticate) {
       return false;
