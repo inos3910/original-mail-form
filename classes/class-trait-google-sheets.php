@@ -170,41 +170,4 @@ trait OMF_Trait_Google_Sheets
     ]);
     return $response;
   }
-
-  //書き込みテスト
-  // private function write_to_test_sheet($access_token)
-  // {
-  //   if (empty($access_token)) {
-  //     return;
-  //   }
-  //   //メールデータ
-  //   $values = ['John Doe', 'john@example.com', 'Hello'];
-  //   // データが入っている最終行を取得
-  //   $last_row_range = '問い合わせデータ!A:B';
-  //   $sheet_id = '1drm2EejK9gjRBXzoQjMjrixuUaajvBAHLrfHtiU0M5U';
-  //   $url = sprintf('https://sheets.googleapis.com/v4/spreadsheets/%s/values/%s', $sheet_id, $last_row_range);
-  //   $response = OMF_Utils::curl_get($url, [
-  //     'Authorization: Bearer ' . $access_token,
-  //   ]);
-
-  //   if (empty($response) || is_wp_error($response)) {
-  //     return;
-  //   }
-
-  //   $response_data = json_decode($response, true);
-  //   $last_row = !empty($response_data['values']) ? count($response_data['values']) + 1 : 1;
-  //   //最終行の次の行を取得
-  //   $target_range = '問い合わせデータ!A' . $last_row;
-  //   $request_body = ['values' => [$values]];
-  //   $endpoint = sprintf('https://sheets.googleapis.com/v4/spreadsheets/%s/values/%s?valueInputOption=RAW', $sheet_id, $target_range);
-  //   $header = [
-  //     'Content-Type: application/json',
-  //     'Authorization: Bearer ' . $access_token,
-  //   ];
-  //   $new_response = OMF_Utils::curl_post($endpoint, $request_body, $header, 'PUT');
-
-  //   if (empty($new_response) || is_wp_error($new_response)) {
-  //     return;
-  //   }
-  // }
 }
