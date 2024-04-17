@@ -41,7 +41,7 @@ class Autoload
         return;
       }
 
-      $file_path = plugin_dir_path(__FILE__) . '/classes/class-' . str_replace('_', '-', strtolower($class_name_without_prefix)) . '.php';
+      $file_path = plugin_dir_path(__FILE__) . 'classes/class-' . str_replace('_', '-', strtolower($class_name_without_prefix)) . '.php';
 
       if (file_exists($file_path)) {
         require_once $file_path;

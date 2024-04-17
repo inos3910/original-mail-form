@@ -59,7 +59,7 @@ class OMF_Admin
    */
   public function add_omf_styles()
   {
-    wp_enqueue_style('omf-admin-style', plugins_url('../dist/css/style.css', __FILE__));
+    wp_enqueue_style('omf-admin-style', plugins_url('dist/css/style.css', __DIR__));
 
     //送信データの場合は新規投稿ボタンを非表示にする
     global $post_type;
@@ -78,11 +78,11 @@ class OMF_Admin
     global $post_type;
     if (!empty($post_type)) {
       if ($post_type === OMF_Config::NAME) {
-        wp_enqueue_script('omf-script', plugins_url('../dist/js/main.js', __FILE__), [], '1.0', true);
+        wp_enqueue_script('omf-script', plugins_url('dist/js/main.js', __DIR__), [], '1.0', true);
       }
 
       if ($this->is_omf_data_post_type($post_type)) {
-        wp_enqueue_script('omf-data-list-script', plugins_url('../dist/js/data-list.js', __FILE__), [], '1.0', true);
+        wp_enqueue_script('omf-data-list-script', plugins_url('dist/js/data-list.js', __DIR__), [], '1.0', true);
       }
     }
   }

@@ -241,7 +241,7 @@ class OMF_Page
       return;
     }
 
-    wp_enqueue_script('omf-disable-back-button-script', plugins_url('/dist/js/disable-back-button.js', __FILE__), [], null, [
+    wp_enqueue_script('omf-disable-back-button-script', plugins_url('dist/js/disable-back-button.js', __DIR__), [], null, [
       'strategy' => 'defer',
       'in_footer' => true
     ]);
