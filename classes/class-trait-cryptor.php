@@ -16,7 +16,7 @@ trait OMF_Trait_Cryptor
    * @param string $name
    * @return string
    */
-  public function encrypt_secret(string $secret, string $name): string
+  private function encrypt_secret(string $secret, string $name): string
   {
     if (empty($secret)) {
       return '';
@@ -35,7 +35,7 @@ trait OMF_Trait_Cryptor
    * @param string $name
    * @return string
    */
-  public function decrypt_secret(string $encrypted_secret, string $name): string
+  private function decrypt_secret(string $encrypted_secret, string $name): string
   {
     if (empty($encrypted_secret)) {
       return '';
@@ -53,7 +53,7 @@ trait OMF_Trait_Cryptor
    * @param string $name
    * @return string
    */
-  public function get_iv(string $name): string
+  private function get_iv(string $name): string
   {
     $iv_name = '_omf_encryption_iv_' . $name;
     $iv = get_option($iv_name);
@@ -71,7 +71,7 @@ trait OMF_Trait_Cryptor
    *
    * @return string
    */
-  public function get_encryption_key(): string
+  private function get_encryption_key(): string
   {
     $key = get_option('_omf_encryption_key');
     if (empty($key)) {
