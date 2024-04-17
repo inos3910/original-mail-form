@@ -114,9 +114,9 @@ trait OMF_Trait_Google_Auth
    * @param string $client_secret
    * @param string $redirect_uri
    * @param string $code
-   * @return boolean|array
+   * @return array
    */
-  private function fetch_google_access_token(string $client_id, string $client_secret, string $redirect_uri, string $code): bool|array
+  private function fetch_google_access_token(string $client_id, string $client_secret, string $redirect_uri, string $code): array
   {
     $url = 'https://oauth2.googleapis.com/token';
 
@@ -130,7 +130,7 @@ trait OMF_Trait_Google_Auth
 
     $response = OMF_Utils::curl_post($url, $post_data);
     if (empty($response) || is_wp_error($response)) {
-      return false;
+      return [];
     }
 
     $response_data = json_decode($response, true);
@@ -148,30 +148,34 @@ trait OMF_Trait_Google_Auth
    * @param string $client_id
    * @param string $client_secret
    * @param string $redirect_uri
-   * @return array
+   * @return boolean
    */
-  private function set_tokens(string $client_id, string $client_secret, string $redirect_uri): array
+  private function set_tokens(string $client_id, string $client_secret, string $redirect_uri): bool
   {
     $tokens = $this->fetch_google_access_token($client_id, $client_secret, $redirect_uri, $_GET['code']);
+    //トークンがある場合
     if (!empty($tokens)) {
-      $this->save_google_tokens($tokens);
+      return $this->save_google_tokens($tokens);
     }
-
-    return $tokens;
+    //トークンがない場合
+    return false;
   }
 
   /**
    * トークンをデータベースに保存
    *
    * @param array $tokens
-   * @return void
+   * @return boolean
    */
-  private function save_google_tokens(array $tokens)
+  private function save_google_tokens(array $tokens): bool
   {
     if (!empty($tokens)) {
-      update_option('_omf_google_access_token', $this->encrypt_secret($tokens['access_token'], 'access_token'), 'no');
-      update_option('_omf_google_refresh_token', $this->encrypt_secret($tokens['refresh_token'], 'refresh_token'), 'no');
+      $is_save_access_token = update_option('_omf_google_access_token', $this->encrypt_secret($tokens['access_token'], 'access_token'), 'no');
+      $is_save_refresh_token = update_option('_omf_google_refresh_token', $this->encrypt_secret($tokens['refresh_token'], 'refresh_token'), 'no');
+      return $is_save_access_token && $is_save_refresh_token;
     }
+
+    return false;
   }
 
   /**
