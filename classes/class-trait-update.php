@@ -23,7 +23,6 @@ trait OMF_Trait_Update
     require_once(ABSPATH . 'wp-admin/includes/file.php');
 
     $github_repo_url = 'https://github.com/inos3910/original-mail-form/archive/master.zip';
-    // $plugin_dir = plugin_dir_path(__FILE__) . '../';
     $plugin_dir = plugin_dir_path(__DIR__);
 
     $response = wp_safe_remote_get($github_repo_url);
