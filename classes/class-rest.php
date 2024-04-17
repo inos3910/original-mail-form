@@ -16,7 +16,7 @@ use WP_REST_Response;
 
 class OMF_Rest
 {
-  use OMF_Send, OMF_Trait_Validation;
+  use OMF_Trait_Send, OMF_Trait_Validation;
 
   public function __construct()
   {
