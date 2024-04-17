@@ -3,7 +3,7 @@
 /**
  * Plugin Name: Original Mail Form
  * Plugin URI: https://github.com/inos3910/original-mail-form
- * Update URI: https://github.com/inos3910/original-mail-form
+ * Update URI: sharesl-omf-plugin
  * Description: メールフォーム設定プラグイン（クラシックテーマ用）
  * Author: SHARESL
  * Author URI: https://sharesl.net/
@@ -90,4 +90,4 @@ class OMF
   }
 }
 
-$omf = new OMF($instances);
+$GLOBALS['global_omf'] = new OMF($instances);
