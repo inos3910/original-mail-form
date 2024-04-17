@@ -691,13 +691,11 @@ class OMF_Admin
     $redirect_uri  = admin_url('edit.php?post_type=original_mail_forms&page=omf_google_settings');
     $access_token  = $this->decrypt_secret(get_option('_omf_google_access_token'), 'access_token');
     $refresh_token = $this->decrypt_secret(get_option('_omf_google_refresh_token'), 'refresh_token');
-    $is_save_token = $this->set_tokens($client_id, $client_secret, $redirect_uri, $access_token, $refresh_token);
 
-    //トークンの保存が終わったらリダイレクト
-    if ($is_save_token) {
-      wp_redirect(admin_url('edit.php?post_type=original_mail_forms&page=omf_google_settings'));
-      exit;
-    }
+    $this->set_tokens($client_id, $client_secret, $redirect_uri, $access_token, $refresh_token);
+
+    wp_redirect(admin_url('edit.php?post_type=original_mail_forms&page=omf_google_settings'));
+    exit;
   }
 
   /**
