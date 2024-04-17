@@ -300,7 +300,7 @@ async validate() {
   const requestBody = {
     user_name: 'しぇあする太郎',
     user_email: 'sharesl@example.com',
-    message: ’お問い合わせ内容’,
+    message: 'お問い合わせ内容',
     post_id: OMF_VALUES.post_id, //記事IDをパラメータに含める
   };
 
@@ -325,7 +325,7 @@ async validate() {
   data: {
     user_name: 'しぇあする太郎',
     user_email: 'sharesl@example.com',
-    message: ’お問い合わせ内容’,
+    message: 'お問い合わせ内容',
     post_id: 'xxx',
   }
 }
@@ -342,7 +342,7 @@ async validate() {
   data: {
     user_name: 'しぇあする太郎',
     user_email: '',
-    message: ’お問い合わせ内容’,
+    message: 'お問い合わせ内容',
     post_id: 'xxx',
   }
 }
@@ -359,7 +359,7 @@ async sendMail() {
   const requestBody = {
     user_name: 'しぇあする太郎',
     user_email: 'sharesl@example.com',
-    message: ’お問い合わせ内容’,
+    message: 'お問い合わせ内容',
     post_id: OMF_VALUES.post_id, //記事IDをパラメータに含める
   };
 
@@ -394,7 +394,7 @@ async sendMail() {
   data: {
     user_name: 'しぇあする太郎',
     user_email: '',
-    message: ’お問い合わせ内容’,
+    message: 'お問い合わせ内容',
     post_id: 'xxx',
   }
 }
@@ -408,7 +408,7 @@ async sendMail() {
   data : {
     user_name: 'しぇあする太郎',
     user_email: 'sharesl@example.com',
-    message: ’お問い合わせ内容’,
+    message: 'お問い合わせ内容',
     post_id: 'xxx',
   },
   redirect_url : 'https://example.com/contact/complete/'
@@ -425,7 +425,7 @@ async sendMail() {
   data : {
     user_name: 'しぇあする太郎',
     user_email: 'sharesl@example.com',
-    message: ’お問い合わせ内容’,
+    message: 'お問い合わせ内容',
     post_id: 'xxx',
   },
   errors : {
