@@ -180,7 +180,7 @@ class OMF_Rest
         }
 
         if (!$is_sended_admin) {
-          $errors['admin_mail'] = ['管理者宛メールの送信処理に失敗しました'];
+          $errors['admin_mail'] = ['通知メールの送信処理に失敗しました'];
         }
 
         return [
