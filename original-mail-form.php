@@ -75,7 +75,7 @@ class OMF
    * nonceフィールド出力
    * @return void
    */
-  public static function nonce_field(): void
+  public static function nonce_field()
   {
     apply_filters('omf_nonce_field', []);
   }
@@ -84,9 +84,19 @@ class OMF
    * reCAPTCHAフィールドを出力
    * @return void
    */
-  public static function recaptcha_field(): void
+  public static function recaptcha_field()
   {
     apply_filters('omf_recaptcha_field', []);
+  }
+
+  /**
+   * ワンタイムトークンを取得
+   *
+   * @return void
+   */
+  public static function get_omf_token()
+  {
+    return apply_filters('omf_create_token', []);
   }
 }
 

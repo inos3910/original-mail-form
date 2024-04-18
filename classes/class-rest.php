@@ -72,14 +72,18 @@ class OMF_Rest
     return $this->rest_response(function () use ($params) {
 
       //nonceチェック
-      $is_verify_nonce = $this->is_verify_nonce();
-      if (!$is_verify_nonce) {
+      $is_valid_nonce = $this->is_valid_nonce();
+      if (!$is_valid_nonce) {
         return new WP_Error('failed', __('認証NG'), ['status' => 404]);
       }
 
       $param     = $params->get_params();
       $post_data = !empty($param) ? array_map([__NAMESPACE__ . '\OMF_Utils', 'custom_escape'], $param) : [];
-      $post_id   = $post_data['post_id'];
+      $post_id   = $this->get_post_id_header();
+      if (empty($post_id)) {
+        return new WP_Error('failed', __('認証NG'), ['status' => 404]);
+      }
+
       $errors    = $this->validate_mail_form_data($post_data, $post_id);
 
       //エラーがある場合は検証NG（エラー内容を含める）
@@ -114,14 +118,18 @@ class OMF_Rest
 
     return $this->rest_response(function () use ($params) {
       //nonceチェック
-      $is_verify_nonce = $this->is_verify_nonce();
-      if (!$is_verify_nonce) {
+      $is_authenticate = $this->is_authenticate();
+      if (!$is_authenticate) {
         return new WP_Error('failed', __('認証NG'), ['status' => 404]);
       }
 
       $param     = $params->get_params();
       $post_data = !empty($param) ? array_map([__NAMESPACE__ . '\OMF_Utils', 'custom_escape'], $param) : [];
-      $post_id   = $post_data['post_id'];
+      $post_id   = $this->get_post_id_header();
+      if (empty($post_id)) {
+        return new WP_Error('failed', __('認証NG'), ['status' => 404]);
+      }
+
       $errors    = $this->validate_mail_form_data($post_data, $post_id);
       //バリデーションエラーがある場合はエラーを返す
       if (!empty($errors)) {
@@ -141,6 +149,7 @@ class OMF_Rest
       //nonce認証成功セッション更新
       $is_auth_success_session = $this->update_auth_success_session($form);
       if (!$is_auth_success_session) {
+        session_write_close();
         return;
       }
 
@@ -152,6 +161,8 @@ class OMF_Rest
 
       //メール送信
       $send_results = $this->send_mails($post_data, $post_id);
+      //送信後の処理
+      $this->after_send_mails();
 
       //レスポンスを生成
       $response = $this->create_send_response($send_results, $post_data, $form, $post_id);
@@ -255,15 +266,51 @@ class OMF_Rest
   }
 
   /**
+   * X-OMF-POST-IDヘッダーの取得
+   *
+   * @return string
+   */
+  private function get_post_id_header(): string
+  {
+    $post_id = isset($_SERVER['HTTP_X_OMF_POST_ID']) ? sanitize_text_field(wp_unslash($_SERVER['HTTP_X_OMF_POST_ID'])) : '';
+    return $post_id;
+  }
+
+  /**
    * nonceチェック
    *
    * @return boolean
    */
-  private function is_verify_nonce(): bool
+  private function is_valid_nonce(): bool
   {
     //フォーム認証
     $nonce = isset($_SERVER['HTTP_X_WP_NONCE']) ? sanitize_text_field(wp_unslash($_SERVER['HTTP_X_WP_NONCE'])) : '';
     return wp_verify_nonce($nonce, 'wp_rest') !== false;
+  }
+
+  /**
+   * ワンタイムトークンチェック
+   *
+   * @return boolean
+   */
+  private function is_valid_token(): bool
+  {
+    //フォーム認証
+    $token = isset($_SERVER['HTTP_X_OMF_TOKEN']) ? sanitize_text_field(wp_unslash($_SERVER['HTTP_X_OMF_TOKEN'])) : '';
+    $session_token = !empty($_SESSION['omf_token']) ? $_SESSION['omf_token'] : '';
+    return !empty($token) && $token === $session_token;
+  }
+
+  /**
+   * 認証
+   *
+   * @return boolean
+   */
+  private function is_authenticate(): bool
+  {
+    $is_valid_nonce = $this->is_valid_nonce();
+    $is_valid_token = $this->is_valid_token();
+    return $is_valid_nonce && $is_valid_token;
   }
 
   /**
@@ -297,7 +344,6 @@ class OMF_Rest
     //認証セッション名を更新
     $session_name_auth = "{$session_name_prefix}_auth";
     $_SESSION[$session_name_auth] = true;
-    session_write_close();
     return $_SESSION[$session_name_auth];
   }
 
@@ -322,5 +368,18 @@ class OMF_Rest
       'is_sended_admin' => $is_sended_admin,
       'is_sended_both'  => $is_sended_reply && $is_sended_admin
     ];
+  }
+
+  /**
+   * 送信後の処理
+   *
+   * @return void
+   */
+  private function after_send_mails()
+  {
+    //ワンタイムトークンを破棄
+    if (!empty($_SESSION['omf_token'])) {
+      unset($_SESSION['omf_token']);
+    }
   }
 }

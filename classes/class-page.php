@@ -85,6 +85,7 @@ class OMF_Page
     add_filter('omf_get_post_values', [$this, 'get_post_values']);
     add_filter('omf_nonce_field', [$this, 'nonce_field']);
     add_filter('omf_recaptcha_field', [$this, 'recaptcha_field']);
+    add_filter('omf_create_token', [$this, 'create_token']);
   }
 
   /**
@@ -297,19 +298,44 @@ class OMF_Page
   {
     //nonceを出力
     wp_nonce_field($this->nonce_action, 'omf_nonce', true);
+    //ワンタイムトークンの出力
+    $this->token_field();
+  }
 
-    //token発行（二重送信対策）
+  /**
+   * ワンタイムトークンの出力
+   *
+   * @return void
+   */
+  public function token_field()
+  {
     $token = '';
     //初期画面
     if ($this->is_page('entry')) {
-      $token = uniqid('', true);
-      $_SESSION['omf_token'] = $token;
+      $token = $this->create_token();
     }
     //初期画面以外
     else {
       $token = !empty($_SESSION['omf_token']) ? $_SESSION['omf_token'] : '';
     }
     echo '<input type="hidden" name="omf_token" value="' . $token . '">';
+  }
+
+  /**
+   * ワンタイムトークンの生成
+   *
+   * @return string
+   */
+  public function create_token(): string
+  {
+    if (!empty($_SESSION['omf_token'])) {
+      return $_SESSION['omf_token'];
+    }
+
+    $token_byte = random_bytes(16);
+    $token = bin2hex($token_byte);
+    $_SESSION['omf_token'] = $token;
+    return $token;
   }
 
   /**

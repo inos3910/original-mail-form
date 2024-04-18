@@ -107,6 +107,10 @@ trait OMF_Trait_Form
   public function get_form_set_pages(int|string|null $page_id = null): array
   {
     $form = $this->get_form($page_id);
+    if (empty($form)) {
+      return [];
+    }
+
     $pages = $this->get_active_form_pages($form->ID);
     return $pages;
   }
@@ -153,6 +157,10 @@ trait OMF_Trait_Form
   {
     $current_page_id = get_the_ID();
     $pages = $this->get_form_set_pages($current_page_id);
+    if (empty($pages)) {
+      return false;
+    }
+
     return $current_page_id === $pages[$page_slug]->ID;
   }
 
