@@ -278,11 +278,21 @@ function add_omf_scripts()
     true
   );
 
-  wp_localize_script($handle, 'OMF_VALUES', [
+  $arr = [
     'root'       => esc_url_raw(rest_url()), //rest apiのルートURL
     'omf_nonce'  => wp_create_nonce('wp_rest'), //認証用のnonce
     'post_id'    => get_the_ID() //記事ID
-  ]);
+  ];
+
+  //グローバル変数からインスタンスを取得
+  global $global_omf;
+  //入力画面のみ
+  if (!empty($global_omf) && $global_omf->is_page('entry')) {
+    //ワンタイムトークンを発行
+    $arr['omf_token'] = $global_omf->get_omf_token();
+  }
+
+  wp_localize_script($handle, 'OMF_VALUES', $arr);
 
   wp_enqueue_script($handle);
 }
@@ -300,8 +310,7 @@ async validate() {
   const requestBody = {
     user_name: 'しぇあする太郎',
     user_email: 'sharesl@example.com',
-    message: 'お問い合わせ内容',
-    post_id: OMF_VALUES.post_id, //記事IDをパラメータに含める
+    message: 'お問い合わせ内容'
   };
 
   const res = await fetch(requestUrl, {
@@ -309,8 +318,10 @@ async validate() {
     headers: {
       'Content-Type': 'application/json',
       'X-WP-Nonce': OMF_VALUES.omf_nonce, //nonceをヘッダーに追加
+      'X-OMF-Post-ID': OMF_VALUES.post_id, //記事IDをヘッダーに追加
     },
     body: JSON.stringify(requestBody),
+    credentials: 'include', //セッション（Cookie）を共有する
   });
   const json = await res.json();
   console.log(json);
@@ -360,7 +371,6 @@ async sendMail() {
     user_name: 'しぇあする太郎',
     user_email: 'sharesl@example.com',
     message: 'お問い合わせ内容',
-    post_id: OMF_VALUES.post_id, //記事IDをパラメータに含める
   };
 
   const res = await fetch(requestUrl, {
@@ -368,6 +378,8 @@ async sendMail() {
     headers: {
       'Content-Type': 'application/json',
       'X-WP-Nonce': OMF_VALUES.omf_nonce, //nonceをヘッダーに追加
+      'X-OMF-Token': OMF_VALUES.omf_token, //ワンタイムトークンをヘッダーに追加
+      'X-OMF-Post-ID': OMF_VALUES.post_id, //記事IDをヘッダーに追加
     },
     body: JSON.stringify(requestBody),
   });
@@ -380,6 +392,8 @@ async sendMail() {
   }
 }
 ```
+
+ワンタイムトークンは、ボタン連打などの多重送信を回避でき、CSRF 対策にもなる。
 
 ### バリデーション失敗
 
