@@ -1009,7 +1009,7 @@ class OMF_Page
     do_action('omf_before_send_mail', $post_data, $form, $post_id);
 
     // メール送信
-    $result = $this->send_mails($post_data);
+    $result = $this->send_mails($post_data, $form->ID);
 
     $this->after_send_mails($form, $post_data, $post_id);
 
@@ -1020,13 +1020,24 @@ class OMF_Page
    * メール送信
    *
    * @param array $post_data
+   * @param integer $form_id
    * @return boolean
    */
-  private function send_mails(array $post_data): bool
+  private function send_mails(array $post_data, int $form_id): bool
   {
+    //自動返信の有無
+    $is_disable_reply_mail = $this->is_disable_reply_mail($form_id);
+    //自動返信なしの場合
+    if ($is_disable_reply_mail) {
+      //通知メール送信処理
+      $is_sended_admin = $this->send_admin_mail($post_data);
+      return $is_sended_admin;
+    }
+
+    //自動返信ありの場合
     //自動返信メール送信処理
     $is_sended_reply = $this->send_reply_mail($post_data);
-    //管理者宛メール送信処理
+    //通知メール送信処理
     $post_data['omf_reply_mail_sended'] = $is_sended_reply ? '送信成功' : '送信失敗';
     $is_sended_admin = $this->send_admin_mail($post_data);
 

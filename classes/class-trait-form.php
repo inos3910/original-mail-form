@@ -213,4 +213,15 @@ trait OMF_Trait_Form
     $data_post_type = OMF_Config::DBDATA . $form_id;
     return $data_post_type;
   }
+
+  /**
+   * 自動返信の無効化の有無
+   *
+   * @param integer $form_id
+   * @return boolean
+   */
+  public function is_disable_reply_mail(int $form_id): bool
+  {
+    return get_post_meta($form_id, 'cf_omf_disable_reply_mail', true) === '1';
+  }
 }

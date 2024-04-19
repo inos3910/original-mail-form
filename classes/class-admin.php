@@ -344,7 +344,7 @@ class OMF_Admin
     }
 
     if ($field_key === 'omf_mail_to') {
-      return '管理者メール送信先';
+      return '通知メール送信先';
     }
 
     if ($field_key === 'omf_admin_mail_sended') {
@@ -773,6 +773,7 @@ class OMF_Admin
   {
     //単一データのフィールド
     $update_meta_keys = [
+      'cf_omf_disable_reply_mail',
       'cf_omf_reply_title',
       'cf_omf_reply_mail',
       'cf_omf_reply_to',
@@ -868,8 +869,8 @@ class OMF_Admin
     add_meta_box('omf-metabox-screen', '画面設定', [$this, 'screen_meta_box_callback'], OMF_Config::NAME, 'normal', 'default');
     //自動返信メール本文
     add_meta_box('omf-metabox-reply_mail', '自動返信メール', [$this, 'reply_mail_meta_box_callback'], OMF_Config::NAME, 'normal', 'default');
-    //管理者宛メール本文
-    add_meta_box('omf-metabox-admin_mail', '管理者宛メール', [$this, 'admin_mail_meta_box_callback'], OMF_Config::NAME, 'normal', 'default');
+    //通知メール本文
+    add_meta_box('omf-metabox-admin_mail', '通知メール', [$this, 'admin_mail_meta_box_callback'], OMF_Config::NAME, 'normal', 'default');
     //表示する投稿タイプ
     add_meta_box('omf-metabox-condition', '表示条件', [$this, 'condition_meta_box_callback'], OMF_Config::NAME, 'side', 'default');
     //recaptchaのオン・オフ
@@ -1040,11 +1041,15 @@ class OMF_Admin
    */
   public function reply_mail_meta_box_callback(WP_Post $post)
   {
+    $is_disable_reply_mail = get_post_meta($post->ID, 'cf_omf_disable_reply_mail', true);
   ?>
     <div class="omf-metabox-wrapper">
       <?php
-      $this->omf_meta_box_text($post, '件名', 'cf_omf_reply_title');
-      $description = <<<EOD
+      $this->omf_meta_box_boolean($post, '自動返信メールを無効化する', 'cf_omf_disable_reply_mail');
+
+      if (empty($is_disable_reply_mail)) {
+        $this->omf_meta_box_text($post, '件名', 'cf_omf_reply_title');
+        $description = <<<EOD
       フォームのname属性に指定した値は{name}と指定してメールに反映可能。<br>
       その他、デフォルトで下記のタグを用意。<br>
       {send_datetime} : 送信日時（Y/m/d (曜日) H:i）<br>
@@ -1052,18 +1057,19 @@ class OMF_Admin
       {site_name}：WordPressサイト名<br>
       {site_url}：WordPressサイトURL
       EOD;
-      $this->omf_meta_box_textarea($post, '自動返信メール本文', 'cf_omf_reply_mail', $description);
-      $this->omf_meta_box_text($post, '宛先', 'cf_omf_reply_to');
-      $this->omf_meta_box_text($post, '送信元メールアドレス', 'cf_omf_reply_from');
-      $this->omf_meta_box_text($post, '送信者', 'cf_omf_reply_from_name');
-      $this->omf_meta_box_text($post, 'Reply-To（返信先メールアドレス）', 'cf_omf_reply_address');
+        $this->omf_meta_box_textarea($post, '自動返信メール本文', 'cf_omf_reply_mail', $description);
+        $this->omf_meta_box_text($post, '宛先', 'cf_omf_reply_to');
+        $this->omf_meta_box_text($post, '送信元メールアドレス', 'cf_omf_reply_from');
+        $this->omf_meta_box_text($post, '送信者', 'cf_omf_reply_from_name');
+        $this->omf_meta_box_text($post, 'Reply-To（返信先メールアドレス）', 'cf_omf_reply_address');
+      }
       ?>
     </div>
   <?php
   }
 
   /**
-   * 管理者宛メール
+   * 通知メール
    *
    * @param WP_Post $post
    * @return void
@@ -1082,7 +1088,7 @@ class OMF_Admin
       {site_name}：WordPressサイト名<br>
       {site_url}：WordPressサイトURL
       EOD;
-      $this->omf_meta_box_textarea($post, '管理者宛メール本文', 'cf_omf_admin_mail', $description);
+      $this->omf_meta_box_textarea($post, '通知メール本文', 'cf_omf_admin_mail', $description);
       $this->omf_meta_box_text($post, '宛先', 'cf_omf_admin_to');
       $this->omf_meta_box_text($post, '送信元メールアドレス', 'cf_omf_admin_from');
       $this->omf_meta_box_text($post, '送信者', 'cf_omf_admin_from_name');
@@ -1498,7 +1504,7 @@ class OMF_Admin
     $value = get_post_meta($post->ID, $meta_key, true);
     $value = !empty($value) ? sanitize_text_field(wp_unslash($value)) : '';
   ?>
-    <div class="omf-metabox omf-metabox--side">
+    <div class="omf-metabox">
       <p>
         <b><?php echo esc_html($title) ?></b>
       </p>
@@ -1585,7 +1591,7 @@ class OMF_Admin
     $post_types = array_merge(['post', 'page'], array_values($post_types));
 
   ?>
-    <div class="omf-metabox omf-metabox--side">
+    <div class="omf-metabox">
       <div class="omf-metabox__item">
         <?php foreach ((array)$post_types as $post_type) {
           $post_type_obj = get_post_type_object($post_type);
@@ -1648,7 +1654,7 @@ class OMF_Admin
     $value = get_post_meta($post->ID, $meta_key, true);
     $value = !empty($value) ? sanitize_text_field(wp_unslash($value)) : '';
   ?>
-    <div class="omf-metabox omf-metabox--side">
+    <div class="omf-metabox">
       <div class="omf-metabox__item">
         <label for="<?php echo esc_attr($meta_key) ?>"><?php echo esc_html($title) ?></label>
         <input class="widefat" type="text" id="<?php echo esc_attr($meta_key) ?>" name="<?php echo esc_attr($meta_key) ?>" value="<?php echo esc_attr($value) ?>">
@@ -1686,7 +1692,7 @@ class OMF_Admin
     $value = !empty($value) ? sanitize_text_field(wp_unslash($value)) : '';
 
   ?>
-    <div class="omf-metabox omf-metabox--side">
+    <div class="omf-metabox">
       <div class="omf-metabox__item">
         <?php
         $no_checked = true;
