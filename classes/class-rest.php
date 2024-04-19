@@ -160,7 +160,7 @@ class OMF_Rest
       do_action('omf_before_send_mail', $post_data, $form, $post_id);
 
       //メール送信
-      $send_results = $this->send_mails($post_data, $post_id);
+      $send_results = $this->send_mails($post_data, $post_id, $form->ID);
       //送信後の処理
       $this->after_send_mails();
 
@@ -182,7 +182,7 @@ class OMF_Rest
   private function create_send_response(array $send_results, array $post_data, WP_Post|array $form, int|string|null $post_id): array
   {
     //送信成功
-    if ($send_results['is_sended_both']) {
+    if ($send_results['is_sended']) {
       //メールIDを更新
       $this->update_mail_id($form->ID, $post_data['mail_id']);
       //送信後のアクションフック追加
@@ -193,7 +193,7 @@ class OMF_Rest
     }
     //送信失敗
     else {
-      $result = $this->create_send_fail_response($send_results['is_sended_reply'], $send_results['is_sended_admin'], $post_data, $form);
+      $result = $this->create_send_fail_response($send_results, $post_data, $form);
       return $result;
     }
   }
@@ -219,21 +219,20 @@ class OMF_Rest
   /**
    * 送信失敗時のレスポンスを生成
    *
-   * @param boolean $is_sended_reply
-   * @param boolean $is_sended_admin
+   * @param array $send_results
    * @param array $post_data
    * @return array
    */
-  private function create_send_fail_response(bool $is_sended_reply, bool $is_sended_admin, array $post_data): array
+  private function create_send_fail_response(array $send_results, array $post_data): array
   {
     $errors = [];
 
-    if (!$is_sended_reply) {
+    if (isset($send_results['is_sended_reply']) && !$send_results['is_sended_reply']) {
       $errors['reply_mail'] = ['自動返信メールの送信処理に失敗しました'];
     }
 
-    if (!$is_sended_admin) {
-      $errors['admin_mail'] = ['管理者宛メールの送信処理に失敗しました'];
+    if (isset($send_results['is_sended_admin']) && !$send_results['is_sended_admin']) {
+      $errors['admin_mail'] = ['通知メールの送信処理に失敗しました'];
     }
 
     return [
@@ -352,21 +351,35 @@ class OMF_Rest
    *
    * @param array $post_data
    * @param integer $post_id
+   * @param integer $form_id
    * @return array
    */
-  private function send_mails(array $post_data, int $post_id): array
+  private function send_mails(array $post_data, int $post_id, int $form_id): array
   {
+    //自動返信の有無
+    $is_disable_reply_mail = $this->is_disable_reply_mail($form_id);
+    //自動返信なしの場合
+    if ($is_disable_reply_mail) {
+      //通知メール送信処理
+      $is_sended_admin = $this->send_admin_mail($post_data, $post_id);
+      return [
+        'is_sended_admin' => $is_sended_admin,
+        'is_sended'       => $is_sended_admin
+      ];
+    }
+
+    //自動返信ありの場合
     //自動返信メール送信処理
     $is_sended_reply = $this->send_reply_mail($post_data, $post_id);
 
-    //管理者宛メール送信処理
+    //通知メール送信処理
     $post_data['omf_reply_mail_sended'] = $is_sended_reply ? '送信成功' : '送信失敗';
     $is_sended_admin = $this->send_admin_mail($post_data, $post_id);
 
     return [
       'is_sended_reply' => $is_sended_reply,
       'is_sended_admin' => $is_sended_admin,
-      'is_sended_both'  => $is_sended_reply && $is_sended_admin
+      'is_sended'       => $is_sended_reply && $is_sended_admin
     ];
   }
 

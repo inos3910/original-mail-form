@@ -73,7 +73,7 @@ trait OMF_Trait_Send
   }
 
   /**
-   * 管理者宛メールの送信処理
+   * 通知メールの送信処理
    * @param array $post_data メールフォーム送信データ
    * @param int $post_id フォームを設置したページのID
    * @return boolean
@@ -222,7 +222,7 @@ trait OMF_Trait_Send
 
 
   /**
-   * 管理者通知メール作成用の基本情報をDBから取得
+   * 通知メール作成用の基本情報をDBから取得
    *
    * @param integer $form_id
    * @param array $post_data
@@ -261,7 +261,7 @@ trait OMF_Trait_Send
   }
 
   /**
-   * 管理者通知メールを作成
+   * 通知メールを作成
    *
    * @param array $info
    * @return array
@@ -358,7 +358,7 @@ trait OMF_Trait_Send
   }
 
   /**
-   * 管理者通知メール送信後に実行
+   * 通知メール送信後に実行
    *
    * @param WP_Post $form
    * @param array $info

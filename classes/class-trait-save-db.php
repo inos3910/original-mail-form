@@ -17,7 +17,7 @@ trait OMF_Trait_Save_Db
    *
    * @param array $info
    * @param array $mail
-   * @param boolean $is_sended_admin 管理者宛メールの送信フラグ
+   * @param boolean $is_sended_admin 通知メールの送信フラグ
    * @return array
    */
   private function create_save_data(array $info, array $mail, bool $is_sended_admin): array
