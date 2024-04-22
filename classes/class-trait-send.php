@@ -374,12 +374,16 @@ trait OMF_Trait_Send
     // DB保存
     $this->save_data($form, $data_to_save);
 
-    //slack送信用データを作成
-    $slack_data = $this->create_send_slack_data($form, $info, $mail, $is_sended_admin);
+    //API送信データをまとめる
+    $webhook_data = [];
+
     //Slack通知
-    $this->send_slack($slack_data);
+    $webhook_data[] = $this->get_send_slack_params($form, $info, $mail, $is_sended_admin);
 
     //スプレッドシート書き込み
-    $this->send_google_sheets($form, $data_to_save);
+    $webhook_data[] = $this->get_google_sheets_params($form, $data_to_save);
+
+    //一括でまとめて送信
+    OMF_Utils::curl_multi_posts($webhook_data);
   }
 }

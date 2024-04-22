@@ -1038,7 +1038,7 @@ class OMF_Page
     //自動返信メール送信処理
     $is_sended_reply = $this->send_reply_mail($post_data);
     //通知メール送信処理
-    $post_data['omf_reply_mail_sended'] = $is_sended_reply ? '送信成功' : '送信失敗';
+    $post_data['omf_reply_mail_sended'] = $is_sended_reply ? '【自動返信】送信成功' : '【自動返信】送信失敗';
     $is_sended_admin = $this->send_admin_mail($post_data);
 
     return $is_sended_reply && $is_sended_admin;
