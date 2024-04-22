@@ -16,8 +16,10 @@ trait OMF_Trait_Slack
    * @param array $data
    * @return void
    */
-  private function send_slack($data)
+  private function get_send_slack_params(WP_Post $form, array $info, array $mail, bool $is_sended_admin)
   {
+    $data = $this->create_send_slack_data($form, $info, $mail, $is_sended_admin);
+
     $form = $data['form'] ?? '';
     if (empty($form)) {
       return;
@@ -47,7 +49,7 @@ trait OMF_Trait_Slack
     $form_title = get_the_title($form->ID);
     $form_title = OMF_Utils::custom_escape($form_title);
 
-    $notify_data = [
+    $post_data = [
       "channel"     => "#{$channel}", //チャンネル名
       "username"    => "メールフォーム", //BOT名
       "icon_emoji"  => ":seal:", //アイコン
@@ -63,7 +65,10 @@ trait OMF_Trait_Slack
       ]
     ];
 
-    OMF_Utils::curl_post($webhook_url, $notify_data);
+    return [
+      'url'       => $webhook_url,
+      'post_data' => $post_data
+    ];
   }
 
   /**

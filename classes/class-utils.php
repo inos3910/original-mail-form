@@ -103,6 +103,74 @@ class OMF_Utils
   }
 
   /**
+   * 非同期でPOST送信を行う
+   *
+   * @param array $requests リクエストの配列 [
+   *     [
+   *         'url' => 'https://example.com/api/endpoint',
+   *         'post_data' => ['key' => 'value'],
+   *         'header' => ['Authorization: Bearer TOKEN'],
+   *         'method' => 'POST',
+   *         'timeout' => 60,
+   *     ],
+   *     // 他のリクエスト...
+   * ]
+   * @return array 各リクエストに対するレスポンス
+   */
+  public static function curl_multi_posts(array $requests): array
+  {
+    $responses = [];
+    $curl_handles = [];
+    $mh = curl_multi_init();
+
+    // 各リクエストに対してcURLハンドルを作成
+    foreach ($requests as $request) {
+      $url       = $request['url'];
+      $post_data = $request['post_data'];
+      $header    = $request['header'] ?? [];
+      $method    = $request['method'] ?? 'POST';
+      $timeout   = $request['timeout'] ?? 60;
+
+      $ch = curl_init();
+      curl_setopt($ch, CURLOPT_URL, $url);
+      curl_setopt($ch, CURLOPT_CUSTOMREQUEST, $method);
+      curl_setopt($ch, CURLOPT_POSTFIELDS, wp_json_encode($post_data));
+      curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+      curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, $timeout);
+      curl_setopt($ch, CURLOPT_TIMEOUT, $timeout);
+      curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, self::is_production());
+      curl_setopt($ch, CURLOPT_FAILONERROR, true);
+
+      if (!empty($header) && is_array($header)) {
+        curl_setopt($ch, CURLOPT_HTTPHEADER, $header);
+      }
+
+      curl_multi_add_handle($mh, $ch);
+      $curl_handles[] = $ch;
+    }
+
+    // 実行
+    $active = null;
+    do {
+      $status = curl_multi_exec($mh, $active);
+      if ($active) {
+        curl_multi_select($mh);
+      }
+    } while ($active && $status == CURLM_OK);
+
+    // 結果を取得
+    foreach ($curl_handles as $ch) {
+      $result = curl_multi_getcontent($ch);
+      $responses[] = $result;
+      curl_multi_remove_handle($mh, $ch);
+    }
+
+    curl_multi_close($mh);
+
+    return $responses;
+  }
+
+  /**
    * エスケープ処理
    * @param  string $input
    * @param  boolean $is_text_field 改行を含むテキストフィールドの場合

@@ -29,32 +29,32 @@ trait OMF_Trait_Google_Sheets
    *
    * @param WP_Post $form
    * @param array $data
-   * @return void
+   * @return array
    */
-  private function send_google_sheets(WP_Post $form, array $data_to_save)
+  private function get_google_sheets_params(WP_Post $form, array $data_to_save): array
   {
     if (empty($form) || empty($data_to_save)) {
-      return;
+      return [];
     }
 
     $is_google_sheets = $this->is_google_sheets($form->ID);
     if (!$is_google_sheets) {
-      return;
+      return [];
     }
 
     $access_token = $this->get_google_access_token();
     if (empty($access_token)) {
-      return;
+      return [];
     }
 
     $sheet_id = get_post_meta($form->ID, 'cf_omf_google_sheets_id', true);
     $sheet_name = get_post_meta($form->ID, 'cf_omf_google_sheets_name', true);
     if (empty($sheet_id) || empty($sheet_name)) {
-      return;
+      return [];
     }
 
-    //書き込み処理
-    $this->write_to_google_sheets($access_token, $sheet_id, $sheet_name, $data_to_save);
+    //書き込み処理情報を取得
+    return $this->get_write_to_google_sheets_params($access_token, $sheet_id, $sheet_name, $data_to_save);
   }
 
   /**
@@ -80,7 +80,7 @@ trait OMF_Trait_Google_Sheets
   }
 
   /**
-   * Google Sheets APIでスプレッドシートに書き込み
+   * Google Sheets APIでスプレッドシートに書き込む情報を取得する　
    *
    * @param string $access_token
    * @param string $sheet_id
@@ -88,7 +88,7 @@ trait OMF_Trait_Google_Sheets
    * @param array $values
    * @return void
    */
-  private function write_to_google_sheets(string $access_token, string $sheet_id, string $sheet_name, array $values)
+  private function get_write_to_google_sheets_params(string $access_token, string $sheet_id, string $sheet_name, array $values)
   {
     if (
       empty($access_token) ||
@@ -96,23 +96,23 @@ trait OMF_Trait_Google_Sheets
       empty($sheet_name) ||
       empty($values)
     ) {
-      return;
+      return [];
     }
 
     //シートのデータを取得
     $response = $this->get_google_sheets($access_token, $sheet_id, $sheet_name);
     if (empty($response) || is_wp_error($response)) {
-      return;
+      return [];
     }
 
     //取得したシートの最終行の次の行に書き込む
     $response_data = json_decode($response, true);
     $row_count = !empty($response_data['values']) ? count($response_data['values']) + 1 : 1;
-    return $this->update_google_sheets($access_token, $sheet_id, $sheet_name, $values, $row_count);
+    return $this->get_update_google_sheets_request_params($access_token, $sheet_id, $sheet_name, $values, $row_count);
   }
 
   /**
-   * スプレッドシートにデータを書き込む
+   * スプレッドシートにデータを書き込む情報を取得
    *
    * @param string $access_token
    * @param string $sheet_id
@@ -121,7 +121,7 @@ trait OMF_Trait_Google_Sheets
    * @param integer $row_count 書き込む行数
    * @return mixed
    */
-  private function update_google_sheets(string $access_token, string $sheet_id, string $sheet_name, array $data, int $row_count): mixed
+  private function get_update_google_sheets_request_params(string $access_token, string $sheet_id, string $sheet_name, array $data, int $row_count): mixed
   {
     if (
       empty($access_token) ||
@@ -130,18 +130,26 @@ trait OMF_Trait_Google_Sheets
       empty($data) ||
       empty($row_count)
     ) {
-      return false;
+      return [];
     }
 
-    $range = "{$sheet_name}!A{$row_count}";
-    $endpoint = sprintf('https://sheets.googleapis.com/v4/spreadsheets/%s/values/%s?valueInputOption=RAW', $sheet_id, $range);
+    $range        = "{$sheet_name}!A{$row_count}";
+    $endpoint     = sprintf('https://sheets.googleapis.com/v4/spreadsheets/%s/values/%s?valueInputOption=RAW', $sheet_id, $range);
     $request_body = ['values' => [array_values($data)]];
-    $header = [
+    $header       = [
       'Content-Type: application/json',
       'Authorization: Bearer ' . $access_token,
     ];
-    $response = OMF_Utils::curl_post($endpoint, $request_body, $header, 'PUT');
-    return $response;
+
+    // $response = OMF_Utils::curl_post($endpoint, $request_body, $header, 'PUT');
+    // return $response;
+
+    return [
+      'url'       => $endpoint,
+      'post_data' => $request_body,
+      'header'    => $header,
+      'method'    => 'PUT'
+    ];
   }
 
   /**
@@ -159,11 +167,11 @@ trait OMF_Trait_Google_Sheets
       empty($sheet_id) ||
       empty($sheet_name)
     ) {
-      return false;
+      return [];
     }
 
     //データが入っている範囲を取得
-    $range = "{$sheet_name}!A:B";
+    $range    = "{$sheet_name}!A:B";
     $endpoint = sprintf('https://sheets.googleapis.com/v4/spreadsheets/%s/values/%s', $sheet_id, $range);
     $response = OMF_Utils::curl_get($endpoint, [
       'Authorization: Bearer ' . $access_token,

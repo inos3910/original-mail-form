@@ -7,7 +7,6 @@ if (!defined('ABSPATH')) {
 }
 
 use WP_Post;
-use WP_Error;
 
 trait OMF_Trait_Save_Db
 {
@@ -37,7 +36,7 @@ trait OMF_Trait_Save_Db
       'omf_mail_to'           => $mail['mailaddress'],
     ], $info['tag_to_text']);
 
-    $data = OMF_Utils::add_after_key($data, 'omf_reply_mail_sended', $is_sended_admin ? '送信成功' : '送信失敗', 'omf_admin_mail_sended');
+    $data = OMF_Utils::add_after_key($data, 'omf_reply_mail_sended', $is_sended_admin ? '【通知】送信成功' : '【通知】送信失敗', 'omf_admin_mail_sended');
 
     return $data;
   }
