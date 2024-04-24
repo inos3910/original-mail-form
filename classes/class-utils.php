@@ -125,6 +125,10 @@ class OMF_Utils
 
     // 各リクエストに対してcURLハンドルを作成
     foreach ($requests as $request) {
+      if (empty($request['url'])) {
+        continue;
+      }
+
       $url       = $request['url'];
       $post_data = $request['post_data'];
       $header    = $request['header'] ?? [];
