@@ -176,15 +176,19 @@ class OMF_Utils
 
   /**
    * エスケープ処理
-   * @param  string $input
+   * @param  string|array $input
    * @param  boolean $is_text_field 改行を含むテキストフィールドの場合
-   * @return string
+   * @return string|array
    */
-  public static function custom_escape(string $input, bool $is_text_field = false): string
+  public static function custom_escape(string|array $input, bool $is_text_field = false): string|array
   {
     //空の場合は空文字を返す
     if (empty($input)) {
       return '';
+    }
+
+    if (is_array($input)) {
+      return array_map([__NAMESPACE__ . '\OMF_Utils', 'custom_escape'], $input);
     }
 
     //テキストフィールドフラグがある場合
@@ -244,5 +248,28 @@ class OMF_Utils
     );
 
     return array_combine($new_keys, $new_values);
+  }
+
+  /**
+   *　$_FILESと同じ構造を持つ配列かどうかを判定
+   *
+   * @param mixed $value
+   * @return boolean
+   */
+  public static function isFilesArray(mixed $value): bool
+  {
+    if (!is_array($value)) {
+      return false;
+    }
+
+    $keys = ['name', 'size', 'tmp_name', 'type'];
+
+    foreach ($keys as $key) {
+      if (!isset($value[$key])) {
+        return false;
+      }
+    }
+
+    return true;
   }
 }

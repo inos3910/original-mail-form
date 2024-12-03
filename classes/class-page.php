@@ -267,11 +267,13 @@ class OMF_Page
 
   /**
    * 送信データを取得
+   *
    * @return array
    */
   public function get_post_values(): array
   {
     $post_data = [];
+
     //セッションがある場合
     if (!empty($_SESSION[$this->session_name_post_data])) {
       $post_data = $_SESSION[$this->session_name_post_data];
@@ -285,6 +287,9 @@ class OMF_Page
       }
       $post_data = $this->filter_post_keys($post_data);
     }
+
+    //アップロードファイルを追加
+    $post_data = $this->add_uploaded_files($post_data);
 
     return $post_data;
   }
@@ -428,9 +433,10 @@ class OMF_Page
 
     $recaptcha_field_name = !empty(get_option('omf_recaptcha_field_name')) ? sanitize_text_field(wp_unslash(get_option('omf_recaptcha_field_name'))) : 'g-recaptcha-response';
     $remove_keys = ['confirm', 'send', 'omf_nonce', '_wp_http_referer', 'omf_token', $recaptcha_field_name];
-    $post_data = array_diff_key($post_data, array_flip($remove_keys));
 
-    return $post_data;
+    $filterd_post_data = array_diff_key($post_data, array_flip($remove_keys));
+
+    return $filterd_post_data;
   }
 
 
@@ -587,9 +593,11 @@ class OMF_Page
     }
 
     //各入力項目を取得
-    $post_data = !empty($_POST) ? array_map([__NAMESPACE__ . '\OMF_Utils', 'custom_escape'], $_POST) : [];
+    $post_data = $this->get_post_values();
+
     //入力項目を検証
     $errors = $this->validate_mail_form_data($post_data);
+
     //検証NGの場合は入力画面に戻す
     if (!empty($errors)) {
       $this->redirect_to_entry_page_by_invalid($post_data, $page_paths, $errors);
@@ -818,7 +826,7 @@ class OMF_Page
   private function handle_no_session_confirm_page(array $page_paths, array $pages)
   {
     //nonce認証・リファラー認証
-    $is_authenticate = $this->is_authenticate($pages['confirm']->post_name);
+    $is_authenticate = $this->is_authenticate($pages['confirm']->post_name) || $this->is_authenticate($pages['entry']->post_name);
     //token検証
     $is_valid_token = $this->is_valid_token();
     //認証NG
@@ -1009,7 +1017,7 @@ class OMF_Page
     do_action('omf_before_send_mail', $post_data, $form, $post_id);
 
     // メール送信
-    $result = $this->send_mails($post_data, $form->ID);
+    $result = $this->send_mails($post_data, $form->ID, $post_id);
 
     $this->after_send_mails($form, $post_data, $post_id);
 
@@ -1021,25 +1029,35 @@ class OMF_Page
    *
    * @param array $post_data
    * @param integer $form_id
+   * @param integer $post_id
    * @return boolean
    */
-  private function send_mails(array $post_data, int $form_id): bool
+  private function send_mails(array $post_data, int $form_id, int $post_id): bool
   {
+    //添付ファイルの変換処理
+    $converted      = $this->convert_attachments($post_data);
+    $attachments    = $converted['attachment_paths'];
+    $attachment_ids = $converted['attachment_ids'];
+    $post_data      = $converted['tags'];
+
     //自動返信の有無
     $is_disable_reply_mail = $this->is_disable_reply_mail($form_id);
     //自動返信なしの場合
     if ($is_disable_reply_mail) {
       //通知メール送信処理
-      $is_sended_admin = $this->send_admin_mail($post_data);
+      $is_sended_admin = $this->send_admin_mail($post_data, $post_id, $attachments);
       return $is_sended_admin;
     }
 
     //自動返信ありの場合
     //自動返信メール送信処理
-    $is_sended_reply = $this->send_reply_mail($post_data);
+    $is_sended_reply = $this->send_reply_mail($post_data, $post_id, $attachments);
     //通知メール送信処理
     $post_data['omf_reply_mail_sended'] = $is_sended_reply ? '【自動返信】送信成功' : '【自動返信】送信失敗';
-    $is_sended_admin = $this->send_admin_mail($post_data);
+    $is_sended_admin = $this->send_admin_mail($post_data, $post_id, $attachments);
+
+    //添付ファイルの一時タグを削除
+    $this->remove_temporary_media_tag($attachment_ids);
 
     return $is_sended_reply && $is_sended_admin;
   }
