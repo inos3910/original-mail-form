@@ -11,10 +11,6 @@
 
   .omf-metabox {
     margin-block: 1em;
-    // padding: 1em;
-  }
-
-  .omf-metabox--side {
   }
 
   .omf-metabox--repeat {
@@ -155,12 +151,17 @@
   }
 
   .omf-metabox__body {
-    display: none;
-    padding: 1em;
+    display: grid;
+    grid-template-rows: 0fr;
+    transition: grid-template-rows 0.3s ease;
 
     &.open {
-      display: block;
+      grid-template-rows: 1fr;
     }
+  }
+
+  .omf-metabox__body-inner {
+    overflow: hidden;
   }
 
   .omf-metabox__row {
@@ -168,7 +169,17 @@
     grid-template-columns: 20% minmax(0, 1fr);
     align-items: center;
     gap: 1em;
-    padding-block: 0.5em;
+    padding: 1em;
+
+    .checks {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 1em 1.25em;
+
+      input[type="checkbox"] {
+        margin: 0;
+      }
+    }
   }
 
   &[class*="post-type-omf_db_"] {
@@ -177,12 +188,22 @@
       width: 100%;
     }
 
+    a:has(img) {
+      display: block;
+    }
+
+    img {
+      max-width: 100%;
+      height: auto;
+      vertical-align: bottom;
+    }
+
     table.wp-list-table {
-      table-layout: auto;
+      table-layout: fixed;
 
       th:not(.check-column),
       td:not(.check-column) {
-        min-width: 150px;
+        width: 180px;
       }
 
       .content {
@@ -217,7 +238,9 @@
   }
 
   .omf-data__table td .pre {
+    max-width: 100%;
     white-space: pre-wrap;
+    word-break: break-all;
   }
   .omf-button--1 {
     color: #fff;

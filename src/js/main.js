@@ -82,8 +82,14 @@ class OMF {
   removeRepeatField(e) {
     const button = e.currentTarget;
     const target = button.closest('.js-omf-repeat-field');
-
     if (!target) {
+      return;
+    }
+
+    const fields = target.parentElement.querySelectorAll(
+      '.js-omf-repeat-field'
+    );
+    if (fields.length <= 1) {
       return;
     }
 

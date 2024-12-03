@@ -8,6 +8,7 @@ if (!defined('ABSPATH')) {
 
 use ThrowsSpamAway;
 use DateTime;
+// use finfo;
 
 trait OMF_Trait_Validation
 {
@@ -35,6 +36,7 @@ trait OMF_Trait_Validation
     if (empty($validations)) {
       return $errors;
     }
+
 
     //バリデーション設定
     foreach ((array)$validations as $val) {
@@ -160,7 +162,7 @@ trait OMF_Trait_Validation
         }
       }
       //必須（値が空の場合も検証）
-      elseif ($key === 'required' || empty($data)) {
+      elseif ($key === 'required') {
         $error_message = $this->validate_required($data, $value);
         if (!empty($error_message)) {
           $errors[] = $error_message;
@@ -249,6 +251,20 @@ trait OMF_Trait_Validation
         if (!empty($error_message)) {
           $errors[] = $error_message;
         }
+      }
+      //添付ファイルのサイズ
+      elseif ($key === 'file_size') {
+        $error_message = $this->validate_file_size($data, $value);
+        if (!empty($error_message)) {
+          $errors[] = $error_message;
+        }
+      }
+      //添付ファイルの許可する拡張子
+      elseif ($key === 'extension') {
+        $error_message = $this->validate_file_extension($data, $value);
+        if (!empty($error_message)) {
+          $errors[] = $error_message;
+        }
       } else {
         continue;
       }
@@ -258,18 +274,22 @@ trait OMF_Trait_Validation
 
   /**
    * 最小文字数を検証する
-   * @param  string $data  検証するデータ
+   * @param  mixed $data  検証するデータ
    * @param  integer|string $value 検証条件
    * @return string エラーメッセージ
    */
-  private function validate_min(string $data, int|string $value): string
+  private function validate_min(mixed $data, int|string $value): string
   {
     $error = '';
     if (intval($value) === 0) {
       return $error;
     }
 
-    if (mb_strlen($data) <= intval($value)) {
+    if (!is_string($data)) {
+      return $error;
+    }
+
+    if (mb_strlen($data) < intval($value)) {
       $error = "{$value}文字以上入力してください";
     }
     return $error;
@@ -277,14 +297,18 @@ trait OMF_Trait_Validation
 
   /**
    * 最大文字数を検証する
-   * @param  string $data  検証するデータ
+   * @param  mixed $data  検証するデータ
    * @param  integer|string $value 検証条件
    * @return string        エラーメッセージ
    */
-  private function validate_max(string $data, int|string $value): string
+  private function validate_max(mixed $data, int|string $value): string
   {
     $error = '';
     if (intval($value) === 0) {
+      return $error;
+    }
+
+    if (!is_string($data)) {
       return $error;
     }
 
@@ -296,11 +320,11 @@ trait OMF_Trait_Validation
 
   /**
    * 必須項目を検証する
-   * @param  string $data  検証するデータ
-   * @param  integer|string $value 検証条件
+   * @param  mixed $data  検証するデータ
+   * @param  integer|string|array $value 検証条件
    * @return string        エラーメッセージ
    */
-  private function validate_required(string $data, int|string $value): string
+  private function validate_required(mixed $data, int|string|array $value): string
   {
     $error = '';
 
@@ -318,16 +342,20 @@ trait OMF_Trait_Validation
 
   /**
    * 電話番号を検証する
-   * @param  string $data  検証するデータ
+   * @param  mixed $data  検証するデータ
    * @param  integer|string $value 検証条件
    * @return string        エラーメッセージ
    */
-  private function validate_tel(string $data, int|string $value): string
+  private function validate_tel(mixed $data, int|string $value): string
   {
     $error = '';
 
     //検証フラグがOFFの時はスキップ
     if (intval($value) !== 1) {
+      return $error;
+    }
+
+    if (!is_string($data)) {
       return $error;
     }
 
@@ -346,16 +374,20 @@ trait OMF_Trait_Validation
 
   /**
    * メールアドレスを検証する
-   * @param  string $data  検証するデータ
+   * @param  mixed $data  検証するデータ
    * @param  integer|string $value 検証条件
    * @return string        エラーメッセージ
    */
-  private function validate_email(string $data, int|string $value): string
+  private function validate_email(mixed $data, int|string $value): string
   {
     $error = '';
 
     //検証フラグがOFFの時はスキップ
     if (intval($value) !== 1) {
+      return $error;
+    }
+
+    if (!is_string($data)) {
       return $error;
     }
 
@@ -369,16 +401,20 @@ trait OMF_Trait_Validation
 
   /**
    * URLを検証する
-   * @param  string $data  検証するデータ
+   * @param  mixed $data  検証するデータ
    * @param  integer|string $value 検証条件
    * @return string        エラーメッセージ
    */
-  private function validate_url(string $data, int|string $value): string
+  private function validate_url(mixed $data, int|string $value): string
   {
     $error = '';
 
     //検証フラグがOFFの時はスキップ
     if (intval($value) !== 1) {
+      return $error;
+    }
+
+    if (!is_string($data)) {
       return $error;
     }
 
@@ -392,11 +428,11 @@ trait OMF_Trait_Validation
 
   /**
    * 半角数字を検証する
-   * @param  string $data  検証するデータ
+   * @param  mixed $data  検証するデータ
    * @param  integer|string $value 検証条件
    * @return string        エラーメッセージ
    */
-  private function validate_numeric(string $data, int|string $value): string
+  private function validate_numeric(mixed $data, int|string $value): string
   {
     $error = '';
 
@@ -405,7 +441,7 @@ trait OMF_Trait_Validation
       return $error;
     }
 
-    $is_numeric = !empty($data) ? preg_match('/^[0-9]+$/', $data) === 1 : false;
+    $is_numeric = !empty($data) && is_numeric($data) ? preg_match('/^[0-9]+$/', $data) === 1 : false;
     if (!$is_numeric) {
       $error = "半角数字で入力してください";
     }
@@ -415,16 +451,20 @@ trait OMF_Trait_Validation
 
   /**
    * 半角英字を検証する
-   * @param  string $data  検証するデータ
+   * @param  mixed $data  検証するデータ
    * @param  integer|string $value 検証条件
    * @return string        エラーメッセージ
    */
-  private function validate_alpha(string $data, int|string $value): string
+  private function validate_alpha(mixed $data, int|string $value): string
   {
     $error = '';
 
     //検証フラグがOFFの時はスキップ
     if (intval($value) !== 1) {
+      return $error;
+    }
+
+    if (!is_string($data)) {
       return $error;
     }
 
@@ -438,16 +478,20 @@ trait OMF_Trait_Validation
 
   /**
    * 半角英数字を検証する
-   * @param  string $data  検証するデータ
+   * @param  mixed $data  検証するデータ
    * @param  integer|string $value 検証条件
    * @return string        エラーメッセージ
    */
-  private function validate_alpha_numeric(string $data, int|string $value): string
+  private function validate_alpha_numeric(mixed $data, int|string $value): string
   {
     $error = '';
 
     //検証フラグがOFFの時はスキップ
     if (intval($value) !== 1) {
+      return $error;
+    }
+
+    if (!is_string($data)) {
       return $error;
     }
 
@@ -461,16 +505,20 @@ trait OMF_Trait_Validation
 
   /**
    * カタカナを検証する
-   * @param  string $data  検証するデータ
+   * @param  mixed $data  検証するデータ
    * @param  integer|string $value 検証条件
    * @return string        エラーメッセージ
    */
-  private function validate_katakana(string $data, int|string $value): string
+  private function validate_katakana(mixed $data, int|string $value): string
   {
     $error = '';
 
     //検証フラグがOFFの時はスキップ
     if (intval($value) !== 1) {
+      return $error;
+    }
+
+    if (!is_string($data)) {
       return $error;
     }
 
@@ -484,16 +532,20 @@ trait OMF_Trait_Validation
 
   /**
    * ひらがなを検証する
-   * @param  string $data  検証するデータ
+   * @param  mixed $data  検証するデータ
    * @param  integer|string $value 検証条件
    * @return string        エラーメッセージ
    */
-  private function validate_hiragana(string $data, int|string $value): string
+  private function validate_hiragana(mixed $data, int|string $value): string
   {
     $error = '';
 
     //検証フラグがOFFの時はスキップ
     if (intval($value) !== 1) {
+      return $error;
+    }
+
+    if (!is_string($data)) {
       return $error;
     }
 
@@ -508,16 +560,20 @@ trait OMF_Trait_Validation
 
   /**
    * カタカナ or ひらがなを検証する
-   * @param  string $data  検証するデータ
+   * @param  mixed $data  検証するデータ
    * @param  integer|string $value 検証条件
    * @return string        エラーメッセージ
    */
-  private function validate_kana(string $data, int|string $value): string
+  private function validate_kana(mixed $data, int|string $value): string
   {
     $error = '';
 
     //検証フラグがOFFの時はスキップ
     if (intval($value) !== 1) {
+      return $error;
+    }
+
+    if (!is_string($data)) {
       return $error;
     }
 
@@ -531,16 +587,20 @@ trait OMF_Trait_Validation
 
   /**
    * 日付を検証する
-   * @param  string $data  検証するデータ
+   * @param  mixed $data  検証するデータ
    * @param  integer|string $value 検証条件
    * @return string        エラーメッセージ
    */
-  private function validate_date(string $data, int|string $value): string
+  private function validate_date(mixed $data, int|string $value): string
   {
     $error = '';
 
     //検証フラグがOFFの時はスキップ
     if (intval($value) !== 1) {
+      return $error;
+    }
+
+    if (!is_string($data)) {
       return $error;
     }
 
@@ -577,16 +637,20 @@ trait OMF_Trait_Validation
 
   /**
    * Throws SPAM Awayを検証する
-   * @param  string $data  検証するデータ
+   * @param  mixed $data  検証するデータ
    * @param  integer|string $value 検証条件
    * @return string        エラーメッセージ
    */
-  private function validate_throws_spam_away(string $data, int|string $value): string
+  private function validate_throws_spam_away(mixed $data, int|string $value): string
   {
     $error = '';
 
     //検証フラグがOFFの時はスキップ
     if (intval($value) !== 1) {
+      return $error;
+    }
+
+    if (!is_string($data)) {
       return $error;
     }
 
@@ -603,16 +667,20 @@ trait OMF_Trait_Validation
 
   /**
    * 一致する文字列を検証する
-   * @param  string $data  検証するデータ
+   * @param  mixed $data  検証するデータ
    * @param  integer|string $value 検証条件
-   * @return string        エラーメッセージ
+   * @return string エラーメッセージ
    */
-  private function validate_matching_char(string $data, int|string $value): string
+  private function validate_matching_char(mixed $data, int|string $value): string
   {
     $error = '';
 
     //検証フラグがOFFの時はスキップ
     if (intval($value) !== 1) {
+      return $error;
+    }
+
+    if (!is_string($data)) {
       return $error;
     }
 
@@ -627,7 +695,7 @@ trait OMF_Trait_Validation
 
 
   /**
-   * Throws SPAM Awayプラグインの検証処理を追加
+   * Throws SPAM Awayプラグインの検証処理
    * @param  string $value 検証する文字列
    * @return array 検証結果
    */
@@ -716,5 +784,72 @@ trait OMF_Trait_Validation
     }
 
     return $result;
+  }
+
+  /**
+   * 添付ファイルサイズを検証
+   * @param  mixed $file  検証するデータ
+   * @param  integer|string $size ファイルサイズ（バイト）
+   * @return string エラーメッセージ
+   */
+  private function validate_file_size(mixed $file, int|string $size): string
+  {
+    $error = '';
+    $is_file_array = OMF_Utils::isFilesArray($file);
+    if (!$is_file_array) {
+      return $error;
+    }
+
+    $max_upload_size = size_format($size);
+
+    if ((int)$file['size'] > (int)$size) {
+      $error = "ファイルサイズは{$max_upload_size}以内にしてください。";
+    }
+
+    return $error;
+  }
+
+  /**
+   * 添付ファイルの拡張子を検証
+   * @param  mixed $file  検証するファイルデータ
+   * @param  array $extensions 検証条件
+   * @return string        エラーメッセージ
+   */
+  private function validate_file_extension(mixed $file, array $extensions): string
+  {
+    $error = '';
+    $is_file_array = OMF_Utils::isFilesArray($file);
+    if (!$is_file_array || empty($file['attachment_id'])) {
+      return $error;
+    }
+
+    if (!is_array($extensions) || empty($extensions)) {
+      return $error;
+    }
+
+    $allowed_types = OMF_Config::ALLOWED_TYPES;
+    $mime_types = [];
+    foreach ((array)$extensions as $ext) {
+      $mime_types[] = $allowed_types[$ext];
+    }
+
+    if (empty($mime_types)) {
+      return $error;
+    }
+
+    $mime_type = get_post_mime_type($file['attachment_id']);
+
+
+    if (!in_array($mime_type, $mime_types, true)) {
+      $extensions_count = count($extensions);
+      if ($extensions_count > 1) {
+        $allowed_extensions = implode('、', $extensions);
+        $error = "拡張子が {$allowed_extensions} のいずれかのファイルに変更してください";
+      } else {
+        $error = "拡張子が {$extensions[0]} のファイルに変更してください";
+      }
+    }
+
+    return $error;
   }
 }

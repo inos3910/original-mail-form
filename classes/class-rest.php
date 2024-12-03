@@ -125,6 +125,8 @@ class OMF_Rest
 
       $param     = $params->get_params();
       $post_data = !empty($param) ? array_map([__NAMESPACE__ . '\OMF_Utils', 'custom_escape'], $param) : [];
+      //アップロードファイルを追加
+      $post_data = $this->add_uploaded_files($post_data);
       $post_id   = $this->get_post_id_header();
       if (empty($post_id)) {
         return new WP_Error('failed', __('認証NG'), ['status' => 404]);
@@ -356,12 +358,18 @@ class OMF_Rest
    */
   private function send_mails(array $post_data, int $post_id, int $form_id): array
   {
+    //添付ファイルの変換処理
+    $converted      = $this->convert_attachments($post_data);
+    $attachments    = $converted['attachment_paths'];
+    $attachment_ids = $converted['attachment_ids'];
+    $post_data      = $converted['tags'];
+
     //自動返信の有無
     $is_disable_reply_mail = $this->is_disable_reply_mail($form_id);
     //自動返信なしの場合
     if ($is_disable_reply_mail) {
       //通知メール送信処理
-      $is_sended_admin = $this->send_admin_mail($post_data, $post_id);
+      $is_sended_admin = $this->send_admin_mail($post_data, $post_id, $attachments);
       return [
         'is_sended_admin' => $is_sended_admin,
         'is_sended'       => $is_sended_admin
@@ -374,7 +382,10 @@ class OMF_Rest
 
     //通知メール送信処理
     $post_data['omf_reply_mail_sended'] = $is_sended_reply ? '【自動返信】送信成功' : '【自動返信】送信失敗';
-    $is_sended_admin = $this->send_admin_mail($post_data, $post_id);
+    $is_sended_admin = $this->send_admin_mail($post_data, $post_id, $attachments);
+
+    //添付ファイルの一時タグを削除
+    $this->remove_temporary_media_tag($attachment_ids);
 
     return [
       'is_sended_reply' => $is_sended_reply,
