@@ -1656,6 +1656,12 @@ class OMF_Admin
                 </span>
               </div>
               <div class="omf-metabox__row">
+                <span>日付</span>
+                <span>
+                  <input type="checkbox" name="<?php echo esc_attr("{$meta_key}[0][date]") ?>" value="1">
+                </span>
+              </div>
+              <div class="omf-metabox__row">
                 <span>ThrowsSpamAway</span>
                 <span>
                   <input type="checkbox" name="<?php echo esc_attr("{$meta_key}[0][throws_spam_away]") ?>" value="1">

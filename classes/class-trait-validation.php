@@ -289,7 +289,7 @@ trait OMF_Trait_Validation
       return $error;
     }
 
-    if (mb_strlen($data) < intval($value)) {
+    if (mb_strlen($data, 'UTF-8') < intval($value)) {
       $error = "{$value}文字以上入力してください";
     }
     return $error;
@@ -312,7 +312,7 @@ trait OMF_Trait_Validation
       return $error;
     }
 
-    if (mb_strlen($data) >= intval($value)) {
+    if (mb_strlen($data, 'UTF-8') > intval($value)) {
       $error = "{$value}文字以内で入力してください";
     }
     return $error;
@@ -522,7 +522,7 @@ trait OMF_Trait_Validation
       return $error;
     }
 
-    $is_katakana = !empty($data) ? preg_match('/^[ァ-ヶー]+$/u', $data) === 1 : false;
+    $is_katakana = !empty($data) ? preg_match('/^[ァ-ヶー\s　]+$/u', $data) === 1 : false;
     if (!$is_katakana) {
       $error = "全角カタカナで入力してください";
     }
@@ -549,7 +549,7 @@ trait OMF_Trait_Validation
       return $error;
     }
 
-    $is_hiragana = !empty($data) ? preg_match('/^[ぁ-んー]+$/u', $data) === 1 : false;
+    $is_hiragana = !empty($data) ? preg_match('/^[ぁ-んー\s　]+$/u', $data) === 1 : false;
     if (!$is_hiragana) {
       $error = "ひらがなで入力してください";
     }
