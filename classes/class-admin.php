@@ -1545,19 +1545,19 @@ class OMF_Admin
               <div class="omf-metabox__row">
                 <span>最小文字数</span>
                 <span>
-                  <input type="text" name="<?php echo esc_attr("{$meta_key}[0][min]") ?>" value="">
+                  <input type="number" name="<?php echo esc_attr("{$meta_key}[0][min]") ?>" value="">
                 </span>
               </div>
               <div class="omf-metabox__row">
                 <span>最大文字数</span>
                 <span>
-                  <input type="text" name="<?php echo esc_attr("{$meta_key}[0][max]") ?>" value="">
+                  <input type="number" name="<?php echo esc_attr("{$meta_key}[0][max]") ?>" value="">
                 </span>
               </div>
               <div class="omf-metabox__row">
                 <span>一致する文字（カンマ区切りで複数指定）</span>
                 <span>
-                  <input type="text" name="<?php echo esc_attr("{$meta_key}[0][matching_char]") ?>" value="">
+                  <input class="large-text" type="text" name="<?php echo esc_attr("{$meta_key}[0][matching_char]") ?>" value="">
                 </span>
               </div>
 
