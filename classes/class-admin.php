@@ -15,6 +15,15 @@ class OMF_Admin
 
   public function __construct()
   {
+    // プラグインのルートパスを取得し、メインファイルのパスを設定
+    $plugin_root_path = plugin_dir_path(__DIR__);
+    $mainfile_path = "{$plugin_root_path}original-mail-form.php";
+
+    // プラグイン有効化時に実行
+    register_activation_hook($mainfile_path, [$this, 'set_slug_visible_for_all_users']);
+    // 新規ユーザー作成時にも実行
+    add_action('user_register', [$this, 'set_slug_visible_for_all_users']);
+
     //管理画面
     add_action('init', [$this, 'init']);
     add_action('delete_omf_old_temp_files', [$this, 'delete_omf_old_temp_files']);
@@ -1945,5 +1954,42 @@ class OMF_Admin
       </div>
     </div>
 <?php
+  }
+
+  /**
+   * 全ユーザー、または特定ユーザーにスラッグ表示設定を適用
+   *
+   * @param int|null $user_id 新規ユーザーID（新規作成時のみ設定される）
+   */
+  public function set_slug_visible_for_all_users($user_id = null)
+  {
+    // 対象のカスタム投稿タイプ
+    $post_type = OMF_Config::NAME;
+
+    // 全ユーザー、または新規ユーザーのみ取得
+    $users = $user_id ? [get_user_by('id', $user_id)] : get_users();
+
+    foreach ($users as $user) {
+      // 非表示にするメタボックス（'slugdiv' は設定しないことで常に表示）
+      update_user_meta(
+        $user->ID,
+        "metaboxhidden_{$post_type}",
+        array(
+          'authordiv',
+          'postcustom',
+          'trackbacksdiv',
+        )
+      );
+
+      // メタボックスの配置順（必要なら設定）
+      update_user_meta(
+        $user->ID,
+        "meta-box-order_{$post_type}",
+        array(
+          'side' => 'submitdiv,slugdiv,postimagediv',
+          'normal' => '',
+        )
+      );
+    }
   }
 }
