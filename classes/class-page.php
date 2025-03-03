@@ -727,6 +727,11 @@ class OMF_Page
       return;
     }
 
+    //戻るフラグが残ってる場合は削除
+    if (!empty($_SESSION[$this->session_name_post_data]['submit_back'])) {
+      unset($_SESSION[$this->session_name_post_data]['submit_back']);
+    }
+
     // POSTがない場合の処理
     if (empty($_POST)) {
       $this->handle_no_post_confirm_page($page_paths);

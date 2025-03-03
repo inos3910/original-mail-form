@@ -44,7 +44,7 @@ class OMF
    * @param string $instance_name
    * @return object|null
    */
-  public function get_instance(string $instance_name): object
+  public function get_instance(string $instance_name): object|null
   {
     if (empty($this->instances[$instance_name])) {
       return null;
