@@ -615,7 +615,7 @@ class OMF_Page
    */
   private function is_back_button_clicked(): bool
   {
-    return  filter_input(INPUT_POST, 'submit_back') === "back";
+    return filter_input(INPUT_POST, 'submit_back') === "back";
   }
 
   /**

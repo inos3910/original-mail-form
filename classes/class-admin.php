@@ -11,7 +11,7 @@ use WP_Query;
 
 class OMF_Admin
 {
-  use OMF_Trait_Form, OMF_Trait_Cryptor, OMF_Trait_Google_Auth, OMF_Trait_Update;
+  use OMF_Trait_Form, OMF_Trait_Cryptor, OMF_Trait_Google_Auth, OMF_Trait_Update, OMF_Trait_Output_Csv;
 
   public function __construct()
   {
@@ -36,6 +36,14 @@ class OMF_Admin
     add_action('save_post', [$this, 'save_omf_custom_field']);
     add_action('admin_enqueue_scripts', [$this, 'add_omf_srcs']);
     add_action('post_row_actions', [$this, 'admin_omf_data_list_row'], 10, 2);
+
+    // CSV出力ページのみ
+    if (
+      isset($_GET['post_type']) && $_GET['post_type'] === 'original_mail_forms' &&
+      isset($_GET['page']) && $_GET['page'] === 'omf_output_data'
+    ) {
+      add_action('admin_init', [$this, 'output_csv']);
+    }
   }
 
   //初期化
@@ -292,6 +300,7 @@ class OMF_Admin
     $this->add_admin_setting();
     $this->add_admin_recaptcha_settings();
     $this->add_admin_data_settings();
+    $this->add_output_data_settings();
     $this->add_admin_google_settings();
     $this->add_admin_update_settings();
   }
@@ -447,6 +456,24 @@ class OMF_Admin
   }
 
   /**
+   * 送信データの投稿IDから連携しているフォームのスラッグ名を取得
+   *
+   * @param string $post_type
+   * @return integer
+   */
+  private function get_form_id_by_data_post_type(string $post_type): int
+  {
+    if (empty($post_type)) {
+      return 0;
+    }
+
+    preg_match('/' . OMF_Config::DBDATA . '(\d+)/', $post_type, $matches);
+    $form_id = $matches[1] ?? 0;
+    return $form_id;
+  }
+
+
+  /**
    * プラグイン側で生成されるカスタムフィールドのキーの名前を日本語に置き換える
    *
    * @param string $field_key
@@ -516,6 +543,28 @@ class OMF_Admin
     $new_fields = [];
     foreach ((array)$fields as $key => $value) {
       if (!(preg_match("/^_/", $key))) {
+        $new_fields[$key] = $value;
+      }
+    }
+
+    return $new_fields;
+  }
+
+  /**
+   * OMF用の送信データをフィルタリングする
+   *
+   * @param array $fields
+   * @return array
+   */
+  private function filter_omf_field(array $fields): array
+  {
+    if (empty($fields)) {
+      return [];
+    }
+
+    $new_fields = [];
+    foreach ((array)$fields as $key => $value) {
+      if (!(preg_match("/^omf_|^(site_name|site_url|user_agent|user_ip|host)$/", $key))) {
         $new_fields[$key] = $value;
       }
     }
@@ -710,6 +759,23 @@ class OMF_Admin
       '送信データ',
       'manage_options',
       'omf_data',
+      [$this, 'load_admin_template']
+    );
+  }
+
+  /**
+   * 送信データ出力ページを追加
+   *
+   * @return void
+   */
+  public function add_output_data_settings()
+  {
+    add_submenu_page(
+      'edit.php?post_type=' . OMF_Config::NAME,
+      '送信データCSV出力',
+      '送信データCSV出力',
+      'manage_options',
+      'omf_output_data',
       [$this, 'load_admin_template']
     );
   }
@@ -1041,6 +1107,8 @@ class OMF_Admin
       'numberposts'   => -1,
       'post_type'     => OMF_Config::NAME,
       'post_status'   => 'publish',
+      'order'         => 'ASC',
+      'orderby'       => 'menu_order',
       'no_found_rows' => true,
     ];
     $mail_forms = get_posts($args);
