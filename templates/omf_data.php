@@ -14,6 +14,7 @@
           <th>DB保存件数</th>
           <th>更新日</th>
           <th>作成日</th>
+          <th>CSV出力</th>
         </thead>
         <?php
         foreach ((array)$mail_forms as $form) {
@@ -62,6 +63,7 @@
             <td><?php echo esc_html($data_count) ?>件</td>
             <td><?php echo esc_html($latest_post_date) ?></td>
             <td><?php echo esc_html($publish_post_date) ?></td>
+            <td><a href="<?php echo esc_url(admin_url("edit.php?post_type=original_mail_forms&page=omf_output_data&omf_data_id={$data_post_type}")) ?>">CSV出力</a></td>
           </tr>
         <?php
         }
