@@ -124,37 +124,37 @@ $one_year_ja     = wp_date("Y/m/d (" . $week_name[wp_date("w", strtotime('-1 yea
                 <br>
                 <label>
                   <input type="radio" name="omf_output_period" value="<?php echo esc_attr($yesterday) ?>">
-                  <span class="omf_date">昨日</span>
+                  <span class="omf_date">昨日〜今日</span>
                   <code><?php echo esc_html("{$yesterday_ja} 〜 {$today_ja}") ?></code>
                 </label>
                 <br>
                 <label>
                   <input type="radio" name="omf_output_period" value="<?php echo esc_attr($one_week) ?>">
-                  <span class="omf_date">1週間</span>
+                  <span class="omf_date">1週間〜今日</span>
                   <code><?php echo esc_html("{$one_week_ja} 〜 {$today_ja}") ?></code>
                 </label>
                 <br>
                 <label>
                   <input type="radio" name="omf_output_period" value="<?php echo esc_attr($one_month) ?>">
-                  <span class="omf_date">1ヶ月</span>
+                  <span class="omf_date">1ヶ月前〜今日</span>
                   <code><?php echo esc_html("{$one_month_ja} 〜 {$today_ja}") ?></code>
                 </label>
                 <br>
                 <label>
                   <input type="radio" name="omf_output_period" value="<?php echo esc_attr($three_months) ?>">
-                  <span class="omf_date">3か月</span>
+                  <span class="omf_date">3か月前〜今日</span>
                   <code><?php echo esc_html("{$three_months_ja} 〜 {$today_ja}") ?></code>
                 </label>
                 <br>
                 <label>
                   <input type="radio" name="omf_output_period" value="<?php echo esc_attr($six_months) ?>">
-                  <span class="omf_date">6ヶ月</span>
+                  <span class="omf_date">6ヶ月前〜今日</span>
                   <code><?php echo esc_html("{$six_months_ja} 〜 {$today_ja}") ?></code>
                 </label>
                 <br>
                 <label>
                   <input type="radio" name="omf_output_period" value="<?php echo esc_attr($one_year) ?>">
-                  <span class="omf_date">1年</span>
+                  <span class="omf_date">1年前〜今日</span>
                   <code><?php echo esc_html("{$one_year_ja} 〜 {$today_ja}") ?></code>
                 </label>
                 <br>
@@ -173,10 +173,12 @@ $one_year_ja     = wp_date("Y/m/d (" . $week_name[wp_date("w", strtotime('-1 yea
                   <span>任意入力</span>
                 </legend>
                 <label>
+                  <span>開始日</span>
                   <input type="date" name="omf_output_start" value="" max="<?php echo esc_attr($today) ?>">
                 </label>
                 <br>
                 <label>
+                  <span>終了日</span>
                   <input type="date" name="omf_output_end" value="" max="<?php echo esc_attr($today) ?>">
                 </label>
               </fieldset>
@@ -197,7 +199,7 @@ $one_year_ja     = wp_date("Y/m/d (" . $week_name[wp_date("w", strtotime('-1 yea
 <style>
   .original_mail_forms_page_omf_output_data .omf_date {
     display: inline-block;
-    min-width: 6em;
+    min-width: 8em;
   }
 
   .original_mail_forms_page_omf_output_data .omf-data-patterns {
