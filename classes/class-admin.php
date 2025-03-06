@@ -38,10 +38,7 @@ class OMF_Admin
     add_action('post_row_actions', [$this, 'admin_omf_data_list_row'], 10, 2);
 
     // CSV出力ページのみ
-    if (
-      isset($_GET['post_type']) && $_GET['post_type'] === 'original_mail_forms' &&
-      isset($_GET['page']) && $_GET['page'] === 'omf_output_data'
-    ) {
+    if (isset($_GET['page']) && $_GET['page'] === 'omf_output_data') {
       add_action('admin_init', [$this, 'output_csv']);
     }
   }
@@ -238,24 +235,6 @@ class OMF_Admin
       if (empty($data_post_type)) {
         continue;
       }
-
-      // $post_ids = get_posts([
-      //   'post_type'      => $data_post_type,
-      //   'posts_per_page' => 1,
-      //   'fields'         => 'ids'
-      // ]);
-      // //データがすでに存在する場合
-      // if (empty($post_ids)) {
-      //   continue;
-      // }
-      // //データが存在しない場合
-      // else {
-      //   //保存フラグがなければ投稿を作らない
-      //   $is_use_db = get_post_meta($form->ID, 'cf_omf_save_db', true) === '1';
-      //   if (!$is_use_db) {
-      //     continue;
-      //   }
-      // }
 
       //送信データの投稿タイプを登録
       $data_labels = [
@@ -753,14 +732,27 @@ class OMF_Admin
    */
   public function add_admin_data_settings()
   {
-    add_submenu_page(
-      'edit.php?post_type=' . OMF_Config::NAME,
-      '送信データ',
-      '送信データ',
-      'manage_options',
-      'omf_data',
-      [$this, 'load_admin_template']
-    );
+    if (current_user_can('manage_options')) {
+      add_submenu_page(
+        'edit.php?post_type=' . OMF_Config::NAME,
+        '送信データ',
+        '送信データ',
+        'edit_others_posts',
+        'omf_data',
+        [$this, 'load_admin_template']
+      );
+    } elseif (current_user_can('edit_others_posts')) {
+      add_menu_page(
+        '送信データ',
+        '送信データ',
+        'edit_others_posts',
+        'omf_data',
+        [$this, 'load_admin_template'],
+        'dashicons-list-view'
+      );
+    } else {
+      return;
+    }
   }
 
   /**
@@ -770,14 +762,27 @@ class OMF_Admin
    */
   public function add_output_data_settings()
   {
-    add_submenu_page(
-      'edit.php?post_type=' . OMF_Config::NAME,
-      '送信データCSV出力',
-      '送信データCSV出力',
-      'manage_options',
-      'omf_output_data',
-      [$this, 'load_admin_template']
-    );
+    if (current_user_can('manage_options')) {
+      add_submenu_page(
+        'edit.php?post_type=' . OMF_Config::NAME,
+        '送信データCSV出力',
+        '送信データCSV出力',
+        'edit_others_posts',
+        'omf_output_data',
+        [$this, 'load_admin_template']
+      );
+    } elseif (current_user_can('edit_others_posts')) {
+      add_menu_page(
+        '送信データCSV出力',
+        '送信データCSV出力',
+        'edit_others_posts',
+        'omf_output_data',
+        [$this, 'load_admin_template'],
+        'dashicons-database-export'
+      );
+    } else {
+      return;
+    }
   }
 
   /**
