@@ -525,7 +525,7 @@ add_filter('omf_mail_tag', function ($replacement_text, $tag) {
  * @param String $field_key フィールド名
  * @return String 変更後のフィールド名
  */
-add_filter('omf_data_custom_field_key_{$slug}', function ($field_key) {
+add_filter('omf_data_custom_field_key_{$post_type}', function ($field_key) {
   if ($field_key === 'custom') {
     return 'カスタマイズ';
   }
@@ -537,6 +537,25 @@ add_filter('omf_data_custom_field_key_{$slug}', function ($field_key) {
   return $field_key;
 });
 ```
+
+### CSV 出力データの選択をパターンとしてボタンに登録する
+
+```
+/**
+ * CSV 出力データの選択をパターンとしてボタンに登録する
+ * @param Array 出力するフィールド名の配列（初期値は空なのでボタンは非表示）
+ * @return Array 変更後の出力するフィールド名の配列
+ */
+add_filter('omf_output_data_patterns_massyou', function ($patterns) {
+$patterns = [
+['user_name', 'furigana', 'tel', 'email', 'postal_code', 'pref', 'city', 'address', 'message'],
+['user_name', 'postal_code', 'pref', 'city', 'address']
+];
+return $patterns;
+});
+```
+
+この場合は配列が 2 つ入っているのでパターン 1 とパターン 2 ボタンが表示され、それぞれをクリックすると一括で指定したフィールドを選択できる
 
 ## アクションフック
 
