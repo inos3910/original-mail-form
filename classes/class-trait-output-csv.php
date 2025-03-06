@@ -29,7 +29,7 @@ trait OMF_Trait_Output_Csv
     check_admin_referer('omf_output_csv_action', 'omf_output_csv_nonce');
 
     // 権限チェック
-    if (!current_user_can('manage_options')) {
+    if (!current_user_can('edit_others_posts')) {
       wp_die('権限がありません。');
     }
 
