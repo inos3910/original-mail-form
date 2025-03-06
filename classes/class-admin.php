@@ -1167,7 +1167,19 @@ class OMF_Admin
       }
       //特定のIDに入力がない場合
       else {
-        add_meta_box('omf-metabox-link_form', 'メールフォーム連携', [$this, 'select_mail_form_meta_box_callback'], $current_screen->post_type, 'side', 'default');
+
+        //スラッグで判定
+        $page_paths = array_values($this->get_form_page_paths($form->ID));
+        if (!empty($page_paths)) {
+          foreach ($page_paths as $path) {
+            $page = get_page_by_path($path);
+            if (empty($page) || (int)$current_post_id !== (int)$page->ID) {
+              continue;
+            }
+
+            add_meta_box('omf-metabox-link_form', 'メールフォーム連携', [$this, 'select_mail_form_meta_box_callback'], $current_screen->post_type, 'side', 'default');
+          }
+        }
       }
     }
   }
