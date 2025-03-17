@@ -516,7 +516,7 @@ add_filter('omf_mail_tag', function ($replacement_text, $tag) {
 
 この場合は{type}というメールタグが「カスタマイズ」に置換される。
 
-### 送信データの項目名変更
+### 送信データの項目名表示（CSV 出力表示）変更
 
 ```
 /**
@@ -536,6 +536,29 @@ add_filter('omf_data_custom_field_key_{$post_type}', function ($field_key) {
 
   return $field_key;
 });
+```
+
+### 送信データの値表示（CSV 出力表示）変更
+
+```
+/**
+ * 送信データの値表示（CSV 出力表示）変更
+ *
+ * @param String $field_key フィールド名
+ * @return String 変更後のフィールド名
+ */
+add_filter('omf_data_custom_field_value_{$post_type}', function ($field_key, $field_value) {
+  if ($field_key === 'postal_code') {
+    if(empty($field_value)){
+      return $field_value;
+    }
+
+   $formatted_zip_code = substr($field_value, 0, 3) . '-' . substr($field_value, 3);
+   return $formatted_zip_code;
+  }
+
+  return $field_value;
+}, 10, 2);
 ```
 
 ### CSV 出力データの選択をパターンとしてボタンに登録する
