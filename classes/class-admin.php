@@ -2009,6 +2009,7 @@ class OMF_Admin
   public function omf_meta_box_select_mail_forms(WP_Post $post, string $title, string $meta_key)
   {
 
+    $current_post_id = filter_input(INPUT_GET, 'post', FILTER_VALIDATE_INT);
     $mail_forms = $this->get_forms();
     if (empty($mail_forms)) {
       return;
@@ -2023,6 +2024,25 @@ class OMF_Admin
         <?php
         $no_checked = true;
         foreach ((array)$mail_forms as $form) {
+
+          $is_omf_form = false;
+          $page_paths = array_values($this->get_form_page_paths($form->ID));
+          if (!empty($page_paths)) {
+            foreach ($page_paths as $path) {
+              $page = get_page_by_path($path);
+              if (empty($page) || (int)$current_post_id !== (int)$page->ID) {
+                continue;
+              } else {
+                $is_omf_form = true;
+              }
+            }
+          }
+
+          //連携フォームがない場合はスキップ
+          if (!$is_omf_form) {
+            continue;
+          }
+
           $checked = in_array($form->post_name, (array)$value, true);
           if ($checked) {
             $no_checked = false;
