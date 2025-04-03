@@ -65,7 +65,7 @@ trait OMF_Trait_Validation
    * @param integer|null $post_id
    * @return boolean
    */
-  public function can_use_recaptcha(int $post_id = null): bool
+  public function can_use_recaptcha(int|null $post_id = null): bool
   {
     //reCAPTCHAのキーを確認
     if (empty(get_option('omf_recaptcha_secret_key')) || empty(get_option('omf_recaptcha_site_key'))) {
@@ -355,7 +355,7 @@ trait OMF_Trait_Validation
       return $error;
     }
 
-    if (!is_string($data)) {
+    if (empty($data) || !is_string($data)) {
       return $error;
     }
 
@@ -387,7 +387,7 @@ trait OMF_Trait_Validation
       return $error;
     }
 
-    if (!is_string($data)) {
+    if (empty($data) || !is_string($data)) {
       return $error;
     }
 
@@ -414,7 +414,7 @@ trait OMF_Trait_Validation
       return $error;
     }
 
-    if (!is_string($data)) {
+    if (empty($data) || !is_string($data)) {
       return $error;
     }
 
@@ -441,6 +441,10 @@ trait OMF_Trait_Validation
       return $error;
     }
 
+    if (empty($data)) {
+      return $error;
+    }
+
     $is_numeric = !empty($data) && is_numeric($data) ? preg_match('/^[0-9]+$/', $data) === 1 : false;
     if (!$is_numeric) {
       $error = "半角数字で入力してください";
@@ -464,7 +468,7 @@ trait OMF_Trait_Validation
       return $error;
     }
 
-    if (!is_string($data)) {
+    if (empty($data) || !is_string($data)) {
       return $error;
     }
 
@@ -491,7 +495,7 @@ trait OMF_Trait_Validation
       return $error;
     }
 
-    if (!is_string($data)) {
+    if (empty($data) || !is_string($data)) {
       return $error;
     }
 
@@ -518,7 +522,7 @@ trait OMF_Trait_Validation
       return $error;
     }
 
-    if (!is_string($data)) {
+    if (empty($data) || !is_string($data)) {
       return $error;
     }
 
@@ -545,7 +549,7 @@ trait OMF_Trait_Validation
       return $error;
     }
 
-    if (!is_string($data)) {
+    if (empty($data) || !is_string($data)) {
       return $error;
     }
 
@@ -573,7 +577,7 @@ trait OMF_Trait_Validation
       return $error;
     }
 
-    if (!is_string($data)) {
+    if (empty($data) || !is_string($data)) {
       return $error;
     }
 
@@ -600,7 +604,7 @@ trait OMF_Trait_Validation
       return $error;
     }
 
-    if (!is_string($data)) {
+    if (empty($data) || !is_string($data)) {
       return $error;
     }
 
@@ -650,7 +654,7 @@ trait OMF_Trait_Validation
       return $error;
     }
 
-    if (!is_string($data)) {
+    if (empty($data) || !is_string($data)) {
       return $error;
     }
 
@@ -680,7 +684,7 @@ trait OMF_Trait_Validation
       return $error;
     }
 
-    if (!is_string($data)) {
+    if (empty($data) || !is_string($data)) {
       return $error;
     }
 

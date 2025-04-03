@@ -18,9 +18,9 @@ trait OMF_Trait_Send
    * @param array $post_data メールフォーム送信データ
    * @param int $post_id フォームを設置したページのID
    * @param array $attachments 添付ファイル
-   * @return boolean
+   * @return boolean|string
    */
-  private function send_reply_mail(array $post_data, int $post_id, array $attachments = []): bool
+  private function send_reply_mail(array $post_data, int $post_id, array $attachments = []): bool|string
   {
 
     $form = $this->get_form($post_id);
@@ -42,6 +42,12 @@ trait OMF_Trait_Send
 
     $mail                = $this->create_reply_mail($info, $attachments);
     $reply_mailaddress   = $mail['mailaddress'];
+
+    //宛先がない場合は終了
+    if (empty($reply_mailaddress)) {
+      return 'no-reply';
+    }
+
     $reply_subject       = $mail['subject'];
     $reply_message       = $mail['message'];
     $reply_headers       = $mail['headers'];

@@ -1057,8 +1057,15 @@ class OMF_Page
     //自動返信ありの場合
     //自動返信メール送信処理
     $is_sended_reply = $this->send_reply_mail($post_data, $post_id, $attachments);
+    //自動返信メールの宛先がない時
+    if ($is_sended_reply === 'no-reply') {
+      $post_data['omf_reply_mail_sended'] = '【自動返信】スキップ（宛先なし）';
+    }
+    //自動返信メールの宛先がある時
+    else {
+      $post_data['omf_reply_mail_sended'] = $is_sended_reply ? '【自動返信】送信成功' : '【自動返信】送信失敗';
+    }
     //通知メール送信処理
-    $post_data['omf_reply_mail_sended'] = $is_sended_reply ? '【自動返信】送信成功' : '【自動返信】送信失敗';
     $is_sended_admin = $this->send_admin_mail($post_data, $post_id, $attachments);
 
     //添付ファイルの一時タグを削除
