@@ -173,7 +173,7 @@ trait OMF_Trait_Output_Csv
               $formatted_value = '="' . $formatted_value . '"';
             }
 
-            $formatted_value = apply_filters('omf_data_custom_field_value_' . $form_slug, $key, $formatted_value);
+            $formatted_value = apply_filters('omf_data_custom_field_value_' . $form_slug, $formatted_value, $key);
 
             $data[$index] = $formatted_value;
           }
