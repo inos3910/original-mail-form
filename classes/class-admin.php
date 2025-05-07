@@ -382,7 +382,7 @@ class OMF_Admin
                 <?php
                     } else {
                       $sanitized = sanitize_textarea_field(wp_unslash($unserialized));
-                      $formatted_value = apply_filters('omf_data_custom_field_value_' . $form_slug, $key, $sanitized);
+                      $formatted_value = apply_filters('omf_data_custom_field_value_' . $form_slug, $sanitized, $key);
                       echo '<div class="pre">' . esc_html($formatted_value) . '</div>';
                     }
                   }
@@ -710,7 +710,7 @@ class OMF_Admin
         } else {
           $sanitized = sanitize_textarea_field(wp_unslash($val));
           $form_slug  = $this->get_form_slug_by_data_post_id($post_id);
-          $formatted_value = apply_filters('omf_data_custom_field_value_' . $form_slug, $column_name, $sanitized);
+          $formatted_value = apply_filters('omf_data_custom_field_value_' . $form_slug, $sanitized, $column_name);
           echo '<div class="content">' . esc_html($formatted_value) . '</div>';
         }
       }

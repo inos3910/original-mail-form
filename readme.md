@@ -544,10 +544,11 @@ add_filter('omf_data_custom_field_key_{$post_type}', function ($field_key) {
 /**
  * 送信データの値表示（CSV 出力表示）変更
  *
+ * @param String $field_value フィールド値
  * @param String $field_key フィールド名
  * @return String 変更後のフィールド名
  */
-add_filter('omf_data_custom_field_value_{$post_type}', function ($field_key, $field_value) {
+add_filter('omf_data_custom_field_value_{$post_type}', function ($field_value, $field_key) {
   if ($field_key === 'postal_code') {
     if(empty($field_value)){
       return $field_value;
