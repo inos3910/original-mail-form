@@ -383,7 +383,7 @@ class OMF_Admin
                     } else {
                       $sanitized = sanitize_textarea_field(wp_unslash($unserialized));
                       $formatted_value = apply_filters('omf_data_custom_field_value_' . $form_slug, $sanitized, $key);
-                      echo '<div class="pre">' . esc_html($formatted_value) . '</div>';
+                      echo '<div class="pre">' . wp_kses_post($formatted_value) . '</div>';
                     }
                   }
                 }
