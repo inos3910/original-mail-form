@@ -775,13 +775,13 @@ class OMF_Admin
         [$this, 'load_admin_template']
       );
     } elseif (current_user_can('edit_others_posts')) {
-      add_menu_page(
+      add_submenu_page(
+        'omf_data',
         '送信データCSV出力',
         '送信データCSV出力',
         'edit_others_posts',
         'omf_output_data',
         [$this, 'load_admin_template'],
-        'dashicons-database-export'
       );
     } else {
       return;
