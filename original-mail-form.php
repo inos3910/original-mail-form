@@ -90,6 +90,15 @@ class OMF
   }
 
   /**
+   * Cloudflare Turnstileフィールドを出力
+   * @return void
+   */
+  public static function turnstile_field()
+  {
+    apply_filters('omf_turnstile_field', []);
+  }
+
+  /**
    * ワンタイムトークンを取得
    *
    * @return void

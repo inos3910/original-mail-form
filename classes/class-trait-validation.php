@@ -56,6 +56,15 @@ trait OMF_Trait_Validation
       }
     }
 
+    //Cloudflare Turnstile
+    $is_turnstile = $this->can_use_turnstile($post_id);
+    if ($is_turnstile) {
+      $turnstile = $this->verify_cloudflare_turnstile();
+      if (!$turnstile) {
+        $errors['turnstile'] = ['フォーム認証エラーのためもう一度送信してください。'];
+      }
+    }
+
     return $errors;
   }
 
@@ -126,6 +135,65 @@ trait OMF_Trait_Validation
     $response_data = json_decode($verify_response);
 
     return !empty($response_data) && $response_data->success && $response_data->score >= 0.5;
+  }
+
+  /**
+   * Cloudflare Turnstile設定の有無を判定
+   *
+   * @param integer|null $post_id
+   * @return boolean
+   */
+  public function can_use_turnstile(int|null $post_id = null): bool
+  {
+    //reCAPTCHAのキーを確認
+    if (empty(get_option('omf_turnstile_secret_key')) || empty(get_option('omf_turnstile_site_key'))) {
+      return false;
+    }
+
+    //Cloudflare Turnstile設定を確認
+    $form = $this->get_form($post_id);
+    if (empty($form)) {
+      return false;
+    }
+
+    $is_turnstile = OMF_Utils::custom_escape(get_post_meta($form->ID, 'cf_omf_turnstile', true));
+    if (empty($is_turnstile)) {
+      return false;
+    }
+
+    //入力画面のみ
+    $current_page_id = get_the_ID();
+    $page_ids        = $this->get_form_page_ids($form);
+    if ($page_ids['entry'] !== $current_page_id) {
+      return false;
+    }
+
+    return $is_turnstile;
+  }
+
+  /**
+   * Cloudflare Turnstile認証処理
+   * @return boolean
+   */
+  private function verify_cloudflare_turnstile(): bool
+  {
+    $token = $_POST['cf-turnstile-response'] ?? '';
+
+    $ch = curl_init('https://challenges.cloudflare.com/turnstile/v0/siteverify');
+    curl_setopt($ch, CURLOPT_POST, true);
+    curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query([
+      'secret'   => '0x4AAAAAABxt3kd23ivQAZ3jXx3dCkgtHRg',
+      'response' => $token,
+      'remoteip' => $_SERVER['REMOTE_ADDR'],
+    ]));
+    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+
+    $response = curl_exec($ch);
+    curl_close($ch);
+
+    $result = json_decode($response, true);
+
+    return !empty($result['success']) && $result['success'];
   }
 
   /**

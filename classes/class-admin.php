@@ -278,6 +278,7 @@ class OMF_Admin
   {
     $this->add_admin_setting();
     $this->add_admin_recaptcha_settings();
+    $this->add_admin_turnstile_settings();
     $this->add_admin_data_settings();
     $this->add_output_data_settings();
     $this->add_admin_google_settings();
@@ -950,6 +951,35 @@ class OMF_Admin
   }
 
   /**
+   * Cloudflare Turnstile設定オプションページを追加
+   *
+   * @return void
+   */
+  public function add_admin_turnstile_settings()
+  {
+    add_submenu_page(
+      'edit.php?post_type=' . OMF_Config::NAME,
+      'Turnstile設定',
+      'Turnstile設定',
+      'manage_options',
+      'omf_turnstile_settings',
+      [$this, 'load_admin_template']
+    );
+    add_action('admin_init', [$this, 'register_turnstile_settings']);
+  }
+
+  /**
+   * Cloudflare Turnstile設定オプションページ 項目の登録
+   *
+   * @return void
+   */
+  public function register_turnstile_settings()
+  {
+    register_setting('turnstile-settings-group', 'omf_turnstile_site_key');
+    register_setting('turnstile-settings-group', 'omf_turnstile_secret_key');
+  }
+
+  /**
    * カスタムフィールドの保存
    *
    * @param integer $post_id
@@ -992,6 +1022,7 @@ class OMF_Admin
       'cf_omf_screen_confirm',
       'cf_omf_screen_complete',
       'cf_omf_recaptcha',
+      'cf_omf_turnstile',
       'cf_omf_save_db',
       'cf_omf_mail_id',
       'cf_omf_is_slack_notify',
@@ -1091,6 +1122,8 @@ class OMF_Admin
     add_meta_box('omf-metabox-condition', '表示条件', [$this, 'condition_meta_box_callback'], OMF_Config::NAME, 'side', 'default');
     //recaptchaのオン・オフ
     add_meta_box('omf-metabox-recaptcha', 'reCAPTCHA設定', [$this, 'recaptcha_meta_box_callback'], OMF_Config::NAME, 'side', 'default');
+    //Cloudflare Turnstileのオン・オフ
+    add_meta_box('omf-metabox-turnstile', 'Turnstile設定', [$this, 'turnstile_meta_box_callback'], OMF_Config::NAME, 'side', 'default');
     //データベース保存のオン・オフ
     add_meta_box('omf-metabox-save_db', 'データベース保存設定', [$this, 'save_db_meta_box_callback'], OMF_Config::NAME, 'side', 'default');
     //バリデーション
@@ -1221,6 +1254,23 @@ class OMF_Admin
     <div class="omf-metabox-wrapper">
       <?php
       $this->omf_meta_box_boolean($post, 'reCAPTCHAを設定する', 'cf_omf_recaptcha');
+      ?>
+    </div>
+  <?php
+  }
+
+  /**
+   * Cloudflare Turnstile設定
+   *
+   * @param WP_Post $post
+   * @return void
+   */
+  public function turnstile_meta_box_callback(WP_Post $post)
+  {
+  ?>
+    <div class="omf-metabox-wrapper">
+      <?php
+      $this->omf_meta_box_boolean($post, 'Cloudflare Turnstileを設定する', 'cf_omf_turnstile');
       ?>
     </div>
   <?php
