@@ -8,7 +8,7 @@
       <?php
       settings_fields('omf-google-settings-group');
       do_settings_sections('omf-google-settings-group');
-      settings_errors();
+      // settings_errors();
 
       $values        = $this->get_google_settings_values();
       $client_id     = $values['client_id'];

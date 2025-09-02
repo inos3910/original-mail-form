@@ -85,6 +85,7 @@ class OMF_Page
     add_filter('omf_get_post_values', [$this, 'get_post_values']);
     add_filter('omf_nonce_field', [$this, 'nonce_field']);
     add_filter('omf_recaptcha_field', [$this, 'recaptcha_field']);
+    add_filter('omf_turnstile_field', [$this, 'turnstile_field']);
     add_filter('omf_create_token', [$this, 'create_token']);
   }
 
@@ -360,6 +361,28 @@ class OMF_Page
 
     $html =  <<<EOM
     <input type="hidden" name="{$recaptcha_field_name}" id="g-recaptcha-response" data-sitekey="{$site_key}">
+    EOM;
+
+    echo $html;
+  }
+
+  /**
+   * Cloudflare Turnstileフィールド出力
+   *
+   * @return void
+   */
+  public function turnstile_field()
+  {
+    $is_turnstile = $this->can_use_turnstile();
+    if (!$is_turnstile) {
+      return;
+    }
+
+    $site_key = !empty(get_option('omf_turnstile_site_key')) ? sanitize_text_field(wp_unslash(get_option('omf_turnstile_site_key'))) : '';
+
+    $html =  <<<EOM
+    <div id="turnstile-widget" class="cf-turnstile" data-sitekey="{$site_key}"></div>
+    <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
     EOM;
 
     echo $html;
