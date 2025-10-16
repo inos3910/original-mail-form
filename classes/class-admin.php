@@ -1524,6 +1524,7 @@ class OMF_Admin
           $throws_spam_away = !empty($value['throws_spam_away']) ? sanitize_text_field(wp_unslash($value['throws_spam_away'])) : '';
           $matching_char    = !empty($value['matching_char']) ? sanitize_text_field(wp_unslash($value['matching_char'])) : '';
           $date             = !empty($value['date']) ? sanitize_text_field(wp_unslash($value['date'])) : '';
+          $postal_code      = !empty($value['postal_code']) ? sanitize_text_field(wp_unslash($value['postal_code'])) : '';
           $extension        = !empty($value['extension']) ? array_map([$this, 'sanitize_validation_custom_fields'], $value['extension']) : [];
           $file_size        = !empty($value['file_size']) ? sanitize_text_field(wp_unslash($value['file_size'])) : '';
       ?>
@@ -1659,6 +1660,12 @@ class OMF_Admin
                   <span>日付</span>
                   <span>
                     <input type="checkbox" name="<?php echo esc_attr("{$meta_key}[{$key}][date]") ?>" value="1" <?php if ($date) echo esc_attr(' checked') ?>>
+                  </span>
+                </div>
+                <div class="omf-metabox__row">
+                  <span>郵便番号</span>
+                  <span>
+                    <input type="checkbox" name="<?php echo esc_attr("{$meta_key}[{$key}][postal_code]") ?>" value="1" <?php if ($postal_code) echo esc_attr(' checked') ?>>
                   </span>
                 </div>
                 <div class="omf-metabox__row">
@@ -1806,6 +1813,12 @@ class OMF_Admin
                 <span>日付</span>
                 <span>
                   <input type="checkbox" name="<?php echo esc_attr("{$meta_key}[0][date]") ?>" value="1">
+                </span>
+              </div>
+              <div class="omf-metabox__row">
+                <span>郵便番号</span>
+                <span>
+                  <input type="checkbox" name="<?php echo esc_attr("{$meta_key}[0][postal_code]") ?>" value="1">
                 </span>
               </div>
               <div class="omf-metabox__row">

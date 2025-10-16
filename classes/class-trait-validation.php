@@ -21,7 +21,7 @@ trait OMF_Trait_Validation
    * @param integer|null $post_id
    * @return array
    */
-  public function validate_mail_form_data(array $post_data, int $post_id = null): array
+  public function validate_mail_form_data(array $post_data, int $post_id = 0): array
   {
     $errors = [];
 
@@ -302,6 +302,13 @@ trait OMF_Trait_Validation
       //日付
       elseif ($key === 'date') {
         $error_message = $this->validate_date($data, $value);
+        if (!empty($error_message)) {
+          $errors[] = $error_message;
+        }
+      }
+      //郵便番号
+      elseif ($key === 'postal_code') {
+        $error_message = $this->validate_postal_code($data, $value);
         if (!empty($error_message)) {
           $errors[] = $error_message;
         }
@@ -701,6 +708,27 @@ trait OMF_Trait_Validation
 
     if ($is_error) {
       $error = "日付の形式で入力してください";
+    }
+
+    return $error;
+  }
+
+  /**
+   * 郵便番号（ハイフンあり／なし）の形式を検証する
+   * @param  mixed $data 検証するデータ
+   * @return string エラーメッセージ
+   */
+  private function validate_postal_code(mixed $data): string
+  {
+    $error = '';
+
+    if (!is_string($data) || $data === '') {
+      return $error;
+    }
+
+    // ハイフンあり（123-4567）または ハイフンなし（1234567）のどちらか
+    if (!preg_match('/^\d{3}-\d{4}$/', $data) && !preg_match('/^\d{7}$/', $data)) {
+      $error = '郵便番号は「123-4567」または「1234567」の形式で入力してください';
     }
 
     return $error;
