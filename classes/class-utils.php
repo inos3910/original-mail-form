@@ -10,15 +10,6 @@ use WP_Error;
 
 class OMF_Utils
 {
-  /**
-   * 本番環境判定
-   *
-   * @return boolean
-   */
-  public static function is_production(): bool
-  {
-    return (defined('WP_ENV') && WP_ENV === 'production');
-  }
 
   /**
    * curlでデータ取得する関数
@@ -31,6 +22,9 @@ class OMF_Utils
   {
     $ch = curl_init();
 
+    $parsed_url = parse_url($url);
+    $is_ssl = isset($parsed_url['scheme']) && $parsed_url['scheme'] === 'https';
+
     if (!empty($header) && is_array($header)) {
       curl_setopt($ch, CURLOPT_HTTPHEADER, $header);
     }
@@ -40,7 +34,8 @@ class OMF_Utils
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
     curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, $timeout);
     curl_setopt($ch, CURLOPT_TIMEOUT, $timeout);
-    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, self::is_production());
+    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, $is_ssl);
+    curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, $is_ssl ? 2 : 0);
     curl_setopt($ch, CURLOPT_FAILONERROR, true);
 
     $result = curl_exec($ch);
@@ -79,6 +74,9 @@ class OMF_Utils
       'Pragma: no-cache'
     ];
 
+    $parsed_url = parse_url($url);
+    $is_ssl = isset($parsed_url['scheme']) && $parsed_url['scheme'] === 'https';
+
     curl_setopt($ch, CURLOPT_HTTPHEADER, $header);
     curl_setopt($ch, CURLOPT_URL, $url);
     curl_setopt($ch, CURLOPT_CUSTOMREQUEST, $method);
@@ -86,7 +84,8 @@ class OMF_Utils
     curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
     curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, $timeout);
     curl_setopt($ch, CURLOPT_TIMEOUT, $timeout);
-    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, self::is_production());
+    curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, $is_ssl);
+    curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, $is_ssl ? 2 : 0);
     curl_setopt($ch, CURLOPT_FAILONERROR, true);
 
     $result = curl_exec($ch);
@@ -135,6 +134,9 @@ class OMF_Utils
       $method    = $request['method'] ?? 'POST';
       $timeout   = $request['timeout'] ?? 60;
 
+      $parsed_url = parse_url($url);
+      $is_ssl = isset($parsed_url['scheme']) && $parsed_url['scheme'] === 'https';
+
       $ch = curl_init();
       curl_setopt($ch, CURLOPT_URL, $url);
       curl_setopt($ch, CURLOPT_CUSTOMREQUEST, $method);
@@ -142,7 +144,8 @@ class OMF_Utils
       curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
       curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, $timeout);
       curl_setopt($ch, CURLOPT_TIMEOUT, $timeout);
-      curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, self::is_production());
+      curl_setopt($ch, CURLOPT_SSL_VERIFYPEER, $is_ssl);
+      curl_setopt($ch, CURLOPT_SSL_VERIFYHOST, $is_ssl ? 2 : 0);
       curl_setopt($ch, CURLOPT_FAILONERROR, true);
 
       if (!empty($header) && is_array($header)) {
