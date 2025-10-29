@@ -119,10 +119,10 @@ trait OMF_Trait_Form
    * フォームが有効なページを取得
    *
    * @param integer|string|null $form_id
-   * @param array|null $page_paths
+   * @param array $page_paths
    * @return array
    */
-  public function get_active_form_pages(int|string|null $form_id, array $page_paths = null): array
+  public function get_active_form_pages(int|string|null $form_id, array $page_paths = []): array
   {
     $pages = [];
     if (empty($form_id)) {

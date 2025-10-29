@@ -182,7 +182,7 @@ trait OMF_Trait_Validation
     $ch = curl_init('https://challenges.cloudflare.com/turnstile/v0/siteverify');
     curl_setopt($ch, CURLOPT_POST, true);
     curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query([
-      'secret'   => '0x4AAAAAABxt3kd23ivQAZ3jXx3dCkgtHRg',
+      'secret'   => !empty(get_option('omf_turnstile_secret_key')) ? sanitize_text_field(wp_unslash(get_option('omf_turnstile_secret_key'))) : '',
       'response' => $token,
       'remoteip' => $_SERVER['REMOTE_ADDR'],
     ]));
