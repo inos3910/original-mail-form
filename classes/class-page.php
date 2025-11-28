@@ -382,9 +382,38 @@ class OMF_Page
 
     $html =  <<<EOM
     <div id="turnstile-widget" class="cf-turnstile" data-sitekey="{$site_key}"></div>
-    <script src="https://challenges.cloudflare.com/turnstile/v0/api.js" async defer></script>
-    EOM;
+    <script src="https://challenges.cloudflare.com/turnstile/v0/api.js?onload=onTurnstileLoad&render=explicit" async defer></script>
+    <script>
+    window.onTurnstileLoad = function () {
+      initTurnstile();
+    };
+    function initTurnstile() {
+      // API読み込み前なら何もしない
+      if (typeof window.turnstile === 'undefined') return;
 
+      const el = document.getElementById('turnstile-widget');
+      if (!el) return;
+
+      // すでに render 済みなら reset
+      if (el.dataset.turnstileWidgetId) {
+        try {
+          turnstile.reset(el.dataset.turnstileWidgetId);
+          return;
+        } catch (e) {
+        // 失敗したら下で再render
+        }
+      }
+
+      const sitekey = el.dataset.sitekey || '{$site_key}';
+
+      const widgetId = turnstile.render(el, {
+        sitekey: sitekey,
+      });
+
+      el.dataset.turnstileWidgetId = widgetId;
+    }
+    </script>
+    EOM;
     echo $html;
   }
 
