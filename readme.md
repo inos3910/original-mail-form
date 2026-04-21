@@ -516,6 +516,28 @@ add_filter('omf_mail_tag', function ($replacement_text, $tag) {
 
 この場合は{type}というメールタグが「カスタマイズ」に置換される。
 
+例）空のラベルに特定の条件の時だけ表示させる。`Sharesl\Original\MailForm\OMF::get_post_values()`でフォームの送信情報を取得できる。
+
+```
+add_filter('omf_mail_tag', function ($replacement_text, $tag) {
+  if ($tag === 'local_address') {
+    $values      = Sharesl\Original\MailForm\OMF::get_post_values();
+    $postal_code = !empty($values['postal_code']) ? $values['postal_code'] : '';
+    $prefecture  = !empty($values['prefecture']) ? $values['prefecture'] : '';
+    $address     = !empty($values['address']) ? $values['address'] : '';
+    if ($postal_code || $prefecture || $address) {
+      $replacement_text =  "" . "\n";
+      $replacement_text .= "■現地住所" . "\n";
+      $replacement_text .= "{$postal_code} {$prefecture}{$address}" . "\n";
+    } else {
+      return '';
+    }
+  }
+
+  return $replacement_text;
+}, 10, 2);
+```
+
 ### 送信データの項目名表示（CSV 出力表示）変更
 
 ```

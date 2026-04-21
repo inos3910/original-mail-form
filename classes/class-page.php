@@ -484,7 +484,7 @@ class OMF_Page
     }
 
     $recaptcha_field_name = !empty(get_option('omf_recaptcha_field_name')) ? sanitize_text_field(wp_unslash(get_option('omf_recaptcha_field_name'))) : 'g-recaptcha-response';
-    $remove_keys = ['confirm', 'send', 'omf_nonce', '_wp_http_referer', 'omf_token', $recaptcha_field_name];
+    $remove_keys = ['confirm', 'send', 'omf_nonce', '_wp_http_referer', 'omf_token', 'cf-turnstile-response', $recaptcha_field_name];
 
     $filterd_post_data = array_diff_key($post_data, array_flip($remove_keys));
 
