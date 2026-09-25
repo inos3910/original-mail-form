@@ -43,7 +43,7 @@ class OMF_Rest
       '/validate',
       [
         'methods'             => WP_REST_Server::CREATABLE,
-        'permission_callback' => '__return_true',
+        'permission_callback' => [$this, 'rest_permission'],
         'callback'            => [$this, 'rest_api_validate']
       ]
     );
@@ -54,7 +54,7 @@ class OMF_Rest
       '/send',
       [
         'methods'             => WP_REST_Server::CREATABLE,
-        'permission_callback' => '__return_true',
+        'permission_callback' => [$this, 'rest_permission'],
         'callback'            => [$this, 'rest_api_send']
       ]
     );
@@ -275,6 +275,14 @@ class OMF_Rest
   {
     $post_id = isset($_SERVER['HTTP_X_OMF_POST_ID']) ? sanitize_text_field(wp_unslash($_SERVER['HTTP_X_OMF_POST_ID'])) : '';
     return $post_id;
+  }
+
+  /**
+   * REST は nonce を通ったリクエストだけ受け付ける
+   */
+  public function rest_permission(): bool
+  {
+    return $this->is_valid_nonce();
   }
 
   /**

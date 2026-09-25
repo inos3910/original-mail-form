@@ -7,7 +7,7 @@
  * Description: メールフォーム設定プラグイン（クラシックテーマ用）
  * Author: SHARESL
  * Author URI: https://sharesl.net/
- * Version: 1.0
+ * Version: 1.1
  */
 
 namespace Sharesl\Original\MailForm;
