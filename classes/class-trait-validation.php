@@ -15,6 +15,12 @@ trait OMF_Trait_Validation
   use OMF_Trait_Form;
 
   /**
+   * POSTの不正な値の検証エラーやファイルアップロードの検証エラーを一時的に保持する
+   * @var array
+   */
+  protected array $extra_errors = [];
+
+  /**
    * フォームデータの検証
    *
    * @param array $post_data
@@ -33,18 +39,25 @@ trait OMF_Trait_Validation
 
     //バリデーション設定を取得
     $validations = get_post_meta($form->ID, 'cf_omf_validation', true);
-    if (empty($validations)) {
-      return $errors;
+    if (!empty($validations)) {
+      //バリデーション設定
+      foreach ((array)$validations as $val) {
+        $val = array_map([__NAMESPACE__ . '\OMF_Utils', 'custom_escape'], $val);
+        $error_message = $this->validate($post_data, $val);
+        if (!empty($error_message)) {
+          $errors[$val['target']] = $error_message;
+        }
+      }
     }
 
+    //不正な値の送信・ファイルアップロードの検証エラーをマージ
+    foreach ($this->extra_errors as $target => $messages) {
+      $errors[$target] = array_merge($errors[$target] ?? [], $messages);
+    }
+    $this->extra_errors = [];
 
-    //バリデーション設定
-    foreach ((array)$validations as $val) {
-      $val = array_map([__NAMESPACE__ . '\OMF_Utils', 'custom_escape'], $val);
-      $error_message = $this->validate($post_data, $val);
-      if (!empty($error_message)) {
-        $errors[$val['target']] = $error_message;
-      }
+    if (empty($validations)) {
+      return $errors;
     }
 
     //reCAPTCHA
@@ -66,6 +79,71 @@ trait OMF_Trait_Validation
     }
 
     return $errors;
+  }
+
+  /**
+   * バリデーション設定を取得（custom_escape適用済み）
+   *
+   * @param integer|string|null $post_id
+   * @return array
+   */
+  private function get_validation_settings(int|string|null $post_id = null): array
+  {
+    $form = $this->get_form($post_id);
+    if (empty($form)) {
+      return [];
+    }
+
+    $validations = get_post_meta($form->ID, 'cf_omf_validation', true);
+    if (empty($validations)) {
+      return [];
+    }
+
+    $settings = [];
+    foreach ((array)$validations as $val) {
+      $settings[] = array_map([__NAMESPACE__ . '\OMF_Utils', 'custom_escape'], $val);
+    }
+
+    return $settings;
+  }
+
+  /**
+   * フォーム設定でfile型（file_size・extensionのいずれかを持つ）として定義された項目名の一覧を取得
+   *
+   * @param integer|string|null $post_id
+   * @return array
+   */
+  public function get_file_field_targets(int|string|null $post_id = null): array
+  {
+    $targets = [];
+    foreach ($this->get_validation_settings($post_id) as $val) {
+      if (empty($val['target'])) {
+        continue;
+      }
+      if (isset($val['file_size']) || isset($val['extension'])) {
+        $targets[] = $val['target'];
+      }
+    }
+
+    return array_unique($targets);
+  }
+
+  /**
+   * 指定した項目名のバリデーション設定を取得
+   *
+   * @param integer|string|null $post_id
+   * @param string $target
+   * @return array
+   */
+  public function get_field_validation_rule(int|string|null $post_id, string $target): array
+  {
+    foreach ($this->get_validation_settings($post_id) as $val) {
+      if (!empty($val['target']) && $val['target'] === $target) {
+        return $val;
+      }
+    }
+
+    return [];
   }
 
   /**

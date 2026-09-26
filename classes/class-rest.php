@@ -77,12 +77,13 @@ class OMF_Rest
         return new WP_Error('failed', __('認証NG'), ['status' => 404]);
       }
 
-      $param     = $params->get_params();
-      $post_data = !empty($param) ? array_map([__NAMESPACE__ . '\OMF_Utils', 'custom_escape'], $param) : [];
       $post_id   = $this->get_post_id_header();
       if (empty($post_id)) {
         return new WP_Error('failed', __('認証NG'), ['status' => 404]);
       }
+
+      $param     = $params->get_params();
+      $post_data = !empty($param) ? array_map([__NAMESPACE__ . '\OMF_Utils', 'custom_escape'], $param) : [];
 
       $errors    = $this->validate_mail_form_data($post_data, $post_id);
 
@@ -123,14 +124,15 @@ class OMF_Rest
         return new WP_Error('failed', __('認証NG'), ['status' => 404]);
       }
 
-      $param     = $params->get_params();
-      $post_data = !empty($param) ? array_map([__NAMESPACE__ . '\OMF_Utils', 'custom_escape'], $param) : [];
-      //アップロードファイルを追加
-      $post_data = $this->add_uploaded_files($post_data);
       $post_id   = $this->get_post_id_header();
       if (empty($post_id)) {
         return new WP_Error('failed', __('認証NG'), ['status' => 404]);
       }
+
+      $param     = $params->get_params();
+      $post_data = !empty($param) ? array_map([__NAMESPACE__ . '\OMF_Utils', 'custom_escape'], $param) : [];
+      //アップロードファイルを検証・保存して追加（nonceが正しいPOSTの時だけ保存する）
+      $post_data = $this->process_uploaded_files($post_data, $post_id);
 
       $errors    = $this->validate_mail_form_data($post_data, $post_id);
       //バリデーションエラーがある場合はエラーを返す

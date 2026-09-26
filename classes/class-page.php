@@ -289,8 +289,8 @@ class OMF_Page
       $post_data = $this->filter_post_keys($post_data);
     }
 
-    //アップロードファイルを追加
-    $post_data = $this->add_uploaded_files($post_data);
+    //アップロードファイルを検証・保存して追加（nonceが正しいPOSTの時だけ保存する）
+    $post_data = $this->process_uploaded_files($post_data);
 
     return $post_data;
   }

@@ -12,6 +12,12 @@ trait OMF_Trait_Send
 {
   use OMF_Trait_Google_Sheets, OMF_Trait_Slack, OMF_Trait_Save_Db;
 
+  /**
+   * 同一リクエスト内でのアップロード処理の二重保存防止フラグ
+   * @var boolean
+   */
+  private bool $uploaded_files_processed = false;
+
 
   /**
    * 自動返信メールの送信処理
@@ -325,84 +331,209 @@ trait OMF_Trait_Send
   }
 
   /**
-   * アップロードファイルを配列に追加する
+   * アップロードファイルを検証・保存し、送信データに反映する
+   *
+   * - フォーム設定でfile型（file_size・extensionのいずれかを持つ）として定義された項目名だけを受け付ける
+   * - 保存はnonceが正しいPOSTの時だけ行う。同一リクエスト内では一度だけ処理する
+   * - POST内のファイル情報（attachment_id・name・typeなど）は信用せず、
+   *   サーバー側で検証・保存した結果だけをセッションに保持して使う
    *
    * @param array $post_data
+   * @param integer|string|null $post_id
    * @return array
    */
-  private function add_uploaded_files(array $post_data): array
+  private function process_uploaded_files(array $post_data, int|string|null $post_id = null): array
   {
-    if (empty($_FILES)) {
+    $form = $this->get_form($post_id);
+    if (empty($form)) {
       return $post_data;
     }
 
-    require_once(ABSPATH . 'wp-admin/includes/file.php');
+    $file_targets = $this->get_file_field_targets($form->ID);
+    if (empty($file_targets)) {
+      return $post_data;
+    }
 
-
-
-    $new_data = [];
-
-    foreach ($_FILES as $input_name => $file) {
-      if (!is_uploaded_file($file['tmp_name'])) {
-        $new_data[$input_name] = [];
-        continue;
-      }
-
-      // ファイルがアップロードされたかどうかをチェック
-      if ($file['error'] === UPLOAD_ERR_OK) {
-
-        // ファイル内容を読み取る
-        if (WP_Filesystem()) {
-          global $wp_filesystem;
-          $file_contents = $wp_filesystem->get_contents($file['tmp_name']);
-        } else {
-          $file_contents = file_get_contents($file['tmp_name']);
-        }
-
-        //ファイルを保存
-        $file_data = [
-          'name'     => $file['name'],
-          'tmp_name' => $file['tmp_name'],
-          'type'     => $file['type'],
-          'size'     => $file['size'],
-          'contents' => $file_contents,
-        ];
-
-
-        //ファイルを保存
-        $attachment_id = $this->save_file($file_data);
-        if (empty($attachment_id)) {
-          continue;
-        }
-
-        $new_data[$input_name] = $attachment_id;
-
-        //画像の場合
-        $image = wp_get_attachment_image_src($attachment_id, 'medium');
-
-        // ファイル情報をセッションに保存
-        $new_data[$input_name] = !empty($image) ? [
-          'name'             => $file['name'],
-          'tmp_name'         => $file['tmp_name'],
-          'type'             => $file['type'],
-          'size'             => $file['size'],
-          'attachment_id'    => $attachment_id,
-          'image'            => [
-            'src'    => $image[0],
-            'width'  => $image[1],
-            'height' => $image[2]
-          ]
-        ] : [
-          'name'             => $file['name'],
-          'tmp_name'         => $file['tmp_name'],
-          'type'             => $file['type'],
-          'size'             => $file['size'],
-          'attachment_id'    => $attachment_id,
-        ];
+    //セッションに保存済みのファイル項目を復元し、POSTに残っている値（偽装の可能性がある）は破棄する
+    $session_key = OMF_Config::PREFIX . $form->post_name . '_uploaded_files';
+    foreach ($file_targets as $target) {
+      if (!empty($_SESSION[$session_key][$target])) {
+        $post_data[$target] = $_SESSION[$session_key][$target];
+      } else {
+        unset($post_data[$target]);
       }
     }
 
-    return array_merge($post_data, $new_data);
+    //アップロードがない・同一リクエストで処理済みの場合はここで終了
+    if (empty($_FILES) || $this->uploaded_files_processed) {
+      return $post_data;
+    }
+
+    //nonceが正しいPOSTの時だけ保存する
+    if (!$this->is_valid_nonce()) {
+      return $post_data;
+    }
+
+    $this->uploaded_files_processed = true;
+
+    foreach ($file_targets as $target) {
+      if (empty($_FILES[$target]) || !is_array($_FILES[$target])) {
+        continue;
+      }
+
+      $file = $_FILES[$target];
+      if (!isset($file['error']) || (int)$file['error'] === UPLOAD_ERR_NO_FILE) {
+        continue;
+      }
+
+      $result = $this->validate_and_save_uploaded_file($form->ID, $target, $file);
+      if (!empty($result['error'])) {
+        $this->extra_errors[$target][] = $result['error'];
+        continue;
+      }
+
+      $post_data[$target] = $result['data'];
+      $_SESSION[$session_key][$target] = $result['data'];
+    }
+
+    return $post_data;
+  }
+
+  /**
+   * アップロードされたファイルを検証し、問題がなければメディアに保存する
+   *
+   * @param integer $form_id
+   * @param string $target
+   * @param array $file $_FILESの1要素
+   * @return array ['error' => string|null, 'data' => array|null]
+   */
+  private function validate_and_save_uploaded_file(int $form_id, string $target, array $file): array
+  {
+    if (
+      (int)($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK ||
+      empty($file['tmp_name']) ||
+      !is_uploaded_file($file['tmp_name'])
+    ) {
+      return ['error' => 'ファイルのアップロードに失敗しました', 'data' => null];
+    }
+
+    $name = (string)($file['name'] ?? '');
+    $ext  = strtolower(pathinfo($name, PATHINFO_EXTENSION));
+
+    //実行可能な拡張子・HTML・SVGは許可リストに関係なく常に拒否
+    if (empty($ext) || in_array($ext, OMF_Config::BLOCKED_FILE_EXTENSIONS, true)) {
+      return ['error' => 'このファイル形式は使用できません', 'data' => null];
+    }
+
+    //許可する拡張子（フォーム設定の指定があればそれを優先、なければ既定値）
+    $allowed_extensions = $this->get_allowed_upload_extensions($form_id, $target);
+    if (!in_array($ext, $allowed_extensions, true)) {
+      $allowed_extensions_text = implode('、', $allowed_extensions);
+      return ['error' => "拡張子が {$allowed_extensions_text} のファイルのみアップロードできます", 'data' => null];
+    }
+
+    //サイズ上限（フォーム設定の指定があればそれを優先、なければサーバーの上限値）
+    $max_size = $this->get_max_upload_size($form_id, $target);
+    if ((int)($file['size'] ?? 0) > $max_size) {
+      return ['error' => 'ファイルサイズは' . size_format($max_size) . '以内にしてください', 'data' => null];
+    }
+
+    //実体と拡張子の整合性を確認（保存前に行う）
+    require_once(ABSPATH . 'wp-admin/includes/file.php');
+    $filetype     = wp_check_filetype_and_ext($file['tmp_name'], $name);
+    $checked_ext  = !empty($filetype['ext']) ? strtolower($filetype['ext']) : '';
+    $checked_type = !empty($filetype['type']) ? $filetype['type'] : '';
+
+    if (empty($checked_ext) || empty($checked_type) || $checked_ext !== $ext) {
+      return ['error' => 'ファイルの内容を確認できませんでした。別のファイルをお試しください', 'data' => null];
+    }
+
+    if (in_array($checked_ext, OMF_Config::BLOCKED_FILE_EXTENSIONS, true)) {
+      return ['error' => 'このファイル形式は使用できません', 'data' => null];
+    }
+
+    // ファイル内容を読み取る
+    if (WP_Filesystem()) {
+      global $wp_filesystem;
+      $file_contents = $wp_filesystem->get_contents($file['tmp_name']);
+    } else {
+      $file_contents = file_get_contents($file['tmp_name']);
+    }
+
+    if (empty($file_contents)) {
+      return ['error' => 'ファイルの読み込みに失敗しました', 'data' => null];
+    }
+
+    //検証済みの拡張子・MIMEタイプだけを使って保存する
+    $attachment_id = $this->save_file([
+      'name'      => $name,
+      'extension' => $checked_ext,
+      'type'      => $checked_type,
+      'contents'  => $file_contents,
+    ]);
+
+    if (empty($attachment_id)) {
+      return ['error' => 'ファイルの保存に失敗しました', 'data' => null];
+    }
+
+    //画像の場合
+    $image = wp_get_attachment_image_src($attachment_id, 'medium');
+
+    $data = !empty($image) ? [
+      'name'          => $name,
+      'type'          => $checked_type,
+      'size'          => (int)($file['size'] ?? 0),
+      'attachment_id' => $attachment_id,
+      'image'         => [
+        'src'    => $image[0],
+        'width'  => $image[1],
+        'height' => $image[2]
+      ]
+    ] : [
+      'name'          => $name,
+      'type'          => $checked_type,
+      'size'          => (int)($file['size'] ?? 0),
+      'attachment_id' => $attachment_id,
+    ];
+
+    return ['error' => null, 'data' => $data];
+  }
+
+  /**
+   * 許可する拡張子の一覧を取得する
+   * フォーム設定に拡張子の指定があればそれを優先し、なければ既定値（`omf_allowed_file_types`フィルターで変更可）を使う
+   *
+   * @param integer $form_id
+   * @param string $target
+   * @return array
+   */
+  private function get_allowed_upload_extensions(int $form_id, string $target): array
+  {
+    $rule = $this->get_field_validation_rule($form_id, $target);
+    if (!empty($rule['extension']) && is_array($rule['extension'])) {
+      return array_map('strtolower', (array)$rule['extension']);
+    }
+
+    $defaults = apply_filters('omf_allowed_file_types', OMF_Config::DEFAULT_ALLOWED_FILE_EXTENSIONS);
+    return array_map('strtolower', (array)$defaults);
+  }
+
+  /**
+   * アップロードを許可するファイルサイズ上限（バイト）を取得する
+   * フォーム設定に指定があればそれを優先し、なければサーバーの上限値を使う
+   *
+   * @param integer $form_id
+   * @param string $target
+   * @return integer
+   */
+  private function get_max_upload_size(int $form_id, string $target): int
+  {
+    $rule = $this->get_field_validation_rule($form_id, $target);
+    if (!empty($rule['file_size'])) {
+      return (int)$rule['file_size'];
+    }
+
+    return (int)wp_max_upload_size();
   }
 
   /**
@@ -427,7 +558,9 @@ trait OMF_Trait_Send
         is_array($tag) &&
         !empty($tag['name']) &&
         !empty($tag['type']) &&
-        !empty($tag['attachment_id'])
+        !empty($tag['attachment_id']) &&
+        //実在する添付ファイルであることを確認（多層防御）
+        get_post_type($tag['attachment_id']) === 'attachment'
       ) {
 
         $attachment_id      = $tag['attachment_id'];
@@ -461,9 +594,11 @@ trait OMF_Trait_Send
   }
 
   /**
-   * ファイルを保存
+   * ファイルを保存する
+   * 保存するファイル名はランダムにし、拡張子は呼び出し元で検証済みのものだけを使う
+   * 元のファイル名は添付のメタとして保持する
    *
-   * @param array $file
+   * @param array $file 'name'（元のファイル名）・'extension'（検証済み拡張子）・'type'（検証済みMIMEタイプ）・'contents'
    * @return integer|string
    */
   private function save_file(array $file): int|string
@@ -475,10 +610,11 @@ trait OMF_Trait_Send
     }
 
     $name = $file['name'] ?? '';
+    $extension = $file['extension'] ?? '';
     $type = $file['type'] ?? '';
     $contents = $file['contents'] ?? '';
 
-    if (empty($name) || empty($type) || empty($contents)) {
+    if (empty($name) || empty($extension) || empty($type) || empty($contents)) {
       return $empty_path;
     }
 
@@ -494,12 +630,9 @@ trait OMF_Trait_Send
       mkdir($wp_upload_dir_path, 0755, true);
     }
 
-    $file_info = pathinfo($name);
-    $filename = sanitize_file_name(basename($name, '.' . $file_info['extension']));
-    $extension = $file_info['extension'];
-
-    // 重複するファイル名を避ける
-    $filename = wp_unique_filename($wp_upload_dir_path, $filename . '.' . $extension);
+    // 保存するファイル名はランダムにする（拡張子は検証済みのものだけを使う）
+    $random_name = wp_generate_password(20, false, false) . '.' . $extension;
+    $filename = wp_unique_filename($wp_upload_dir_path, $random_name);
     $file_path = $wp_upload_dir_path . $filename;
 
     // WP_Filesystemを使ってファイル書き込み
@@ -516,7 +649,7 @@ trait OMF_Trait_Send
     $attachment = [
       'guid'           => $wp_upload_dir['url'] . '/' . basename($file_path),
       'post_mime_type' => $type,
-      'post_title'     => sanitize_file_name(pathinfo($file_path, PATHINFO_FILENAME)),
+      'post_title'     => sanitize_file_name(pathinfo($name, PATHINFO_FILENAME)),
       'post_content'   => '',
       'post_status'    => 'inherit'
     ];
@@ -526,6 +659,9 @@ trait OMF_Trait_Send
     if (is_wp_error($attachment_id) || empty($attachment_id)) {
       return $empty_path;
     }
+
+    // 元のファイル名をメタとして保持する
+    update_post_meta($attachment_id, '_omf_original_filename', sanitize_file_name($name));
 
     $metadata = [
       'file'       => basename($file_path), // ファイル名
@@ -674,7 +810,7 @@ trait OMF_Trait_Send
       foreach ($matches[1] as $tag) {
         $replacement_text = isset($tag_to_text[$tag]) ? $tag_to_text[$tag] : '';
 
-        //タグの中身がファイル（配列）の場合は空にする　
+        //タグの中身がファイル（配列）の場合は空にする
         if (is_array($replacement_text) && !empty($replacement_text['name'])) {
           $replacement_text = $replacement_text['name'];
         }
