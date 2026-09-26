@@ -147,6 +147,79 @@ trait OMF_Trait_Validation
   }
 
   /**
+   * バリデーション設定に定義されたすべての項目名（target）の一覧を取得
+   *
+   * @param integer|string|null $post_id
+   * @return array
+   */
+  private function get_validation_targets(int|string|null $post_id = null): array
+  {
+    $targets = [];
+    foreach ($this->get_validation_settings($post_id) as $val) {
+      if (!empty($val['target'])) {
+        $targets[] = $val['target'];
+      }
+    }
+
+    return array_unique($targets);
+  }
+
+  /**
+   * POST値への配列の送り込みを制限する
+   *
+   * - ファイル項目（file_size・extensionを持つtarget）は別処理で検証するため対象外
+   * - バリデーション設定に定義された項目は文字列のみ許可し、配列が来た場合はエラーにする
+   * - バリデーション設定に定義されていない項目（チェックボックスなど）は、
+   *   文字列だけで構成された連番のリスト配列のみ許可する
+   *
+   * @param array $posts
+   * @param integer|string|null $post_id
+   * @return array
+   */
+  protected function restrict_array_values(array $posts, int|string|null $post_id = null): array
+  {
+    $file_targets   = $this->get_file_field_targets($post_id);
+    $strict_targets = $this->get_validation_targets($post_id);
+
+    foreach ($posts as $key => $value) {
+      //ファイル項目は別処理で検証するため対象外
+      if (in_array($key, $file_targets, true)) {
+        continue;
+      }
+
+      if (!is_array($value) || empty($value)) {
+        continue;
+      }
+
+      //バリデーション設定がある項目は文字列のみ許可
+      if (in_array($key, $strict_targets, true)) {
+        unset($posts[$key]);
+        $this->extra_errors[$key][] = '不正な値が送信されました';
+        continue;
+      }
+
+      //バリデーション設定がない項目は、文字列だけで構成された連番のリスト配列のみ許可（チェックボックスなど）
+      $is_list = array_keys($value) === range(0, count($value) - 1);
+      $is_all_string = $is_list;
+      if ($is_list) {
+        foreach ($value as $v) {
+          if (!is_string($v)) {
+            $is_all_string = false;
+            break;
+          }
+        }
+      }
+
+      if (!$is_all_string) {
+        unset($posts[$key]);
+        $this->extra_errors[$key][] = '不正な値が送信されました';
+      }
+    }
+
+    return $posts;
+  }
+
+  /**
    * reCAPTCHA設定の有無を判定
    *
    * @param integer|null $post_id

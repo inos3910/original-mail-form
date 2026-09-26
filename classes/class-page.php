@@ -283,6 +283,8 @@ class OMF_Page
     //POSTがある場合は上書き
     if (!empty($_POST)) {
       $posts = array_map([__NAMESPACE__ . '\OMF_Utils', 'custom_escape'], $_POST);
+      //ファイル項目以外の配列の送り込みを制限する
+      $posts = $this->restrict_array_values($posts);
       foreach ((array)$posts as $key => $value) {
         $post_data[$key] = $value;
       }

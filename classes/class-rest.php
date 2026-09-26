@@ -84,6 +84,8 @@ class OMF_Rest
 
       $param     = $params->get_params();
       $post_data = !empty($param) ? array_map([__NAMESPACE__ . '\OMF_Utils', 'custom_escape'], $param) : [];
+      //ファイル項目以外の配列の送り込みを制限する
+      $post_data = $this->restrict_array_values($post_data, $post_id);
 
       $errors    = $this->validate_mail_form_data($post_data, $post_id);
 
@@ -131,6 +133,8 @@ class OMF_Rest
 
       $param     = $params->get_params();
       $post_data = !empty($param) ? array_map([__NAMESPACE__ . '\OMF_Utils', 'custom_escape'], $param) : [];
+      //ファイル項目以外の配列の送り込みを制限する
+      $post_data = $this->restrict_array_values($post_data, $post_id);
       //アップロードファイルを検証・保存して追加（nonceが正しいPOSTの時だけ保存する）
       $post_data = $this->process_uploaded_files($post_data, $post_id);
 

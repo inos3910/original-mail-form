@@ -212,8 +212,8 @@ trait OMF_Trait_Send
 
     $tag_to_text = $info['tag_to_text'];
 
-    //宛先
-    $mailaddress = $this->replace_form_mail_tags($info['mail_to'], $tag_to_text);
+    //宛先（タグを含む場合は、置換後の値が単一の正しいメールアドレスの時だけ有効とする）
+    $mailaddress = $this->resolve_mail_to_address($info['mail_to'], $tag_to_text);
     //件名
     $subject = $this->replace_form_mail_tags($info['form_title'], $tag_to_text);
     //メール本文のifタグを置換
@@ -299,8 +299,8 @@ trait OMF_Trait_Send
 
     $tag_to_text = $info['tag_to_text'];
 
-    //宛先
-    $mailaddress = $this->replace_form_mail_tags($info['mail_to'], $tag_to_text);
+    //宛先（タグを含む場合は、置換後の値が単一の正しいメールアドレスの時だけ有効とする）
+    $mailaddress = $this->resolve_mail_to_address($info['mail_to'], $tag_to_text);
     //件名
     $subject = $this->replace_form_mail_tags($info['form_title'], $tag_to_text);
 
@@ -810,9 +810,13 @@ trait OMF_Trait_Send
       foreach ($matches[1] as $tag) {
         $replacement_text = isset($tag_to_text[$tag]) ? $tag_to_text[$tag] : '';
 
-        //タグの中身がファイル（配列）の場合は空にする
-        if (is_array($replacement_text) && !empty($replacement_text['name'])) {
-          $replacement_text = $replacement_text['name'];
+        //添付ファイルタグ（convert_attachmentsで変換済みの'id'・'url'を持つ配列）はファイル名を使う
+        if (is_array($replacement_text) && isset($replacement_text['id']) && isset($replacement_text['url'])) {
+          $replacement_text = $replacement_text['name'] ?? '';
+        }
+        //それ以外の配列は値として使わない
+        elseif (is_array($replacement_text)) {
+          $replacement_text = '';
         }
 
         $replacement_text = apply_filters('omf_mail_tag', $replacement_text, $tag);
@@ -825,6 +829,30 @@ trait OMF_Trait_Send
     }
 
     return $text;
+  }
+
+  /**
+   * 宛先欄のメールタグを解決する
+   * 宛先テンプレートにメールタグが含まれる場合は、置換後の値が
+   * is_email()を通る単一の正しいメールアドレスの時だけ有効とする。
+   * カンマ区切りの複数アドレスや不正な値になった場合は空文字（宛先なし）にする。
+   * タグを含まない場合（管理者が固定で設定した宛先）はそのまま使う。
+   *
+   * @param string|null $mail_to_template
+   * @param array $tag_to_text
+   * @return string
+   */
+  private function resolve_mail_to_address(string|null $mail_to_template, array $tag_to_text): string
+  {
+    $mailaddress = $this->replace_form_mail_tags($mail_to_template, $tag_to_text);
+
+    //宛先テンプレートにメールタグを含む場合のみ、置換結果を検証する
+    $has_tag = !empty($mail_to_template) && preg_match('/\{.+?\}/', $mail_to_template) === 1;
+    if ($has_tag && !is_email($mailaddress)) {
+      return '';
+    }
+
+    return $mailaddress;
   }
 
   /**
