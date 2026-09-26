@@ -84,17 +84,12 @@ trait OMF_Trait_Validation
   /**
    * バリデーション設定を取得（custom_escape適用済み）
    *
-   * @param integer|string|null $post_id
+   * @param integer $form_id フォーム（original_mail_forms）の投稿ID
    * @return array
    */
-  private function get_validation_settings(int|string|null $post_id = null): array
+  private function get_validation_settings(int $form_id): array
   {
-    $form = $this->get_form($post_id);
-    if (empty($form)) {
-      return [];
-    }
-
-    $validations = get_post_meta($form->ID, 'cf_omf_validation', true);
+    $validations = get_post_meta($form_id, 'cf_omf_validation', true);
     if (empty($validations)) {
       return [];
     }
@@ -115,13 +110,13 @@ trait OMF_Trait_Validation
    * 有無はfile型の判定に使えない（全項目に既定値が入ってしまう）。
    * そのため、拡張子（extension）が1つ以上指定されている項目だけをfile型とみなす。
    *
-   * @param integer|string|null $post_id
+   * @param integer $form_id フォーム（original_mail_forms）の投稿ID
    * @return array
    */
-  public function get_file_field_targets(int|string|null $post_id = null): array
+  public function get_file_field_targets(int $form_id): array
   {
     $targets = [];
-    foreach ($this->get_validation_settings($post_id) as $val) {
+    foreach ($this->get_validation_settings($form_id) as $val) {
       if (empty($val['target'])) {
         continue;
       }
@@ -136,13 +131,13 @@ trait OMF_Trait_Validation
   /**
    * 指定した項目名のバリデーション設定を取得
    *
-   * @param integer|string|null $post_id
+   * @param integer $form_id フォーム（original_mail_forms）の投稿ID
    * @param string $target
    * @return array
    */
-  public function get_field_validation_rule(int|string|null $post_id, string $target): array
+  public function get_field_validation_rule(int $form_id, string $target): array
   {
-    foreach ($this->get_validation_settings($post_id) as $val) {
+    foreach ($this->get_validation_settings($form_id) as $val) {
       if (!empty($val['target']) && $val['target'] === $target) {
         return $val;
       }
@@ -154,13 +149,13 @@ trait OMF_Trait_Validation
   /**
    * バリデーション設定に定義されたすべての項目名（target）の一覧を取得
    *
-   * @param integer|string|null $post_id
+   * @param integer $form_id フォーム（original_mail_forms）の投稿ID
    * @return array
    */
-  private function get_validation_targets(int|string|null $post_id = null): array
+  private function get_validation_targets(int $form_id): array
   {
     $targets = [];
-    foreach ($this->get_validation_settings($post_id) as $val) {
+    foreach ($this->get_validation_settings($form_id) as $val) {
       if (!empty($val['target'])) {
         $targets[] = $val['target'];
       }
@@ -178,13 +173,18 @@ trait OMF_Trait_Validation
    *   文字列だけで構成された連番のリスト配列のみ許可する
    *
    * @param array $posts
-   * @param integer|string|null $post_id
+   * @param integer|string|null $post_id ページ（固定ページ・投稿）のID
    * @return array
    */
   protected function restrict_array_values(array $posts, int|string|null $post_id = null): array
   {
-    $file_targets   = $this->get_file_field_targets($post_id);
-    $strict_targets = $this->get_validation_targets($post_id);
+    $form = $this->get_form($post_id);
+    if (empty($form)) {
+      return $posts;
+    }
+
+    $file_targets   = $this->get_file_field_targets($form->ID);
+    $strict_targets = $this->get_validation_targets($form->ID);
 
     foreach ($posts as $key => $value) {
       //ファイル項目は別処理で検証するため対象外
