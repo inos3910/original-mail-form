@@ -108,7 +108,12 @@ trait OMF_Trait_Validation
   }
 
   /**
-   * フォーム設定でfile型（file_size・extensionのいずれかを持つ）として定義された項目名の一覧を取得
+   * フォーム設定でfile型として定義された項目名の一覧を取得
+   *
+   * バリデーション設定の管理画面は、すべての項目（テキスト項目を含む）に対して
+   * 「添付ファイルサイズ上限」のセレクトを常に表示・保存するため、file_sizeの
+   * 有無はfile型の判定に使えない（全項目に既定値が入ってしまう）。
+   * そのため、拡張子（extension）が1つ以上指定されている項目だけをfile型とみなす。
    *
    * @param integer|string|null $post_id
    * @return array
@@ -120,7 +125,7 @@ trait OMF_Trait_Validation
       if (empty($val['target'])) {
         continue;
       }
-      if (isset($val['file_size']) || isset($val['extension'])) {
+      if (!empty($val['extension']) && is_array($val['extension'])) {
         $targets[] = $val['target'];
       }
     }
