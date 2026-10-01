@@ -2,6 +2,7 @@ import { makeAddressPreset } from './builder/address-presets';
 import { attachReorder } from './builder/reorder';
 import { createDraft } from './builder/draft';
 import { setupPostPicker } from './builder/post-picker';
+import { setupScreenPicker } from './builder/screen-picker';
 import { setupEditorTabs } from './builder/tabs';
 import { renderPreview, renderPalette } from './builder/preview';
 import { prefectures, parseChoiceLines, appendChoices } from './builder/choice-presets';
@@ -29,6 +30,7 @@ if (root) {
     const dirty = () => { saveState.textContent='未保存の変更があります'; saveState.dataset.dirty='true'; };
     root.closest('form').addEventListener('input',dirty);
     setupPostPicker();
+    setupScreenPicker();
     const refreshTabs=setupEditorTabs(root,()=>mode.value);
     function syncMode() {
       workspace.hidden=mode.value!=='builder';

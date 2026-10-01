@@ -33,6 +33,7 @@ function get_current_user_id(){return 1;}
 function wp_salt($scheme){return 'テスト専用のダミー鍵';}
 function is_email($value){return is_string($value)?filter_var($value,FILTER_VALIDATE_EMAIL):false;}
 function sanitize_text_field($value){return trim(strip_tags($value));}
+function sanitize_key($value){return preg_replace('/[^a-z0-9_\-]/','',strtolower($value));}
 function sanitize_textarea_field($value){return trim(strip_tags($value));}
 function sanitize_file_name($value){return basename($value);}
 function wp_unslash($value){return is_array($value)?array_map('wp_unslash',$value):stripslashes($value);}

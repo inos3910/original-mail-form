@@ -889,7 +889,7 @@ class OMF_Admin
    */
   private function render_admin_tabs(string $title, string $label, array $tabs, string $current, string $page): void
   {
-    echo '<div class="wrap">';
+    echo '<div class="wrap omf-admin-screen">';
     echo '<h1>' . esc_html($title) . '</h1>';
     echo '<div class="omf-editor-tabs" role="tablist" aria-label="' . esc_attr($label) . '">';
     foreach ($tabs as $key => $text) {
@@ -1415,12 +1415,13 @@ class OMF_Admin
   {
   ?>
     <div class="omf-metabox-wrapper">
-      <p>▼フォームを設定できる画面は固定ページか投稿ページのどちらかです。</p>
+      <p>入力・確認・完了に使う投稿または固定ページを指定します。タイトルで検索して選ぶか、ページのパスを直接入力してください。各ページの「メールフォーム連携」でも、このフォームを選んで保存してください。</p>
       <?php
       $this->omf_meta_box_text($post, '入力画面', 'cf_omf_screen_entry');
       $this->omf_meta_box_text($post, '確認画面', 'cf_omf_screen_confirm');
       $this->omf_meta_box_text($post, '完了画面', 'cf_omf_screen_complete');
       ?>
+      <p data-omf-confirm-skipped hidden>確認省略中は確認画面の設定を使用しません。入力したパスは保持されます。</p>
     </div>
   <?php
   }

@@ -8,8 +8,10 @@ function wp_send_json_error($data,$status){throw new Result($data,$status);}
 function wp_send_json_success($data){throw new Result($data);}
 function sanitize_text_field($v){return strip_tags($v);}
 function wp_unslash($v){return $v;}
-function get_posts($args){$GLOBALS['args']=$args;return [(object)['ID'=>1,'post_type'=>'page'],(object)['ID'=>2,'post_type'=>'post']];}
+function get_posts($args){$GLOBALS['args']=$args;return [(object)['ID'=>1,'post_type'=>'page','post_status'=>'publish'],(object)['ID'=>2,'post_type'=>'post','post_status'=>'draft']];}
 function get_the_title($p){return 'テスト'.$p->ID;}
+function get_page_uri($p){return 'contact/confirm';}
+function get_post_status_object($status){return (object)['label'=>'公開済み'];}
 require __DIR__ . '/../classes/class-post-picker.php';
 function run($q,$nonce=true,$cap=true){$_GET=['q'=>$q];$GLOBALS['nonce']=$nonce;$GLOBALS['cap']=$cap;$GLOBALS['editable']=[1];try{Sharesl\Original\MailForm\OMF_Post_Picker::search();}catch(Result $r){return $r;}}
 function check($ok,$label){if(!$ok)throw new Exception($label);echo "PASS: $label\n";}
@@ -18,5 +20,6 @@ check(run('test',true,false)->status===403,'編集権限なしを拒否');
 check(run(['test'])->status===400,'配列入力を拒否');
 check(run('')->data===[],'空検索を拒否');
 $r=run('テスト');check(count($r->data)===1&&$r->data[0]['id']===1,'編集できない投稿を候補に含めない');
+check($r->data[0]['path']==='contact/confirm'&&$r->data[0]['status']==='公開済み','階層パスと公開状態を候補に返す');
 check($GLOBALS['args']['post_type']===['post','page']&&$GLOBALS['args']['search_columns']===['post_title'],'検索対象を投稿・固定ページのタイトルに限定');
 run('42');check($GLOBALS['args']['p']===42&&!isset($GLOBALS['args']['s']),'数字はIDで検索');

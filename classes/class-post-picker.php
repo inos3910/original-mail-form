@@ -33,7 +33,8 @@ class OMF_Post_Picker
     $items = [];
     foreach (get_posts($args) as $post) {
       if (!current_user_can('edit_post', $post->ID)) { continue; }
-      $items[] = ['id' => $post->ID, 'title' => get_the_title($post) ?: '（タイトルなし）', 'type' => $post->post_type === 'page' ? '固定ページ' : '投稿'];
+      $status = get_post_status_object($post->post_status);
+      $items[] = ['id' => $post->ID, 'title' => get_the_title($post) ?: '（タイトルなし）', 'type' => $post->post_type === 'page' ? '固定ページ' : '投稿', 'path' => get_page_uri($post), 'status' => $status ? $status->label : $post->post_status, 'published' => $post->post_status === 'publish'];
     }
     wp_send_json_success($items);
   }

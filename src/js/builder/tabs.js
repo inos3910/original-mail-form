@@ -42,7 +42,10 @@ export function setupEditorTabs(root, mode) {
   function refresh() {
     Object.entries(panels).forEach(([key, panel]) => panel.hidden = key !== active);
     tabs.querySelectorAll('button').forEach(b => { b.setAttribute('aria-selected', String(b.dataset.tab === active)); b.tabIndex = b.dataset.tab === active ? 0 : -1; });
-    ['omf-metabox-validation', 'omf-metabox-screen'].forEach(id => { const el = document.getElementById(id); if (el) el.hidden = mode() === 'builder'; });
+    const validation = document.getElementById('omf-metabox-validation');
+    if (validation) validation.hidden = mode() === 'builder';
+    const screen = document.getElementById('omf-metabox-screen');
+    if (screen) screen.hidden = false;
     persist();
   }
   Object.entries({ fields: 'フォーム', mail: 'メール', settings: 'その他の設定' }).forEach(([key, label]) => {
