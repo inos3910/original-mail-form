@@ -4,6 +4,7 @@
 
 | ID | 優先度 | 状態 | タスク | 依存 |
 | --- | --- | --- | --- | --- |
+| OMF-013 | P0 | レビュー待ち | [画面遷移・セッション構造の復元](screen-flow-session-restoration.md) | OMF-004, OMF-011 |
 | OMF-001 | P0 | 完了 | [既存修正の結合検証](complete/baseline-verification.md) | — |
 | OMF-002 | P1 | 完了 | [共通の項目定義と互換設計](complete/field-schema.md) | OMF-001 |
 | OMF-003 | P1 | 完了 | [管理画面で項目を編集・並べ替え](complete/admin-form-builder.md) | OMF-002 |
@@ -15,11 +16,12 @@
 | OMF-009 | P2 | 完了 | [同期並列送信と適用条件](complete/parallel-delivery.md) | OMF-007 |
 | OMF-011 | P1 | 完了 | [FSE向けフォームブロック・ショートコード](complete/fse-embedding.md) | OMF-004, OMF-005 |
 | OMF-012 | P1 | レビュー待ち | [管理項目の一括設定・共通バリデーション・住所自動入力](builder-input-validation.md) | OMF-003, OMF-004 |
-| OMF-010 | P2 | レビュー待ち | [全方式の結合検証と利用手順](release-readiness.md) | OMF-004, OMF-005, OMF-008, OMF-009, OMF-011 |
+| OMF-010 | P2 | レビュー待ち | [全方式の結合検証と利用手順](release-readiness.md) | OMF-004, OMF-005, OMF-008, OMF-009, OMF-011, OMF-013 |
 
 レビュー: [2026-10-01](../review/complete/2026-10-01-rereview.md)
 
 ## 残り
 
+- OMF-013: 修正・ローカル反映・検証済み、利用者レビュー待ち。専用URL・完了単回表示・3画面の独立テンプレート・動的API・foreach用の項目HTML配列・引数で文言を指定する共通ボタン出力・全設置方式の連携ON/OFFを実装。[検証記録](../guide/verification-20261001-flow.md)。
 - OMF-012: 利用者確認（狭幅の実機、実送信）
-- OMF-010: 利用者の最終確認。[動作確認手順書](../guide/acceptance-checklist.md)
+- OMF-010: OMF-013の検証記録を反映済み。利用者の最終確認と実サービス確認後にリリース判断。[動作確認手順書](../guide/acceptance-checklist.md)

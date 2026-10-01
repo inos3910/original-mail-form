@@ -63,40 +63,140 @@ add_action('omf_delivery_completed', function ($receipt_id, $form_id, $reply, $a
 
 同期直列の既存フックの引数と順序は維持する。同期並列では各メール内のbefore→wp_mail→afterを維持するが、返信と通知の相互順序は保証しない。omf_before_send_mailは受付リクエスト、非同期のomf_after_send_mailはワーカーで両通の成功後に実行する。非同期で入力受付と配信完了を区別する場合は新規フックを使う。
 
-## 管理項目をPHPで配置する場合
+## 各画面をテーマのPHPで組む場合
 
-通常は `OMF::render_form(['slug' => 'contact']);` だけで全項目を出力する。特殊な構造が必要な場合だけ、テーマ内の項目テンプレートを指定できる。管理画面の項目順序と定義をそのまま受け取るため、順番をPHPに固定しない。
+入力・確認・完了の専用ページを画面設定に登録し、各ページの「メールフォーム連携」で同じフォームを選ぶ。確認省略の場合は入力・完了の2ページ。各URLには別々のWordPressテンプレートを用意でき、共通テンプレートへの集約は不要。
+
+`OMF::form_context(['slug' => 'contact'])` はHTMLを出力せず、管理設定と現在の画面のデータを返す。設定不備では `WP_Error` を返す。配列を受け取ってから、見出し・説明・外枠・フォームタグをテーマで記述する。項目とボタンのHTMLはOMFの関数で生成し、配置とCSS・ボタン文言はテーマで指定できる。
+
+| キー | 内容 |
+| --- | --- |
+| form_id / slug / step | 対象フォームと entry / confirm / complete |
+| fields | 管理画面の順序どおりの項目定義 |
+| values | 初期値または検証済み入力。完了ではリクエスト内に退避したデータ |
+| errors | 項目キーごとのエラー。同じ応答で再取得しても同じ値 |
+| confirm | 入力から確認へ進む場合true。確認省略時はfalse |
+| action_url | 現在の専用ページへのPOST先 |
+| complete_message | 完了文のプレーンテキスト。テーマ側でエスケープする |
+| async | 永続受付を完了とする非同期方式ならtrue。SMTP配送完了とは限らない |
+
+各テンプレートの先頭で取得する。
 
 ```php
-OMF::render_form([
-  'slug' => 'contact',
-  'fields_template' => get_theme_file_path('/include/contact-fields.php'),
-  'actions_template' => get_theme_file_path('/include/contact-actions.php'),
-  'complete_template' => get_theme_file_path('/include/contact-complete.php'),
-]);
-```
-
-項目テンプレートには `$omf_fields`（順序付き定義）、`$omf_values`、`$omf_errors`、`$omf_step`、`$omf_form_id` が渡る。
-
-```php
-foreach ($omf_fields as $field) {
-  // 項目キーに応じた囲みや説明を追加できる。
-  OMF::render_field($field, $omf_values[$field['key']],
-    (array) ($omf_errors[$field['key']] ?? []),
-    $omf_step === 'confirm', $omf_form_id);
+use Sharesl\Original\MailForm\OMF;
+$contact = OMF::form_context(['slug' => 'contact']);
+if (is_wp_error($contact)) {
+  echo '<p>' . esc_html($contact->get_error_message()) . '</p>';
+  return;
 }
 ```
 
-`form`・nonce・CAPTCHA・操作ボタンはプラグインが生成する。テンプレートに重複して書かない。読込先は有効な親/子テーマ内のPHPファイルに限定する。完了テンプレートは文面だけを担当し、`$omf_step` と `$omf_form_id` を使える。
+### 項目はforeachで囲むだけ
 
-ページ見出しや電話案内を切り替える場合は `OMF::form_step(['slug'=>'contact'])` の entry / confirm / complete を参照する。PHPでの設置・管理方式用のAPI。FSEではフォームの中の見出し・操作が自動で切り替わる。
+`OMF::get_fields(['slug' => 'contact'])` は、現在の画面用の生成済みHTMLを項目キー付き配列で返す。入力・確認どちらでも同じ呼び出しを使い、入力画面では入力欄、確認画面ではラベルと確認値になる。管理設定の順序を保ち、項目追加・削除・変更・並べ替えも反映する。設定不備では `WP_Error`、完了では空配列を返す。
 
-### カンプに合わせて入力要素も記述する場合
+`form_context()` で設定が有効なことを確認した後、各テンプレートで取得する。
 
-`OMF_Field_Renderer::attributes($field, $value, $errors, $omf_form_id)` は、name・ID・検証・必須・郵便番号連携・エラーの属性を返す。テーマで input / select / textarea を書く場合も、この属性を使い、管理設定とPHP・JS検証を揃える。選択肢は `$field['choices']` から生成する。入力値とラベルはテーマ側でエスケープする。
+```php
+$fields = OMF::get_fields(['slug' => 'contact']);
+```
 
-入力画面だけ変更する場合は `OMF::form_step()` が `entry` のときだけ `fields_template` と `actions_template` を渡す。確認画面は通常の `OMF::render_form(['slug'=>'contact'])` で同意を含めて順番どおり表示する。
+項目部分はこれだけでよい。種類別の分岐、値・必須・エラー・選択肢の組み立てをテーマに書く必要はない。
 
-`actions_template` は操作ボタンだけを担当する。`$omf_confirm` がtrueなら name/value/action は `confirm`、falseなら `send` を使い、`data-omf-role="action"` と `data-omf-action` を付ける。nonce・CAPTCHA・form はプラグインに任せる。確認画面にも指定する場合は戻るボタンを含めて実装する。
+```php
+<?php foreach ($fields as $field) : ?>
+  <div class="contact__row">
+    <?php echo $field; ?>
+  </div>
+<?php endforeach; ?>
+```
 
-完了メッセージは「フォーム」タブの「完了画面のメッセージ」で設定する。標準描画・ショートコード・ブロックで共通に表示し、HTML・メールタグは展開しない。完了テンプレートを指定した場合は `$omf_complete_message` に文面が渡るため、`nl2br(esc_html($omf_complete_message))` などで表示する。
+`$field` は生成済みHTMLなのでそのままechoする。`esc_html($field)` はタグを文字として表示してしまうため使わない。OMFが管理画面由来のラベル・値・説明等をエスケープし、説明文の許可されたリンクだけを生成する。`omf_field_html` フィルターで独自HTMLを返す場合は開発者側のエスケープ責任を維持する。
+
+| 共通クラス | 内容 |
+| --- | --- |
+| omf-managed-field | 項目全体。`data-omf-field` は項目キー |
+| omf-managed-field--text / --email / --select 等 | 入力種類。全10種類に対応 |
+| omf-managed-control | 入力欄・確認値・説明・エラーをまとめる領域 |
+| omf-managed-required | 必須表示。条件付き必須も管理設定に連動 |
+| omf-managed-choices / omf-managed-choice | 選択肢の一覧と各選択肢 |
+| omf-managed-help / omf-managed-error / omf-managed-policy | 説明・エラー・規約本文 |
+| omf-managed-value | 確認値。選択ラベル・同意・添付名を解決済み |
+
+テーマの `.contact__row .omf-managed-field` などからCSSを指定する。専用の `.omf-managed` 外枠は不要。管理設定どおりのHTML順序を保ち、同意だけボタン前へ置きたいなどの配置はテーマのCSSで調整できる。
+
+### ボタンも共通HTMLを関数で出力する
+
+`OMF::render_buttons($labels = [], $selector = 0)` は、現在の画面に必要なボタンだけを出力する。第1引数は文言の指定、第2引数は任意のフォーム指定。省略すると現在のページのフォームを使う。外側のdivやレイアウトは出力しない。
+
+入力ページの例。確認を省略する設定なら自動で送信ボタンに切り替わる。
+
+```php
+<div class="contact__actions">
+  <?php OMF::render_buttons([
+    'confirm' => '入力内容を確認する',
+    'send' => '送信する',
+  ]); ?>
+</div>
+```
+
+確認ページも1回の呼び出しで修正・送信を出力する。
+
+```php
+<?php OMF::render_buttons([
+  'back' => '入力内容を修正',
+  'send' => 'この内容で送信する',
+]); ?>
+```
+
+完了ページではトップへの通常リンクだけを出力する。完了メッセージの表示と、この関数を呼ぶ位置はテーマで決める。
+
+```php
+<section data-omf-step="complete">
+  <h1>お問い合わせ完了</h1>
+  <p><?php echo nl2br(esc_html($contact['complete_message'])); ?></p>
+  <div class="contact__actions">
+    <?php OMF::render_buttons(['home' => 'トップページへ戻る']); ?>
+  </div>
+</section>
+```
+
+| 画面 | 生成する操作 | 文言を省略した場合 |
+| --- | --- | --- |
+| 入力・確認あり | confirm | 入力内容を確認 |
+| 入力・確認省略 | send | 送信する |
+| 確認 | back / send | 入力内容を修正 / 送信する |
+| 完了 | home（トップへのa要素） | トップページへ戻る |
+
+文言はプレーンテキストとしてエスケープする。共通クラスは `.omf-managed-button`、操作別クラスは `--confirm`・`--send`・`--back`・`--home`。確認・送信には `.omf-managed-primary` も付ける。name/value・操作属性・修正ボタンの `formnovalidate` はOMFが生成する。テーマは `.contact__actions .omf-managed-button` などからCSSで調整できる。完了リンクの生成でセッション・トークンを再作成しない。
+
+入力のフォームタグはテーマに置く。`method="post"`、添付を扱う場合の `enctype="multipart/form-data"`、`action` に `$contact['action_url']`、`data-omf-form` に `$contact['slug']`、`data-omf-step="entry"` を指定する。フォーム内で `OMF::nonce_field()` と項目ループ、`OMF::recaptcha_field()`・`OMF::turnstile_field()`、ボタン出力を呼ぶ。
+
+確認も同じ項目ループを使い、フォームの `data-omf-step` を `confirm` にする。nonceとボタンを出力し、CAPTCHAや入力値のhiddenコピーは作らない。送信処理はセッションの検証済みデータを使う。完了はフォームタグもトークンも不要。
+
+### 操作のtransitionとローディング
+
+`form[data-omf-form]` に共通JSを適用する。検証を通過したsubmitで、押したボタンをスピナーと「確認中…」「送信中…」「移動中…」へ切り替え、二重送信を防止する。フォームを `inert` にして操作を止め、`setTimeout(..., 0)` で全入力欄・選択欄・ボタンをdisabledにする。ブラウザの通常のPOST値確定を先に行うため、FormDataの退避・差し替えはしない。
+
+応答待ちが60秒を超えた場合と `pageshow` で戻った場合は、元のdisabled・ボタンHTML・操作状態へ復元する。入力条件の検証も再実行する。タイムアウトは通信の取消や未送信の保証ではなく、自動再送もしない。結果不明の案内を表示し、再送前の確認を促す。履歴キャッシュからの復帰では既存の表示許可の再検証も行う。
+
+共通CSSはボタンの有効/無効、radio・同意チェック、入力フォーカスを200msで変化させる。`prefers-reduced-motion` ではtransitionとスピナー回転を止める。テーマは `--omf-interaction-color`・`--omf-motion` と `.omf-managed-button[data-omf-loading="true"]`・`.omf-submit-status` で調整できる。ローカルの遅延試験などではフォームの `data-omf-submit-timeout` に正のミリ秒値を指定でき、省略時は60000になる。
+
+入力条件が不足する間だけ、`.omf-validation-status` に残り件数をボタンの下へ表示する。条件を満たした場合は文言を空にして非表示にする。同意チェックでは文言・リンクの色を変更せず、チェックボックスの選択状態を切り替える。同意欄のエラー行の位置と余白はテーマCSSで調整できる。
+
+`data-omf-form` と `data-omf-step` は履歴キャッシュ復元時の再検証に使用する。独自テンプレートでも記述する。nonce・トークン・CAPTCHA・セッション・検証・送信・303遷移はプラグインが担当する。テーマは `wp_head()` と `wp_footer()` を呼ぶ。
+
+### 入力要素もテーマで記述する場合
+
+`OMF_Field_Renderer::attributes($field, $value, $errors, $form_id)` は、name・ID・検証・必須・郵便番号連携・エラーの属性を返す。テーマで input / select / textarea を書く場合も、この属性を使って管理設定とPHP・JS検証を揃える。選択肢は `$field['choices']` から生成し、値・ラベルはテーマ側でエスケープする。項目の順序は `fields` のforeachで反映する。
+
+### 自動描画と既存の部分テンプレート
+
+`OMF::render_form(['slug' => 'contact'])`、ショートコード、ブロックも引き続き利用できる。入力・確認はフォームと操作を自動描画する。完了は設定されたメッセージだけを出力し、見出し・外枠・トップへのリンクは設置先のページやテーマに置く。
+
+既存の `fields_template`・`actions_template`・`complete_template` は後方互換のため維持する。読込先は有効な親/子テーマ内のPHPファイルに限定する。項目用には `$omf_fields`、`$omf_values`、`$omf_errors`、`$omf_step`、`$omf_form_id`、操作用には `$omf_confirm`、完了用には `$omf_complete_message` と `$omf_values` が渡る。完了テンプレートの前後にはプラグインの見出し・外枠・リンクを付けない。
+
+完了メッセージは「フォーム」タブの「完了画面のメッセージ」で設定する。HTML・メールタグは展開しない。完了応答では描画前に対象フォームのセッションが保存先から消去される。`form_context()`・`get_post_values()`・`form_step()` はその応答内だけ退避した情報を参照する。完了から `nonce_field()`・`get_omf_token()` を呼んでもトークンは再作成しない。非同期配送は受付IDと永続データを使う。
+
+
+ページ側の「メールフォーム連携」は、PHP・本文ブロック・本文ショートコードすべてに適用する。設置したフォームと連携先が一致しないページは表示・送信できない。未設定・「連携しない」はOFFとして扱う。
