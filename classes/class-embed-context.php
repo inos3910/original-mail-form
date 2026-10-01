@@ -20,6 +20,10 @@ class OMF_Embed_Context
     if (count($found) !== 1) { $error = 'フォームは1ページに1つだけ設置してください。'; }
     $form = self::eligible((int) $found[0]);
     if (!$form && !$error) { $error = '公開済みの「画面でかんたんに作成」フォームを選び直してください。'; }
+    // 本文に設置していても、原型と同じページ側の連携設定を必須にする。
+    if ($form && !$error && get_post_meta($page_id, 'cf_omf_select', true) !== $form->post_name) {
+      $error = 'このページの「メールフォーム連携」で、設置したフォームとの連携を有効にしてください。';
+    }
     $result['error'] = $error;
     $result['form'] = $error ? null : $form;
     return self::$cache[$page_id] = $result;

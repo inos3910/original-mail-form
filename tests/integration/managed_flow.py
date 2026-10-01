@@ -21,6 +21,21 @@ def run_managed(content, private, wp, evaluate, literal, base, Client, check, re
         return c.request('/entry/', dict(c.fields(), email='managed@example.test', message=message, confirm='confirm', **extra), managed=True)
     def entry_redirect(result, label):
         check(result[0] == 303 and result[1]['Location'].endswith('/entry/'), label)
+    for step in ['entry', 'confirm', 'complete']:
+        client = Client(base); confirm(client)
+        fields = client.fields('/confirm/')
+        page_id = seeded['pages'][step]
+        evaluate(f'update_post_meta({page_id},"cf_omf_select","");')
+        try:
+            code, headers, body = Client(base).request('/'+step+'/')
+            check(code == 200 and 'name="omf_nonce"' not in body and 'data-omf-form=' not in body and 'PHPSESSID' not in headers.get('Set-Cookie',''), 'PHP設置の連携OFFでフォーム・送信用セッションを生成しない: '+step)
+            before = len(records())
+            client.request('/confirm/', dict(fields, send='send'), managed=True)
+            client.request('/'+step+'/', dict(fields, send='send'), managed=True)
+            check(len(records()) == before, 'PHP設置の連携OFFで認証済みPOSTからも送信しない: '+step)
+        finally:
+            evaluate(f'update_post_meta({page_id},"cf_omf_select","integration");')
+        check('data-omf-form=' in Client(base).request('/entry/')[2], 'PHP設置の連携ON復帰でフォームを利用できる: '+step)
     c = Client(base)
     for path in ['/confirm/', '/complete/']:
         entry_redirect(c.request(path), '未認証GETを入力へ戻す: ' + path)

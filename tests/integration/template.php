@@ -3,7 +3,8 @@ if (!defined('OMF_INTEGRATION_TEST')) { exit; }
 use Sharesl\Original\MailForm\OMF;
 header('Content-Type: text/html; charset=utf-8');
 $linked = $GLOBALS['global_omf']->get_instance('page')->get_form(get_queried_object_id());
-if ($linked && \Sharesl\Original\MailForm\OMF_Managed_Form::enabled($linked->ID)) {
+// 連携OFFでも管理画面方式の試験を旧HTML方式へ切り替えず、公開APIの無効判定を通す。
+if (\Sharesl\Original\MailForm\OMF_Managed_Form::enabled((int) get_option('omf_test_form_id'))) {
   echo '<!doctype html><html lang="ja"><head><meta name="viewport" content="width=device-width,initial-scale=1"><title>フォーム自動出力デモ</title>';
   wp_head();
   echo '</head><body>';

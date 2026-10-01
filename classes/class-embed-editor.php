@@ -50,6 +50,6 @@ class OMF_Embed_Editor
     echo '<p>ショートコードでも設置できます。入力・確認・完了は同じ記述で表示します。</p><label for="omf-shortcode">設置用ショートコード</label>';
     echo '<input id="omf-shortcode" class="widefat" readonly value="' . esc_attr('[omf_render_form slug="' . $post->post_name . '"]') . '">';
     echo '<p><button type="button" class="button" data-omf-copy-shortcode>コピーする</button> <span role="status" data-omf-copy-status></span></p>';
-    echo '<p>画面設定で入力・確認・完了の専用ページを指定し、各ページに同じフォームを設置してください。確認を省略する場合は入力・完了の2ページが必要です。本文のブロック・ショートコードならPHP編集とページ連携は不要です。PHPテンプレートでは各ページを「メールフォーム連携」に指定してください。1ページに1フォームを設置できます。</p>';
+    echo '<p>画面設定で入力・確認・完了の専用ページを指定し、各ページに同じフォームを設置してください。確認を省略する場合は入力・完了の2ページが必要です。設置方法にかかわらず、各ページの「メールフォーム連携」で同じフォームとの連携を有効にして保存してください。「連携しない」のページでは表示・送信できません。ブロック・ショートコードならPHP編集は不要です。1ページに1フォームを設置できます。</p>';
   }
 }

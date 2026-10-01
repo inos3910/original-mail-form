@@ -34,6 +34,7 @@ foreach($contents as $slug=>$content) {
   foreach(['entry'=>'','confirm'=>'-confirm','complete'=>'-complete'] as $step=>$suffix) {
    $id=wp_insert_post(['post_type'=>$slug==='fse-post'?'post':'page','post_status'=>'publish','post_name'=>$slug.$suffix,'post_title'=>$slug.$suffix,'post_content'=>$content]);
    $ids[$slug.$suffix]=$id;
+   update_post_meta($id,'cf_omf_select',$slug.'-form');
    update_post_meta($copy,'cf_omf_screen_'.$step,$slug.$suffix);
   }
   update_post_meta($copy,'cf_omf_condition_post',['page','post']);
@@ -42,6 +43,5 @@ foreach($contents as $slug=>$content) {
   $ids[$slug]=wp_insert_post(['post_type'=>'page','post_status'=>'publish','post_name'=>$slug,'post_title'=>$slug,'post_content'=>$content]);
  }
 }
-update_post_meta($ids['fse-block'],'cf_omf_select','nonexistent-old-form');
 switch_theme('omf-fse'); flush_rewrite_rules(false);
 echo wp_json_encode($ids);

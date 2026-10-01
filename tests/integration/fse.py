@@ -10,11 +10,37 @@ def run_fse(root, content, wp, evaluate, literal, base, Client, check, records, 
     (theme / 'templates/index.html').write_text('<!-- wp:group {"layout":{"type":"constrained"}} --><div class="wp-block-group"><!-- wp:post-title {"level":1} /--><!-- wp:post-content /--></div><!-- /wp:group -->')
     ids = json.loads(wp('eval-file', str(__import__('pathlib').Path(__file__).with_name('fse-seed.php'))))
     check(evaluate('echo wp_is_block_theme() ? "yes" : "no";') == 'yes', '実ブロックテーマを使用')
-    check(evaluate(f'echo get_post_meta({ids["fse-block"]},"cf_omf_select",true);') == 'nonexistent-old-form', '本文設置は旧連携設定を書き換えない')
+    check(evaluate(f'echo get_post_meta({ids["fse-block"]},"cf_omf_select",true);') == 'fse-block-form', '本文設置もページの連携ON設定を使用し、描画で書き換えない')
     def meta(slug, key, value): evaluate(f'update_post_meta({ids[slug+"-form"]},{literal(key)},{literal(value)});')
     def submit(c, slug, message, extra=None, file=None):
         path = '/'+slug+'/'
         return c.request(path, dict(c.fields(path), email='fse@example.test', message=message, agree='1', confirm='confirm', **(extra or {})), managed=True, file=file)
+    # 認証済みの送信情報を持っていても、途中で連携OFFにしたページから送れない。
+    for slug in ['fse-block','fse-shortcode','fse-slug-shortcode','fse-nested','fse-pattern','fse-post']:
+        for suffix in ['', '-confirm', '-complete']:
+            client = Client(base)
+            submit(client, slug, '連携OFFの検証')
+            fields = client.fields('/'+slug+'-confirm/')
+            page_id = ids[slug+suffix]
+            evaluate(f'update_post_meta({page_id},"cf_omf_select","");')
+            try:
+                code, headers, body = Client(base).request('/'+slug+suffix+'/')
+                check(code == 200 and 'name="omf_nonce"' not in body and 'data-omf-form=' not in body and 'PHPSESSID' not in headers.get('Set-Cookie',''), '連携OFFで本文フォーム・送信用セッションを生成しない: '+slug+suffix)
+                before = len(records())
+                client.request('/'+slug+'-confirm/', dict(fields, send='send'), managed=True)
+                client.request('/'+slug+suffix+'/', dict(fields, send='send'), managed=True)
+                check(len(records()) == before, '連携OFFで認証済みPOSTからも送信しない: '+slug+suffix)
+            finally:
+                evaluate(f'update_post_meta({page_id},"cf_omf_select",{literal(slug+"-form")});')
+        check('data-omf-form=' in Client(base).request('/'+slug+'/')[2], '連携ONへ戻すと本文フォームを利用できる: '+slug)
+    # 別フォームを選択した場合と、連携欄を未保存の場合も自動で有効にしない。
+    for value in ['integration', None]:
+        page_id = ids['fse-block']
+        evaluate(f'delete_post_meta({page_id},"cf_omf_select");' if value is None else f'update_post_meta({page_id},"cf_omf_select",{literal(value)});')
+        try:
+            check('data-omf-form=' not in Client(base).request('/fse-block/')[2], '本文フォームと連携先が不一致・未設定なら無効: '+str(value))
+        finally:
+            evaluate(f'update_post_meta({page_id},"cf_omf_select","fse-block-form");')
     c = Client(base)
     a = c.fields('/fse-block/'); b = c.fields('/fse-shortcode/')
     check(a['omf_token'] != b['omf_token'] and a['omf_nonce'] != b['omf_nonce'], '別フォームのnonceとトークンを分離')
