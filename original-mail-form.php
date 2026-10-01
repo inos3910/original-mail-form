@@ -8,7 +8,7 @@
  * Author: SHARESL
  * Author URI: https://sharesl.net/
  * Version: 1.2.0
- * Requires at least: 6.3
+ * Requires at least: 6.9.9
  * Requires PHP: 8.0
  * License: GPL-2.0-or-later
  * Text Domain: original-mail-form

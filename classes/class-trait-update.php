@@ -15,8 +15,8 @@ trait OMF_Trait_Update
     $provide_package = static function ($value) use ($plugin) {
       $value = is_object($value) ? clone $value : new \stdClass();
       $value->response = (array) ($value->response ?? []);
-      $version = get_file_data(dirname(__DIR__) . '/original-mail-form.php', ['version' => 'Version'])['version'];
-      $value->response[$plugin] = (object) ['slug' => 'original-mail-form', 'plugin' => $plugin, 'new_version' => $version, 'package' => 'https://github.com/inos3910/original-mail-form/archive/master.zip'];
+      $headers = get_file_data(dirname(__DIR__) . '/original-mail-form.php', ['version' => 'Version', 'requires' => 'Requires at least', 'requires_php' => 'Requires PHP']);
+      $value->response[$plugin] = (object) ['slug' => 'original-mail-form', 'plugin' => $plugin, 'new_version' => $headers['version'], 'requires' => $headers['requires'], 'requires_php' => $headers['requires_php'], 'package' => 'https://github.com/inos3910/original-mail-form/archive/master.zip'];
       return $value;
     };
     $normalize_source = static function ($source, $remote_source, $upgrader, $extra) use ($plugin) {
