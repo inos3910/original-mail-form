@@ -130,6 +130,13 @@ trait OMF_Trait_Validation
       }
     }
 
+    if (OMF_Field_Schema::mode($form_id) === 'code') {
+      // 旧方式は拡張子設定を必須としない。実際のアップロードと保管済み情報で判定する。
+      $form = get_post($form_id) ?: $this->get_form();
+      $key = $form && $form->ID === $form_id ? OMF_Embed_Context::prefix($form->post_name) . '_uploaded_files' : '';
+      $targets = array_merge($targets, array_keys($_FILES), array_keys($_SESSION[$key] ?? []));
+    }
+
     return array_unique($targets);
   }
 
@@ -183,8 +190,18 @@ trait OMF_Trait_Validation
     if (empty($form)) {
       return [];
     }
+    $rules = $this->get_validation_settings($form->ID);
+    $is_code = OMF_Field_Schema::mode($form->ID) === 'code';
+    if ($is_code) {
+      // 旧方式の検証設定は受付項目の定義ではない。未登録の通常入力も維持する。
+      $defined = array_column($rules, 'target');
+      $controls = ['confirm', 'send', 'submit_back', 'omf_restart', 'omf_nonce', 'omf_token', '_wp_http_referer', 'cf-turnstile-response', (string) get_option('omf_recaptcha_field_name', 'g-recaptcha-response')];
+      foreach (array_diff(array_keys($posts), array_merge($defined, $controls)) as $key) {
+        $rules[] = ['target' => $key];
+      }
+    }
     $result = [];
-    foreach ($this->get_validation_settings($form->ID) as $rule) {
+    foreach ($rules as $rule) {
       $key = $rule['target'] ?? '';
       if ($key === '' || !array_key_exists($key, $posts)) {
         continue;
@@ -200,7 +217,7 @@ trait OMF_Trait_Validation
       foreach (['email', 'tel', 'url', 'numeric', 'alpha', 'alphanumeric', 'katakana', 'hiragana', 'kana', 'date', 'postal_code'] as $single) {
         if (!empty($rule[$single])) { $legacy_multiple = false; }
       }
-      $valid_list = is_array($value) && array_is_list($value) && count($value) <= 100;
+      $valid_list = is_array($value) && count($value) <= 100 && (OMF_Utils::is_list($value) || ($is_code && array_intersect(['attachment_id', 'upload_id', 'tmp_name', 'image'], array_keys($value)) === []));
       if ($valid_list) {
         foreach ($value as $item) {
           $valid_list = $valid_list && is_string($item);
@@ -302,7 +319,8 @@ trait OMF_Trait_Validation
     $errors = [];
     $target = $validation['target'] ?? '';
     $input = $post_data[$target] ?? '';
-    if (is_array($input) && array_is_list($input)) {
+    $form = $this->get_form();
+    if (is_array($input) && (OMF_Utils::is_list($input) || ($form && OMF_Field_Schema::mode($form->ID) === 'code' && !isset($input['upload_id']) && !isset($input['pending'])))) {
       if ($input === []) {
         $error = $this->validate_required($input, $validation['required'] ?? 0);
         return $error === '' ? [] : [$error];

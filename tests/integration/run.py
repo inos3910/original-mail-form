@@ -5,6 +5,7 @@ import signal
 import html
 import http.cookiejar
 import json
+import mimetypes
 from pathlib import Path
 import re
 import secrets
@@ -40,7 +41,8 @@ class Client:
             for key, value in data.items():
                 body += f'--{boundary}\r\nContent-Disposition: form-data; name="{key}"\r\n\r\n{value}\r\n'.encode()
             file_field = 'omf_fields[file]' if managed else 'file'
-            body += f'--{boundary}\r\nContent-Disposition: form-data; name="{file_field}"; filename="{file[0]}"\r\nContent-Type: text/plain\r\n\r\n'.encode() + file[1] + f'\r\n--{boundary}--\r\n'.encode()
+            mime = mimetypes.guess_type(file[0])[0] or 'application/octet-stream'
+            body += f'--{boundary}\r\nContent-Disposition: form-data; name="{file_field}"; filename="{file[0]}"\r\nContent-Type: {mime}\r\n\r\n'.encode() + file[1] + f'\r\n--{boundary}--\r\n'.encode()
             headers['Content-Type'] = 'multipart/form-data; boundary=' + boundary
         else:
             body = urllib.parse.urlencode(data).encode() if data is not None else None
@@ -161,7 +163,9 @@ def run(args):
                 check(code == 303 and len(list(private.rglob('sample.txt'))) == 1, '実multipartの添付を非公開保存')
                 fields = c.fields('/confirm/'); code,_,_=c.request('/confirm/',dict(fields,send='send'))
                 check(code == 303 and [x['attachments'] for x in records()[-2:]] == [0,1], '通知のみ添付し自動返信には添付しない')
-                check(not list(private.rglob('sample.txt')), '成功後に添付を削除')
+                check(len(list(private.rglob('sample.txt'))) == 1, '旧方式では成功後も添付を非公開のまま保持')
+                # 後続の新方式の一時添付試験へ、旧方式の保存済み添付を持ち込まない。
+                evaluate('foreach(get_posts(["post_type"=>"attachment","post_status"=>"any","meta_key"=>"_omf_retained_upload","meta_value"=>"1"]) as $file){wp_delete_attachment($file->ID,true);}')
                 c = Client(base); fields=c.fields(); before=len(records())
                 code,_,_=confirm(c,fields,file=('attack.php',b'<?php echo 1;'))
                 check(code != 500 and not list(private.rglob('attack.php')) and len(records())==before, 'PHP添付を保存・送信しない')

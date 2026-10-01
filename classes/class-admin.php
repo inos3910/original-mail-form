@@ -11,7 +11,7 @@ use WP_Query;
 
 class OMF_Admin
 {
-  use OMF_Trait_Form, OMF_Trait_Cryptor, OMF_Trait_Google_Auth, OMF_Trait_Output_Csv;
+  use OMF_Trait_Form, OMF_Trait_Cryptor, OMF_Trait_Google_Auth, OMF_Trait_Output_Csv, OMF_Trait_Update;
 
   public function __construct()
   {
@@ -287,7 +287,7 @@ class OMF_Admin
     $this->add_admin_data_settings();
     $this->add_output_data_settings();
     $this->add_admin_google_settings();
-    // 更新はWordPress標準のプラグイン画面から行う。
+    $this->add_admin_update_settings();
   }
 
   /**
@@ -305,6 +305,12 @@ class OMF_Admin
       'omf_settings',
       [$this, 'load_admin_template']
     );
+  }
+
+  /** 原型の更新メニューを維持し、実際の更新はWordPressの安全な展開処理を使用する。 */
+  public function add_admin_update_settings(): void
+  {
+    add_submenu_page('edit.php?post_type=' . OMF_Config::NAME, 'プラグインの更新', 'プラグインの更新', 'manage_options', 'omf_update', [$this, 'load_admin_template']);
   }
 
   /**
@@ -802,7 +808,7 @@ class OMF_Admin
   public function load_admin_template()
   {
     $slug = sanitize_key($_GET['page'] ?? '');
-    $allowed = ['omf_settings', 'omf_google_settings', 'omf_recaptcha_settings', 'omf_turnstile_settings', 'omf_data', 'omf_output_data'];
+    $allowed = ['omf_settings', 'omf_google_settings', 'omf_recaptcha_settings', 'omf_turnstile_settings', 'omf_data', 'omf_output_data', 'omf_update'];
     if (!in_array($slug, $allowed, true) || !current_user_can(in_array($slug, ['omf_data', 'omf_output_data'], true) ? 'edit_others_posts' : 'manage_options')) { return; }
     $plugin_root_path = plugin_dir_path(__DIR__);
     $template_path = "{$plugin_root_path}templates/{$slug}.php";
@@ -1191,10 +1197,12 @@ class OMF_Admin
    *
    * @return void
    */
-  public function add_meta_box_posts(string $post_type, ?WP_Post $post = null)
+  public function add_meta_box_posts(string $post_type = '', ?WP_Post $post = null)
   {
 
+    if (!$post) { $post = get_post(); }
     if (!$post) { return; }
+    if ($post_type === '') { $post_type = $post->post_type; }
 
     //すべてのフォームを取得
     $mail_forms = $this->get_forms();

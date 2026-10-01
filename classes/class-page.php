@@ -133,6 +133,9 @@ class OMF_Page
   {
     $this->load_recaptcha_script();
     $form = $this->get_form();
+    if ($form && OMF_Field_Schema::mode($form->ID) === 'code' && $this->is_page('complete')) {
+      wp_enqueue_script('omf-disable-back-button-script', plugins_url('dist/js/disable-back-button.js', __DIR__), [], null, true);
+    }
     if ($form && OMF_Managed_Form::enabled($form->ID)) {
       wp_enqueue_style('omf-managed', plugins_url('assets/managed-form.css', __DIR__), [], (string) filemtime(dirname(__DIR__) . '/assets/managed-form.css'));
       wp_enqueue_script('omf-postal-address', plugins_url('dist/js/postal-address.js', __DIR__), [], (string) filemtime(dirname(__DIR__) . '/dist/js/postal-address.js'), true);
@@ -195,7 +198,7 @@ class OMF_Page
     $page_ids = $this->get_form_page_ids($form);
     if (OMF_Managed_Form::enabled($form->ID)) { return OMF_Managed_Form::step($form) === 'entry'; }
     //入力・確認画面どちらかでなければ設置しない
-    $recaptcha_page_ids = [$page_ids['entry'] ?? 0];
+    $recaptcha_page_ids = [$page_ids['entry'] ?? 0, $page_ids['confirm'] ?? 0];
     if (!in_array($current_page_id, $recaptcha_page_ids, true)) {
       return false;
     }
@@ -339,7 +342,7 @@ class OMF_Page
   public function recaptcha_field()
   {
     $is_recaptcha = $this->can_use_recaptcha();
-    if (!$is_recaptcha || !$this->is_page('entry')) {
+    if (!$is_recaptcha || $this->is_page('complete') || (!$this->is_page('entry') && OMF_Field_Schema::mode($this->get_form()->ID) !== 'code')) {
       return;
     }
 
@@ -361,7 +364,7 @@ class OMF_Page
   public function turnstile_field()
   {
     $is_turnstile = $this->can_use_turnstile();
-    if (!$is_turnstile || !$this->is_page('entry')) {
+    if (!$is_turnstile || $this->is_page('complete') || (!$this->is_page('entry') && OMF_Field_Schema::mode($this->get_form()->ID) !== 'code')) {
       return;
     }
 
@@ -1056,6 +1059,9 @@ class OMF_Page
 
     if ($result) {
       $this->after_send_mails($form, $post_data, $post_id);
+    } elseif (OMF_Field_Schema::mode($form->ID) === 'code' && OMF_Delivery::mode($form->ID) === 'serial') {
+      // 旧方式の失敗通知等のフックも維持する。成功扱いやトークン消費は行わない。
+      do_action('omf_after_send_mail', $post_data, $form, $post_id);
     }
 
     return $result;

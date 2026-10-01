@@ -106,7 +106,7 @@ trait OMF_Trait_Managed_Flow
     }
   }
 
-  private function managed_reload(string $step, bool $retain = false): never
+  private function managed_reload(string $step, bool $retain = false): void
   {
     $_SESSION[$this->session_name_prefix . '_managed_step'] = $step;
     if ($retain) { $_SESSION[$this->session_name_prefix . '_managed_entry_once'] = true; }

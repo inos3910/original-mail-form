@@ -27,6 +27,20 @@ trait OMF_Trait_Submission
     $form = $this->get_form($post_id);
     if (empty($form)) { return []; }
     $key = OMF_Embed_Context::prefix($form->post_name) . '_uploaded_files';
+    if (OMF_Field_Schema::mode($form->ID) === 'code') {
+      // POSTの辞書を旧添付と見なさず、更新前にサーバーが保管したセッションだけを移行する。
+      $old_data = $_SESSION[OMF_Embed_Context::prefix($form->post_name) . '_data'] ?? [];
+      foreach ($old_data as $target => $file) {
+        if (!is_array($file) || empty($file['attachment_id']) || !empty($file['upload_id']) || isset($_SESSION[$key][$target])) { continue; }
+        try { $imported = OMF_Legacy_Uploads::import($file, $form->ID); }
+        catch (\Throwable $e) { $imported = []; }
+        if ($imported !== []) { $_SESSION[$key][$target] = $imported; }
+        else {
+          unset($data[$target]);
+          $this->extra_errors[$target][] = '添付ファイルを引き継げませんでした。入力画面でもう一度添付してください。';
+        }
+      }
+    }
     foreach ($this->get_file_field_targets($form->ID) as $target) {
       unset($data[$target]);
       $file = $_SESSION[$key][$target] ?? [];
@@ -53,8 +67,12 @@ trait OMF_Trait_Submission
     $tags = $converted['tags'];
     $disabled = $this->is_disable_reply_mail($form_id);
     if ($disabled) { $state['reply'] = true; }
-    if (!$state['reply']) { $state['reply'] = $this->send_reply_mail($tags, $post_id) === true; }
-    $tags['omf_reply_mail_sended'] = $disabled ? '【自動返信】無効' : ($state['reply'] ? '【自動返信】送信成功' : '【自動返信】送信失敗');
+    if (!$state['reply']) {
+      $reply = $this->send_reply_mail($tags, $post_id);
+      $state['reply'] = $reply === true || $reply === 'no-reply';
+      $state['reply_skipped'] = $reply === 'no-reply';
+    }
+    $tags['omf_reply_mail_sended'] = $disabled ? '【自動返信】無効' : (!empty($state['reply_skipped']) ? '【自動返信】スキップ（宛先なし）' : ($state['reply'] ? '【自動返信】送信成功' : '【自動返信】送信失敗'));
     if (!$state['admin']) {
       $state['admin'] = $this->send_admin_mail($tags, $post_id, $converted['attachment_paths']);
     } else {
@@ -64,6 +82,7 @@ trait OMF_Trait_Submission
     $_SESSION[$key] = $state;
     $success = $state['reply'] && $state['admin'];
     if ($success) {
+      OMF_Legacy_Uploads::retain($converted['attachment_ids']);
       foreach ($converted['attachment_ids'] as $id) { OMF_Uploads::remove($id); }
       unset($_SESSION[OMF_Embed_Context::prefix($form->post_name) . '_uploaded_files']);
       unset($_SESSION[OMF_Embed_Context::prefix($form->post_name) . '_captcha']);

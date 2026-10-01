@@ -35,7 +35,7 @@ class OMF_Field_Schema
   /** 呼び出し元でwp_unslash済みの定義を渡す。保存・権限確認は管理画面側の責務。 */
   public static function normalize(mixed $schema): array|\WP_Error
   {
-    if (!is_array($schema) || ($schema['version'] ?? null) !== self::VERSION || !isset($schema['fields']) || !is_array($schema['fields']) || !array_is_list($schema['fields']) || count($schema['fields']) > 100 || $schema['fields'] === []) {
+    if (!is_array($schema) || ($schema['version'] ?? null) !== self::VERSION || !isset($schema['fields']) || !is_array($schema['fields']) || !OMF_Utils::is_list($schema['fields']) || count($schema['fields']) > 100 || $schema['fields'] === []) {
       return self::error('フォームの項目定義または版番号が不正です。');
     }
     $fields = []; $keys = [];
@@ -56,7 +56,7 @@ class OMF_Field_Schema
       if (is_wp_error($choices)) { return self::error('選択肢の値・ラベルが不正、空欄、または重複しています。', $index); }
       $default = $field['default'] ?? ($type === 'checkboxes' ? [] : '');
       if ($type === 'checkboxes') {
-        if (!is_array($default) || !array_is_list($default) || count($default) > 100) { return self::error('複数選択の初期値が不正です。', $index); }
+        if (!is_array($default) || !OMF_Utils::is_list($default) || count($default) > 100) { return self::error('複数選択の初期値が不正です。', $index); }
         foreach ($default as $value) {
           if (!is_string($value) || !in_array($value, array_column($choices, 'value'), true)) { return self::error('初期値が選択肢にありません。', $index); }
         }
@@ -67,7 +67,7 @@ class OMF_Field_Schema
       if (in_array($type, ['select', 'radio'], true) && $default !== '' && !in_array($default, array_column($choices, 'value'), true)) { return self::error('初期値が選択肢にありません。', $index); }
       if (in_array($type, ['file', 'acceptance'], true) && $default !== '') { return self::error('添付・同意項目に初期値は設定できません。', $index); }
       $extensions = $field['extensions'] ?? []; $max_bytes = $field['max_bytes'] ?? 10 * MB_IN_BYTES;
-      if (!is_array($extensions) || !array_is_list($extensions) || !is_int($max_bytes) || $max_bytes < 1 || $max_bytes > 10 * MB_IN_BYTES) { return self::error('添付の許可拡張子または上限が不正です。', $index); }
+      if (!is_array($extensions) || !OMF_Utils::is_list($extensions) || !is_int($max_bytes) || $max_bytes < 1 || $max_bytes > 10 * MB_IN_BYTES) { return self::error('添付の許可拡張子または上限が不正です。', $index); }
       foreach ($extensions as $ext) {
         if (!is_string($ext) || !isset(OMF_Config::ALLOWED_TYPES[$ext]) || in_array($ext, OMF_Config::BLOCKED_FILE_EXTENSIONS, true)) { return self::error('許可できない拡張子です。', $index); }
       }
@@ -131,7 +131,7 @@ class OMF_Field_Schema
   private static function choices(mixed $choices, string $type): array|\WP_Error
   {
     if (!in_array($type, ['select', 'radio', 'checkboxes'], true)) { return []; }
-    if (!is_array($choices) || !array_is_list($choices) || $choices === [] || count($choices) > 100) { return self::error('選択肢が不正です。'); }
+    if (!is_array($choices) || !OMF_Utils::is_list($choices) || $choices === [] || count($choices) > 100) { return self::error('選択肢が不正です。'); }
     $result = []; $values = [];
     foreach ($choices as $choice) {
       if (!is_array($choice) || !is_string($choice['value'] ?? null) || !is_string($choice['label'] ?? null)) { return self::error('選択肢が不正です。'); }

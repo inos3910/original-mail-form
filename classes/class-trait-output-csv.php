@@ -79,10 +79,11 @@ trait OMF_Trait_Output_Csv
     // UTF-8 BOMを追加（Excel用の対策）
     fwrite($output, "\xEF\xBB\xBF");
 
+    $protect_zero = OMF_Field_Schema::mode($form_id) === 'builder';
     foreach ($csv_data as $row) {
-      $row = array_map(static function ($value) {
+      $row = array_map(static function ($value) use ($protect_zero) {
         $value = is_scalar($value) ? (string) $value : wp_json_encode($value, JSON_UNESCAPED_UNICODE);
-        return preg_match('/^[\s\x00-\x1f]*[=+@-]/u', $value) || preg_match('/^0[0-9]+$/D', $value) ? "'" . $value : $value;
+        return preg_match('/^[\s\x00-\x1f]*[=+@-]/u', $value) || ($protect_zero && preg_match('/^0[0-9]+$/D', $value)) ? "'" . $value : $value;
       }, $row);
       fputcsv($output, $row, ',', '"', '');
     }

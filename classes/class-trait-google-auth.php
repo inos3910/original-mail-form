@@ -86,7 +86,7 @@ trait OMF_Trait_Google_Auth
 
     ];
 
-    $request = wp_remote_post($url, ['timeout' => 10, 'body' => $post_data]);
+    $request = wp_remote_post($url, ['timeout' => 60, 'body' => $post_data]);
     $response = !is_wp_error($request) && wp_remote_retrieve_response_code($request) === 200 ? wp_remote_retrieve_body($request) : '';
     if (empty($response) || is_wp_error($response)) {
       return false;
@@ -127,7 +127,7 @@ trait OMF_Trait_Google_Auth
       'grant_type'    => 'authorization_code'
     ];
 
-    $request = wp_remote_post($url, ['timeout' => 10, 'body' => $post_data]);
+    $request = wp_remote_post($url, ['timeout' => 60, 'body' => $post_data]);
     $response = !is_wp_error($request) && wp_remote_retrieve_response_code($request) === 200 ? wp_remote_retrieve_body($request) : '';
     if (empty($response) || is_wp_error($response)) {
       return [];

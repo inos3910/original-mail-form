@@ -14,7 +14,7 @@ class Probe {
 }
 $GLOBALS['meta'][10]['cf_omf_validation']=[['target'=>'choices','required'=>'1','matching_char'=>'A,B'],['target'=>'email','email'=>'1'],['target'=>'zero','required'=>'1']];
 $p=new Probe(); $data=$p->input(['choices'=>['A','B'],'email'=>'test@example.test','zero'=>'0','injected'=>'drop']);
-check($data['choices']===['A','B'] && !isset($data['injected']),'正当な複数選択と未定義項目の除外');
+check($data['choices']===['A','B'] && $data['injected']==='drop','旧コード方式で正当な複数選択と検証不要の項目を保持');
 check($p->validate_input($data)===[],'複数選択と文字列0の検証');
 $bad=new Probe();$bad->input(['email'=>['test@example.test','other@example.test']]);check(isset($bad->errors()['email']),'メール配列を拒否');
 $bad=new Probe();$bad->input(['choices'=>['nested'=>['A']]]);check(isset($bad->errors()['choices']),'ネストした入力を拒否');
@@ -41,7 +41,7 @@ class Crypt {use Sharesl\Original\MailForm\OMF_Trait_Cryptor; public function en
 $c=new Crypt();$enc=$c->encrypt('dummy-token');check($c->decrypt($enc)==='dummy-token','初回の暗号化復号');check($enc!==$c->encrypt('dummy-token'),'暗号化ごとに乱数IV');
 $raw=base64_decode(substr($enc,3));$raw[30]=chr(ord($raw[30])^1);check($c->decrypt('v2:'.base64_encode($raw))==='','暗号文改ざんを検出');
 $page=new OMF_Page();check(call_private($page,'is_valid_token')===false,'トークンなしでも500にしない');
-$rest=new OMF_Rest();$response=call_private($rest,'rest_response',fn()=>['valid'=>false],new WP_REST_Request());check($response->status===400,'REST入力エラー400');
+$rest=new OMF_Rest();$response=call_private($rest,'rest_response',fn()=>['valid'=>false],new WP_REST_Request());check($response->status===200,'既存REST v0の入力エラーJSONはHTTP 200を維持');
 $error=new WP_Error('forbidden','拒否',['status'=>403]);check(call_private($rest,'rest_response',fn()=>$error,new WP_REST_Request())===$error,'REST認証エラーを保持');
 $admin=new OMF_Admin();$_POST=['cf_omf_admin_to'=>'changed@example.test'];$before=$GLOBALS['meta'];$admin->save_omf_custom_field(10);check($before===$GLOBALS['meta'],'権限なしのメタ保存を拒否');
 $GLOBALS['can_edit']=true;$admin->save_omf_custom_field(10);check($before===$GLOBALS['meta'],'nonceなしのメタ保存を拒否');

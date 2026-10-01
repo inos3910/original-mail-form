@@ -51,7 +51,8 @@ trait OMF_Trait_Send
 
     //宛先がない場合は終了
     if (empty($reply_mailaddress)) {
-      return false;
+      // 旧方式では、任意の返信先が空なら自動返信だけを省略する。
+      return OMF_Field_Schema::mode($form->ID) === 'code' && trim($this->replace_form_mail_tags($mail_to, $post_data)) === '' ? 'no-reply' : false;
     }
 
     $reply_subject       = $mail['subject'];
@@ -439,10 +440,15 @@ trait OMF_Trait_Send
     } catch (\Throwable $e) {
       return ['error' => $e->getMessage(), 'data' => null];
     }
-    return ['error' => null, 'data' => [
+    $data = [
       'name' => sanitize_file_name($name), 'type' => $checked_type,
       'size' => (int) $file['size'], 'upload_id' => $id,
-    ]];
+    ];
+    if (OMF_Field_Schema::mode($form_id) === 'code') {
+      try { $data = OMF_Legacy_Uploads::decorate($data, $form_id); }
+      catch (\Throwable $e) { OMF_Uploads::remove($id); return ['error' => '添付情報を保存できません。', 'data' => null]; }
+    }
+    return ['error' => null, 'data' => $data];
   }
 
   /**
@@ -460,7 +466,8 @@ trait OMF_Trait_Send
       return array_map('strtolower', (array)$rule['extension']);
     }
 
-    $defaults = apply_filters('omf_allowed_file_types', OMF_Config::DEFAULT_ALLOWED_FILE_EXTENSIONS);
+    $types = OMF_Field_Schema::mode($form_id) === 'code' ? array_merge(...array_map(static fn($key) => explode('|', $key), array_keys(get_allowed_mime_types()))) : OMF_Config::DEFAULT_ALLOWED_FILE_EXTENSIONS;
+    $defaults = apply_filters('omf_allowed_file_types', $types);
     return array_map('strtolower', (array)$defaults);
   }
 
@@ -476,10 +483,10 @@ trait OMF_Trait_Send
   {
     $rule = $this->get_field_validation_rule($form_id, $target);
     if (!empty($rule['file_size'])) {
-      return min((int) $rule['file_size'], (int) wp_max_upload_size(), 10 * MB_IN_BYTES);
+      return min((int) $rule['file_size'], (int) wp_max_upload_size(), OMF_Field_Schema::mode($form_id) === 'code' ? PHP_INT_MAX : 10 * MB_IN_BYTES);
     }
 
-    return min((int) wp_max_upload_size(), 10 * MB_IN_BYTES);
+    return min((int) wp_max_upload_size(), OMF_Field_Schema::mode($form_id) === 'code' ? PHP_INT_MAX : 10 * MB_IN_BYTES);
   }
 
   /**
@@ -502,7 +509,7 @@ trait OMF_Trait_Send
       if ($path === '') { continue; }
       $paths[] = $path;
       $ids[] = $tag['upload_id'];
-      $tags[$key] = $tag['name'];
+      $tags[$key] = !empty($tag['attachment_id']) ? OMF_Legacy_Uploads::tag($tag) : $tag['name'];
     }
     return ['attachment_paths' => $paths, 'attachment_ids' => $ids, 'tags' => $tags];
   }
@@ -560,7 +567,7 @@ trait OMF_Trait_Send
     return preg_replace_callback('/\{([^{}]+)\}/', static function ($match) use ($tag_to_text) {
       $value = $tag_to_text[$match[1]] ?? '';
       if (is_array($value)) {
-        $value = array_is_list($value) ? implode('、', array_filter($value, 'is_string')) : '';
+        $value = isset($value['name']) && is_string($value['name']) ? $value['name'] : (OMF_Utils::is_list($value) ? implode('、', array_filter($value, 'is_string')) : '');
       }
       $value = apply_filters('omf_mail_tag', $value, $match[1]);
       return is_scalar($value) ? (string) $value : '';

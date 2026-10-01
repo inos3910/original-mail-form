@@ -10,6 +10,10 @@ use WP_Error;
 
 class OMF_Utils
 {
+  /** PHP 8.0でも項目配列の連続した添字を検証する。 */
+  public static function is_list(array $value): bool
+  { return $value === [] || array_keys($value) === range(0, count($value) - 1); }
+
   /** フォームとRESTの対象リクエストだけで開始する。 */
   public static function start_session(): void
   {
@@ -26,7 +30,7 @@ class OMF_Utils
    * @param  int $timeout タイムアウト（秒）
    * @return mixed
    */
-  public static function curl_get(string $url, array $header = [], int $timeout = 10): mixed
+  public static function curl_get(string $url, array $header = [], int $timeout = 60): mixed
   {
     $ch = curl_init();
 
@@ -68,7 +72,7 @@ class OMF_Utils
    * @param int $timeout
    * @return mixed
    **/
-  public static function curl_post(string $url, array $post_data, array $header = [], string $method = 'POST', int $timeout = 10): mixed
+  public static function curl_post(string $url, array $post_data, array $header = [], string $method = 'POST', int $timeout = 60): mixed
   {
     // 送信データをURLエンコード
     $data = wp_json_encode($post_data);
@@ -142,7 +146,7 @@ class OMF_Utils
       $post_data = $request['post_data'];
       $header    = $request['header'] ?? [];
       $method    = $request['method'] ?? 'POST';
-      $timeout   = $request['timeout'] ?? 10;
+      $timeout   = $request['timeout'] ?? 60;
 
       $parsed_url = parse_url($url);
       $is_ssl = isset($parsed_url['scheme']) && $parsed_url['scheme'] === 'https';

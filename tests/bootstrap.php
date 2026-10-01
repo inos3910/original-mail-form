@@ -5,7 +5,7 @@ define('ABSPATH', sys_get_temp_dir() . '/omf-test-public/');
 define('MINUTE_IN_SECONDS', 60); define('HOUR_IN_SECONDS', 3600); define('DAY_IN_SECONDS', 86400); define('MB_IN_BYTES', 1048576);
 $GLOBALS['options'] = []; $GLOBALS['meta'] = []; $GLOBALS['hooks'] = []; $_SESSION = []; $_POST = []; $_FILES = [];
 class WP_Post { public $ID = 10; public $post_name = 'test'; public $post_type = 'original_mail_forms'; public $post_status = 'publish'; }
-class WP_Error { public function __construct(public $code='',public $message='',public $data=[]) {} }
+class WP_Error { public function __construct(public $code='',public $message='',public $data=[]) {} public function get_error_code(){return $this->code;} }
 class WP_REST_Request { public function __construct(private array $params=[]) {} public function get_params(){return $this->params;} }
 class WP_REST_Response { public function __construct(public $data, public $status=200){} }
 function add_action($hook,$fn,...$args){$GLOBALS['hooks'][$hook][]=$fn;}
@@ -61,6 +61,6 @@ function wp_mail(...$args){$GLOBALS['mail_calls'][]=$args;return true;}
 function get_temp_dir(){return sys_get_temp_dir().'/';}
 function wp_mkdir_p($p){return is_dir($p)||mkdir($p,0700,true);}
 function check($ok,$name){if(!$ok){throw new RuntimeException('FAIL: '.$name);}echo 'PASS: '.$name.PHP_EOL;}
-function call_private($object,$name,...$args){return (new ReflectionMethod($object,$name))->invoke($object,...$args);}
+function call_private($object,$name,...$args){$method=new ReflectionMethod($object,$name);$method->setAccessible(true);return $method->invoke($object,...$args);}
 spl_autoload_register(function($class){$prefix='Sharesl\\Original\\MailForm\\OMF_';if(str_starts_with($class,$prefix)){require dirname(__DIR__).'/classes/class-'.str_replace('_','-',strtolower(substr($class,strlen($prefix)))).'.php';}});
 set_error_handler(function($severity,$message,$file,$line){if(error_reporting()&$severity){throw new ErrorException($message,0,$severity,$file,$line);}return false;});

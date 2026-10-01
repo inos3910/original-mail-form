@@ -1,0 +1,1 @@
+window.history.pushState(null,null,document.URL),window.addEventListener("popstate",()=>{window.history.pushState(null,null,document.URL)});

@@ -69,18 +69,18 @@ class OMF_Rest
    */
   public function rest_api_validate(WP_REST_Request $params)
   {
-    OMF_Utils::start_session();
+    if ($this->is_valid_nonce()) { OMF_Utils::start_session(); }
     return $this->rest_response(function () use ($params) {
 
       //nonceチェック
       $is_valid_nonce = $this->is_valid_nonce();
       if (!$is_valid_nonce) {
-        return new WP_Error('failed', __('認証NG'), ['status' => 403]);
+        return new WP_Error('failed', __('認証NG'), ['status' => 404]);
       }
 
       $post_id   = $this->get_post_id_header();
       if (!ctype_digit($post_id) || (int) $post_id < 1) {
-        return new WP_Error('failed', __('認証NG'), ['status' => 403]);
+        return new WP_Error('failed', __('認証NG'), ['status' => 404]);
       }
 
       $param     = $params->get_params();
@@ -118,18 +118,18 @@ class OMF_Rest
    */
   public function rest_api_send(WP_REST_Request $params)
   {
-    OMF_Utils::start_session();
+    if ($this->is_valid_nonce()) { OMF_Utils::start_session(); }
 
     return $this->rest_response(function () use ($params) {
       //nonceチェック
       $is_authenticate = $this->is_authenticate();
       if (!$is_authenticate) {
-        return new WP_Error('failed', __('認証NG'), ['status' => 403]);
+        return new WP_Error('failed', __('認証NG'), ['status' => 404]);
       }
 
       $post_id   = $this->get_post_id_header();
       if (!ctype_digit($post_id) || (int) $post_id < 1) {
-        return new WP_Error('failed', __('認証NG'), ['status' => 403]);
+        return new WP_Error('failed', __('認証NG'), ['status' => 404]);
       }
 
       $param     = $params->get_params();
@@ -264,10 +264,12 @@ class OMF_Rest
   private function rest_response(Closure $fn, WP_REST_Request $params): mixed
   {
     $result = $fn($params);
-    if (is_wp_error($result)) { return $result; }
-    $invalid = is_array($result) && (($result['valid'] ?? true) === false);
-    $failed = is_array($result) && (($result['is_sended'] ?? true) === false);
-    return new WP_REST_Response($result, $invalid ? 400 : ($failed ? 502 : 200));
+    if (is_wp_error($result)) {
+      // 原型のv0は認証NGもWP_ErrorをJSON化したHTTP 200で返していた。
+      return $result->get_error_code() === 'failed' ? new WP_REST_Response($result, 200) : $result;
+    }
+    // v0の既存クライアントはHTTP 200のJSON内で検証・送信結果を判定する。
+    return new WP_REST_Response($result, 200);
   }
 
   /**
@@ -282,7 +284,7 @@ class OMF_Rest
   }
 
   /**
-   * REST は nonce を通ったリクエストだけ受け付ける
+   * 設置方式を確認し、v0の認証は各コールバックの冒頭で必ず行う。
    */
   public function rest_permission(): bool|WP_Error
   {
@@ -290,7 +292,7 @@ class OMF_Rest
     if ($page_id && OMF_Embed_Context::resolve($page_id)['present']) {
       return new WP_Error('omf_embed_flow', '設置したページのフォームから送信してください。', ['status' => 403]);
     }
-    return $this->is_valid_nonce() ? true : new WP_Error('omf_forbidden', '認証の有効期限が切れました。', ['status' => 403]);
+    return true;
   }
 
   /**
