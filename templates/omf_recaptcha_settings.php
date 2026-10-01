@@ -1,8 +1,6 @@
 <?php
 //管理画面 reCAPTCHA設定
 ?>
-<div class="wrap">
-  <h1>reCAPTCHA設定</h1>
   <div class="admin_optional">
     <form method="post" action="options.php" autocomplete="off">
       <?php
@@ -63,4 +61,3 @@
       <?php submit_button(); ?>
     </form>
   </div>
-</div>
