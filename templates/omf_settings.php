@@ -1,8 +1,6 @@
 <?php
-//管理画面 設定ページ
+//管理画面 設定ページ（一般）
 ?>
-<div class="wrap">
-  <h1>設定</h1>
   <div class="admin_optional">
     <form method="post" action="options.php" autocomplete="off">
       <?php
@@ -54,4 +52,3 @@
     </form>
     <p class="description">更新ボタンを押したときだけ日本郵便に接続します。失敗しても現在のデータを使い続けられます。</p>
   </section>
-</div>

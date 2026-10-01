@@ -1,8 +1,6 @@
 <?php
 //管理画面 送信データ
 ?>
-<div class="wrap">
-  <h1>送信データ</h1>
   <div class="admin_optional">
     <?php
     $mail_forms = $this->get_forms();
@@ -57,7 +55,7 @@
             $publish_post_date = get_the_date('Y年n月j日', $publish_post);
           }
 
-          $output_data_url = !current_user_can('manage_options') && current_user_can('edit_others_posts') ? "admin.php?page=omf_output_data&omf_data_id={$data_post_type}" : "edit.php?post_type=original_mail_forms&page=omf_output_data&omf_data_id={$data_post_type}";
+          $output_data_url = !current_user_can('manage_options') && current_user_can('edit_others_posts') ? "admin.php?page=omf_data&tab=csv&omf_data_id={$data_post_type}" : "edit.php?post_type=original_mail_forms&page=omf_data&tab=csv&omf_data_id={$data_post_type}";
         ?>
           <tr>
             <td><a href="<?php echo esc_url(admin_url("edit.php?post_type={$data_post_type}")) ?>"><?php echo esc_html(get_the_title($form->ID)) ?></a></td>
@@ -74,4 +72,3 @@
     }
     ?>
   </div>
-</div>

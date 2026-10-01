@@ -1,8 +1,6 @@
 <?php
 // 管理画面 Google連携設定
 ?>
-<div class="wrap">
-  <h1>Google連携設定</h1>
   <div class="admin_optional">
     <form method="post" action="options.php" autocomplete="off">
       <?php
@@ -71,9 +69,7 @@
           <strong>接続が無効です</strong>
         </p>
         <a class="button button-large omf-button--1" href="<?php echo esc_url($google_auth_url) ?>">OAuth接続する</a>
-      <?php } else {
-        $remove_oauth_uri = admin_url('edit.php?post_type=original_mail_forms&page=omf_google_settings&remove_oauth=1');
-      ?>
+      <?php } else { ?>
         <p class="omf-status omf-status--ok">
           <strong>接続が有効です</strong>
         </p>
@@ -86,4 +82,3 @@
     }
     ?>
   </div>
-</div>

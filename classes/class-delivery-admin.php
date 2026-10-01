@@ -9,11 +9,10 @@ class OMF_Delivery_Admin
   public function __construct()
   {
     add_action('add_meta_boxes_'.OMF_Config::NAME,static function(){ add_meta_box('omf-delivery-settings','送信方法',[self::class,'settings'],OMF_Config::NAME,'normal','default'); });
-    add_action('admin_menu',static function(){ add_submenu_page('edit.php?post_type='.OMF_Config::NAME,'送信状況','送信状況','manage_options','omf-deliveries',[self::class,'screen']); });
     add_action('admin_post_omf_delivery_action',[self::class,'action']);
     add_action('admin_enqueue_scripts',static function(){
       $screen=get_current_screen();
-      if ($screen && ($screen->post_type===OMF_Config::NAME || str_contains($screen->id,'omf-deliveries'))) {
+      if ($screen && ($screen->post_type===OMF_Config::NAME || str_contains($screen->id,'omf_data') || str_contains($screen->id,'omf-deliveries'))) {
         wp_enqueue_style('omf-delivery',plugins_url('assets/delivery-admin.css',__DIR__),[],filemtime(dirname(__DIR__).'/assets/delivery-admin.css'));
         wp_enqueue_script('omf-delivery',plugins_url('assets/delivery-admin.js',__DIR__),[],filemtime(dirname(__DIR__).'/assets/delivery-admin.js'),true);
       }
@@ -42,9 +41,10 @@ class OMF_Delivery_Admin
       echo '<label class="omf-delivery-option"><input type="radio" name="omf_delivery_mode" value="'.esc_attr($value).'"'.checked($mode,$value,false).disabled($disabled && $mode!==$value,true,false).'><span><strong>'.esc_html($label).'</strong><small>'.esc_html($help[$value]).'</small></span></label>';
     }
     echo '</div><div data-delivery-note="wp_async" class="omf-delivery-note"><strong>実行時刻は保証されません</strong><p>アクセスがない場合やWordPressの定期処理が止まっている場合、メールが送られず待機します。送信状況画面で確認してください。</p></div>';
-    echo '<div data-delivery-note="server_cron" class="omf-delivery-note"><strong>コピーして1分ごとに登録します</strong><p>「送信状況」の「サーバーcronの設定」で登録用コマンドをコピーし、サーバー管理画面へ貼り付けます。WP-CLIのパス入力は不要です。</p><a href="'.esc_url(admin_url('edit.php?post_type='.OMF_Config::NAME.'&page=omf-deliveries')).'">サーバーcronの設定を開く</a></div>';
+    $deliveries=admin_url('edit.php?post_type='.OMF_Config::NAME.'&page=omf_data&tab=deliveries');
+    echo '<div data-delivery-note="server_cron" class="omf-delivery-note"><strong>コピーして1分ごとに登録します</strong><p>「送信状況」の「サーバーcronの設定」で登録用コマンドをコピーし、サーバー管理画面へ貼り付けます。WP-CLIのパス入力は不要です。</p><a href="'.esc_url($deliveries).'">サーバーcronの設定を開く</a></div>';
     echo '<div data-delivery-note="parallel" class="omf-delivery-note"><p>通知メールに自動返信結果のタグがある場合は利用できません。PHPの同時実行枠とSMTPの同時接続制限も確認してください。</p></div>';
-    echo '<p class="omf-delivery-help">非同期・並列では、通常のDB保存がOFFでも配送用データを最長7日間保存します。設定変更前の受付は、受付時の送信方法・宛先・本文で処理します。</p><a href="'.esc_url(admin_url('edit.php?post_type='.OMF_Config::NAME.'&page=omf-deliveries')).'">送信状況・環境確認を開く</a></div>';
+    echo '<p class="omf-delivery-help">非同期・並列では、通常のDB保存がOFFでも配送用データを最長7日間保存します。設定変更前の受付は、受付時の送信方法・宛先・本文で処理します。</p><a href="'.esc_url($deliveries).'">送信状況・環境確認を開く</a></div>';
   }
   private static function button(string $operation,string $label,int $id=0,string $kind=''): void
   {
@@ -56,7 +56,7 @@ class OMF_Delivery_Admin
   {
     if (!current_user_can('manage_options')) { return; }
     OMF_Delivery_Store::recover(); $rows=OMF_Delivery_Store::rows();
-    echo '<div class="wrap omf-delivery-ui"><h1>送信状況</h1><p>非同期・並列の受付を新しい順に50件表示します。「送信成功」はメールサーバーへの引き渡し成功で、受信箱への到着を保証するものではありません。</p>';
+    echo '<div class="omf-delivery-ui"><p>非同期・並列の受付を新しい順に50件表示します。「送信成功」はメールサーバーへの引き渡し成功で、受信箱への到着を保証するものではありません。</p>';
     if (isset($_GET['done'])) { echo '<div class="notice notice-info"><p>処理しました。下の状態を確認してください。</p></div>'; }
     echo '<section class="omf-delivery-card"><h2>実行環境</h2><div class="omf-delivery-toolbar">';
     self::button('diagnose','並列送信の環境を確認'); self::button('run','WordPressの送信待ちを今すぐ処理');
@@ -97,6 +97,6 @@ class OMF_Delivery_Admin
         elseif ($row['mode']==='wp_async') { OMF_Delivery_Runner::schedule(); }
       }
     }
-    wp_safe_redirect(admin_url('edit.php?post_type='.OMF_Config::NAME.'&page=omf-deliveries&done=1')); exit;
+    wp_safe_redirect(admin_url('edit.php?post_type='.OMF_Config::NAME.'&page=omf_data&tab=deliveries&done=1')); exit;
   }
 }

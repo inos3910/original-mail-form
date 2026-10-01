@@ -36,8 +36,7 @@ $three_months_ja = wp_date("Y/m/d (" . $week_name[wp_date("w", strtotime('-3 mon
 $six_months_ja   = wp_date("Y/m/d (" . $week_name[wp_date("w", strtotime('-6 months'), $timezone)] . ")", strtotime('-6 months'), $timezone);
 $one_year_ja     = wp_date("Y/m/d (" . $week_name[wp_date("w", strtotime('-1 year'), $timezone)] . ")", strtotime('-1 year'), $timezone);
 ?>
-<div class="wrap">
-  <h1>送信データCSV出力</h1>
+<div class="omf-output-data">
   <p>データベースに保存したフォームの送信データをCSV出力します。</p>
   <div class="admin_optional">
     <?php
@@ -197,22 +196,22 @@ $one_year_ja     = wp_date("Y/m/d (" . $week_name[wp_date("w", strtotime('-1 yea
   </div>
 </div>
 <style>
-  .original_mail_forms_page_omf_output_data .omf_date {
+  .omf-output-data .omf_date {
     display: inline-block;
     min-width: 8em;
   }
 
-  .original_mail_forms_page_omf_output_data .omf-data-patterns {
+  .omf-output-data .omf-data-patterns {
     display: flex;
     gap: 1em 0.5em;
     margin-bottom: 1em;
   }
 
-  .original_mail_forms_page_omf_output_data [data-omf-data-id][hidden] {
+  .omf-output-data [data-omf-data-id][hidden] {
     display: none;
   }
 
-  .original_mail_forms_page_omf_output_data .active[data-omf-data-id] {
+  .omf-output-data .active[data-omf-data-id] {
     display: block;
   }
 </style>

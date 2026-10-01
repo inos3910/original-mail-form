@@ -38,12 +38,14 @@ class OMF_Admin
     add_action('add_meta_boxes_' . OMF_Config::NAME, [$this, 'add_meta_box_omf']);
     add_action('add_meta_boxes', [$this, 'add_meta_box_posts'], 10, 2);
     add_action('save_post', [$this, 'save_omf_custom_field']);
+    add_filter('redirect_post_location', [$this, 'keep_editor_tab'], 10, 2);
     add_action('edit_form_after_title', static function () { wp_nonce_field('omf_save_meta', 'omf_meta_nonce'); });
     add_action('admin_enqueue_scripts', [$this, 'add_omf_srcs']);
     add_action('post_row_actions', [$this, 'admin_omf_data_list_row'], 10, 2);
 
-    // CSV出力ページのみ
-    if (isset($_GET['page']) && $_GET['page'] === 'omf_output_data') {
+    // CSV出力。旧URLへのPOSTもここで受ける。
+    $page = sanitize_key($_GET['page'] ?? '');
+    if ($page === 'omf_data' || $page === 'omf_output_data') {
       add_action('admin_init', [$this, 'output_csv']);
     }
   }
@@ -62,6 +64,26 @@ class OMF_Admin
   {
     $this->oauth_redirect();
     $this->disconnect_oauth_redirect();
+    $this->redirect_legacy_admin_pages();
+  }
+
+  /**
+   * フォーム編集のタブを保存後の画面でも維持する。
+   *
+   * @param string $location
+   * @param integer $post_id
+   * @return string
+   */
+  public function keep_editor_tab(string $location, int $post_id): string
+  {
+    if (get_post_type($post_id) !== OMF_Config::NAME) {
+      return $location;
+    }
+    $tab = $_POST['omf_editor_tab'] ?? '';
+    if (!is_string($tab) || !in_array($tab, ['fields', 'mail', 'settings'], true)) {
+      return $location;
+    }
+    return add_query_arg('omf_tab', $tab, $location);
   }
 
   /**
@@ -282,12 +304,31 @@ class OMF_Admin
   public function add_admin_submenus()
   {
     $this->add_admin_setting();
-    $this->add_admin_recaptcha_settings();
-    $this->add_admin_turnstile_settings();
     $this->add_admin_data_settings();
-    $this->add_output_data_settings();
-    $this->add_admin_google_settings();
-    $this->add_admin_update_settings();
+    $this->register_hidden_admin_pages();
+  }
+
+  /**
+   * 旧URLを開ける状態で残し、メニューには出さない。
+   * 未登録の管理画面は admin_init より前に拒否される。
+   *
+   * @return void
+   */
+  private function register_hidden_admin_pages(): void
+  {
+    $parent = 'edit.php?post_type=' . OMF_Config::NAME;
+    $pages = [
+      ['reCAPTCHA設定', 'manage_options', 'omf_recaptcha_settings'],
+      ['Turnstile設定', 'manage_options', 'omf_turnstile_settings'],
+      ['Google連携', 'manage_options', 'omf_google_settings'],
+      ['プラグインの更新', 'manage_options', 'omf_update'],
+      ['送信データCSV出力', 'edit_others_posts', 'omf_output_data'],
+      ['送信状況', 'manage_options', 'omf-deliveries'],
+    ];
+    foreach ($pages as [$title, $capability, $slug]) {
+      add_submenu_page($parent, $title, $title, $capability, $slug, [$this, 'load_admin_template']);
+      remove_submenu_page($parent, $slug);
+    }
   }
 
   /**
@@ -305,12 +346,6 @@ class OMF_Admin
       'omf_settings',
       [$this, 'load_admin_template']
     );
-  }
-
-  /** 原型の更新メニューを維持し、実際の更新はWordPressの安全な展開処理を使用する。 */
-  public function add_admin_update_settings(): void
-  {
-    add_submenu_page('edit.php?post_type=' . OMF_Config::NAME, 'プラグインの更新', 'プラグインの更新', 'manage_options', 'omf_update', [$this, 'load_admin_template']);
   }
 
   /**
@@ -771,36 +806,6 @@ class OMF_Admin
   }
 
   /**
-   * 送信データ出力ページを追加
-   *
-   * @return void
-   */
-  public function add_output_data_settings()
-  {
-    if (current_user_can('manage_options')) {
-      add_submenu_page(
-        'edit.php?post_type=' . OMF_Config::NAME,
-        '送信データCSV出力',
-        '送信データCSV出力',
-        'edit_others_posts',
-        'omf_output_data',
-        [$this, 'load_admin_template']
-      );
-    } elseif (current_user_can('edit_others_posts')) {
-      add_submenu_page(
-        'omf_data',
-        '送信データCSV出力',
-        '送信データCSV出力',
-        'edit_others_posts',
-        'omf_output_data',
-        [$this, 'load_admin_template'],
-      );
-    } else {
-      return;
-    }
-  }
-
-  /**
    * 管理画面テンプレートの読み込み
    *
    * @return void
@@ -808,13 +813,141 @@ class OMF_Admin
   public function load_admin_template()
   {
     $slug = sanitize_key($_GET['page'] ?? '');
-    $allowed = ['omf_settings', 'omf_google_settings', 'omf_recaptcha_settings', 'omf_turnstile_settings', 'omf_data', 'omf_output_data', 'omf_update'];
-    if (!in_array($slug, $allowed, true) || !current_user_can(in_array($slug, ['omf_data', 'omf_output_data'], true) ? 'edit_others_posts' : 'manage_options')) { return; }
-    $plugin_root_path = plugin_dir_path(__DIR__);
-    $template_path = "{$plugin_root_path}templates/{$slug}.php";
-    if (file_exists($template_path)) {
-      require_once $template_path;
+    $legacy = [
+      'omf_recaptcha_settings' => ['omf_settings', 'recaptcha'],
+      'omf_turnstile_settings' => ['omf_settings', 'turnstile'],
+      'omf_google_settings' => ['omf_settings', 'google'],
+      'omf_update' => ['omf_settings', 'update'],
+      'omf_output_data' => ['omf_data', 'csv'],
+      'omf-deliveries' => ['omf_data', 'deliveries'],
+    ];
+    if (isset($legacy[$slug])) {
+      $_GET['tab'] = $legacy[$slug][1];
+      $slug = $legacy[$slug][0];
     }
+    if ($slug === 'omf_settings') {
+      if (!current_user_can('manage_options')) {
+        return;
+      }
+      $tabs = [
+        'general' => '一般',
+        'recaptcha' => 'reCAPTCHA',
+        'turnstile' => 'Turnstile',
+        'google' => 'Google連携',
+        'update' => 'プラグインの更新',
+      ];
+      $files = [
+        'general' => 'omf_settings.php',
+        'recaptcha' => 'omf_recaptcha_settings.php',
+        'turnstile' => 'omf_turnstile_settings.php',
+        'google' => 'omf_google_settings.php',
+        'update' => 'omf_update.php',
+      ];
+      $tab = sanitize_key($_GET['tab'] ?? '');
+      if (!isset($tabs[$tab])) {
+        $tab = 'general';
+      }
+      $this->render_admin_tabs('設定', '設定', $tabs, $tab, 'omf_settings');
+      require plugin_dir_path(__DIR__) . 'templates/' . $files[$tab];
+      echo '</div></div>';
+      return;
+    }
+    if ($slug === 'omf_data') {
+      if (!current_user_can('edit_others_posts')) {
+        return;
+      }
+      $tabs = ['list' => '一覧', 'csv' => 'CSV出力'];
+      if (current_user_can('manage_options')) {
+        $tabs['deliveries'] = '送信状況';
+      }
+      $tab = sanitize_key($_GET['tab'] ?? '');
+      if (!isset($tabs[$tab])) {
+        $tab = 'list';
+      }
+      $this->render_admin_tabs('送信データ', '送信データ', $tabs, $tab, 'omf_data');
+      if ($tab === 'csv') {
+        require plugin_dir_path(__DIR__) . 'templates/omf_output_data.php';
+      } elseif ($tab === 'deliveries') {
+        OMF_Delivery_Admin::screen();
+      } else {
+        require plugin_dir_path(__DIR__) . 'templates/omf_data.php';
+      }
+      echo '</div></div>';
+      return;
+    }
+  }
+
+  /**
+   * 設定・送信データのページ内タブ
+   *
+   * @param string $title
+   * @param string $label
+   * @param array $tabs
+   * @param string $current
+   * @param string $page
+   * @return void
+   */
+  private function render_admin_tabs(string $title, string $label, array $tabs, string $current, string $page): void
+  {
+    echo '<div class="wrap">';
+    echo '<h1>' . esc_html($title) . '</h1>';
+    echo '<div class="omf-editor-tabs" role="tablist" aria-label="' . esc_attr($label) . '">';
+    foreach ($tabs as $key => $text) {
+      $selected = $key === $current;
+      echo '<a role="tab" id="omf-tab-' . esc_attr($key) . '" href="' . esc_url($this->plugin_admin_url($page, ['tab' => $key])) . '" aria-selected="' . ($selected ? 'true' : 'false') . '"' . ($selected ? ' aria-controls="omf-panel-' . esc_attr($current) . '"' : '') . '>' . esc_html($text) . '</a>';
+    }
+    echo '</div>';
+    echo '<div class="omf-editor-panel" role="tabpanel" id="omf-panel-' . esc_attr($current) . '" aria-labelledby="omf-tab-' . esc_attr($current) . '">';
+  }
+
+  /**
+   * プラグイン管理画面のURL
+   *
+   * @param string $page
+   * @param array $args
+   * @return string
+   */
+  private function plugin_admin_url(string $page, array $args = []): string
+  {
+    $args = ['page' => $page] + $args;
+    if ($page === 'omf_data' && !current_user_can('manage_options')) {
+      return admin_url(add_query_arg($args, 'admin.php'));
+    }
+    return admin_url(add_query_arg(['post_type' => OMF_Config::NAME] + $args, 'edit.php'));
+  }
+
+  /**
+   * メニューから外した旧ページを、対応するタブへ移す。
+   *
+   * @return void
+   */
+  private function redirect_legacy_admin_pages(): void
+  {
+    if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'GET') {
+      return;
+    }
+    $page = sanitize_key($_GET['page'] ?? '');
+    $map = [
+      'omf_recaptcha_settings' => ['omf_settings', 'recaptcha'],
+      'omf_turnstile_settings' => ['omf_settings', 'turnstile'],
+      'omf_google_settings' => ['omf_settings', 'google'],
+      'omf_update' => ['omf_settings', 'update'],
+      'omf_output_data' => ['omf_data', 'csv'],
+      'omf-deliveries' => ['omf_data', 'deliveries'],
+    ];
+    if (!isset($map[$page]) || ($page === 'omf_google_settings' && isset($_GET['code']))) {
+      return;
+    }
+    [$target, $tab] = $map[$page];
+    $args = ['tab' => $tab];
+    if ($page === 'omf_output_data' && isset($_GET['omf_data_id']) && is_string($_GET['omf_data_id'])) {
+      $args['omf_data_id'] = sanitize_key($_GET['omf_data_id']);
+    }
+    if ($page === 'omf-deliveries' && isset($_GET['done'])) {
+      $args['done'] = '1';
+    }
+    wp_safe_redirect($this->plugin_admin_url($target, $args));
+    exit;
   }
 
   /**
@@ -841,30 +974,6 @@ class OMF_Admin
   }
 
 
-
-  /**
-   * 更新オプションページを追加
-   *
-   * @return void
-   */
-
-
-  /**
-   * Google連携設定オプションページを追加
-   *
-   * @return void
-   */
-  private function add_admin_google_settings()
-  {
-    add_submenu_page(
-      'edit.php?post_type=' . OMF_Config::NAME,
-      'Google連携',
-      'Google連携',
-      'manage_options',
-      'omf_google_settings',
-      [$this, 'load_admin_template']
-    );
-  }
 
   /**
    * Google連携設定オプションページ 項目の登録
@@ -905,7 +1014,7 @@ class OMF_Admin
 
     $this->set_tokens($client_id, $client_secret, $redirect_uri, $access_token, $refresh_token);
 
-    wp_redirect(admin_url('edit.php?post_type=original_mail_forms&page=omf_google_settings'));
+    wp_redirect($this->plugin_admin_url('omf_settings', ['tab' => 'google']));
     exit;
   }
 
@@ -925,26 +1034,8 @@ class OMF_Admin
     //OAuth接続を解除
     $this->remove_google_tokens();
     //OAuth接続を解除したらリダイレクト
-    wp_redirect(admin_url('edit.php?post_type=original_mail_forms&page=omf_google_settings'));
+    wp_redirect($this->plugin_admin_url('omf_settings', ['tab' => 'google']));
     exit;
-  }
-
-
-  /**
-   * reCAPTCHA設定オプションページを追加
-   *
-   * @return void
-   */
-  public function add_admin_recaptcha_settings()
-  {
-    add_submenu_page(
-      'edit.php?post_type=' . OMF_Config::NAME,
-      'reCAPTCHA設定',
-      'reCAPTCHA設定',
-      'manage_options',
-      'omf_recaptcha_settings',
-      [$this, 'load_admin_template']
-    );
   }
 
   /**
@@ -958,23 +1049,6 @@ class OMF_Admin
     register_setting('recaptcha-settings-group', 'omf_recaptcha_secret_key');
     register_setting('recaptcha-settings-group', 'omf_recaptcha_score');
     register_setting('recaptcha-settings-group', 'omf_recaptcha_field_name');
-  }
-
-  /**
-   * Cloudflare Turnstile設定オプションページを追加
-   *
-   * @return void
-   */
-  public function add_admin_turnstile_settings()
-  {
-    add_submenu_page(
-      'edit.php?post_type=' . OMF_Config::NAME,
-      'Turnstile設定',
-      'Turnstile設定',
-      'manage_options',
-      'omf_turnstile_settings',
-      [$this, 'load_admin_template']
-    );
   }
 
   /**
@@ -1475,7 +1549,7 @@ class OMF_Admin
       <?php
       if (!$is_credential) {
       ?>
-        <p>スプレッドシート連携には<a href="<?php echo esc_url(admin_url('edit.php?post_type=original_mail_forms&page=omf_google_settings')) ?>">Google連携設定</a>が必要です。</p>
+        <p>スプレッドシート連携には<a href="<?php echo esc_url($this->plugin_admin_url('omf_settings', ['tab' => 'google'])) ?>">Google連携設定</a>が必要です。</p>
       <?php
       } else {
         $this->omf_meta_box_boolean($post, '送信内容をスプレッドシートに書き込む', 'cf_omf_is_google_sheets');

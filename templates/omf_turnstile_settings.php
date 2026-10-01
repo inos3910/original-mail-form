@@ -1,8 +1,6 @@
 <?php
 //管理画面 Cloudflare Turnstile設定
 ?>
-<div class="wrap">
-  <h1>Cloudflare Turnstile設定</h1>
   <div class="admin_optional">
     <form method="post" action="options.php" autocomplete="off">
       <?php
@@ -38,4 +36,3 @@
       <?php submit_button(); ?>
     </form>
   </div>
-</div>

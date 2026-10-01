@@ -36,7 +36,7 @@ class OMF_Postal_Updater
     check_admin_referer('omf_update_postal');
     $result = self::update();
     set_transient('omf_postal_notice_' . get_current_user_id(), ['error' => is_wp_error($result), 'message' => is_wp_error($result) ? $result->get_error_message() : $result], 120);
-    wp_safe_redirect(admin_url('edit.php?post_type=' . OMF_Config::NAME . '&page=omf_settings'));
+    wp_safe_redirect(admin_url('edit.php?post_type=' . OMF_Config::NAME . '&page=omf_settings&tab=general'));
     exit;
   }
 
