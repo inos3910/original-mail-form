@@ -69,25 +69,28 @@ class OMF_Rest
    */
   public function rest_api_validate(WP_REST_Request $params)
   {
+    OMF_Utils::start_session();
     return $this->rest_response(function () use ($params) {
 
       //nonceチェック
       $is_valid_nonce = $this->is_valid_nonce();
       if (!$is_valid_nonce) {
-        return new WP_Error('failed', __('認証NG'), ['status' => 404]);
+        return new WP_Error('failed', __('認証NG'), ['status' => 403]);
       }
 
       $post_id   = $this->get_post_id_header();
-      if (empty($post_id)) {
-        return new WP_Error('failed', __('認証NG'), ['status' => 404]);
+      if (!ctype_digit($post_id) || (int) $post_id < 1) {
+        return new WP_Error('failed', __('認証NG'), ['status' => 403]);
       }
 
       $param     = $params->get_params();
-      $post_data = !empty($param) ? array_map([__NAMESPACE__ . '\OMF_Utils', 'custom_escape'], $param) : [];
+      $this->captcha_input = $param;
+      $post_data = $param;
       //ファイル項目以外の配列の送り込みを制限する
       $post_data = $this->restrict_array_values($post_data, $post_id);
+      $post_data = $this->restore_uploaded_files($post_data, $post_id);
 
-      $errors    = $this->validate_mail_form_data($post_data, $post_id);
+      $errors    = $this->validate_submission($post_data, (int) $post_id);
 
       //エラーがある場合は検証NG（エラー内容を含める）
       if (!empty($errors)) {
@@ -115,30 +118,29 @@ class OMF_Rest
    */
   public function rest_api_send(WP_REST_Request $params)
   {
-    if (session_status() !== PHP_SESSION_ACTIVE) {
-      session_start();
-    }
+    OMF_Utils::start_session();
 
     return $this->rest_response(function () use ($params) {
       //nonceチェック
       $is_authenticate = $this->is_authenticate();
       if (!$is_authenticate) {
-        return new WP_Error('failed', __('認証NG'), ['status' => 404]);
+        return new WP_Error('failed', __('認証NG'), ['status' => 403]);
       }
 
       $post_id   = $this->get_post_id_header();
-      if (empty($post_id)) {
-        return new WP_Error('failed', __('認証NG'), ['status' => 404]);
+      if (!ctype_digit($post_id) || (int) $post_id < 1) {
+        return new WP_Error('failed', __('認証NG'), ['status' => 403]);
       }
 
       $param     = $params->get_params();
-      $post_data = !empty($param) ? array_map([__NAMESPACE__ . '\OMF_Utils', 'custom_escape'], $param) : [];
+      $this->captcha_input = $param;
+      $post_data = $param;
       //ファイル項目以外の配列の送り込みを制限する
       $post_data = $this->restrict_array_values($post_data, $post_id);
+      $post_data = $this->restore_uploaded_files($post_data, $post_id);
       //アップロードファイルを検証・保存して追加（nonceが正しいPOSTの時だけ保存する）
-      $post_data = $this->process_uploaded_files($post_data, $post_id);
 
-      $errors    = $this->validate_mail_form_data($post_data, $post_id);
+      $errors    = $this->validate_submission($post_data, (int) $post_id);
       //バリデーションエラーがある場合はエラーを返す
       if (!empty($errors)) {
         return [
@@ -170,7 +172,9 @@ class OMF_Rest
       //メール送信
       $send_results = $this->send_mails($post_data, $post_id, $form->ID);
       //送信後の処理
-      $this->after_send_mails();
+      if ($send_results['is_sended']) {
+        $this->after_send_mails();
+      }
 
       //レスポンスを生成
       $response = $this->create_send_response($send_results, $post_data, $form, $post_id);
@@ -194,7 +198,7 @@ class OMF_Rest
       //メールIDを更新
       $this->update_mail_id($form->ID, $post_data['mail_id']);
       //送信後のアクションフック追加
-      do_action('omf_after_send_mail', $post_data, $form, $post_id);
+      if (!in_array(OMF_Delivery::mode($form->ID), ['wp_async','server_cron'], true)) { do_action('omf_after_send_mail', $post_data, $form, $post_id); }
       //レスポンスを生成
       $result = $this->create_send_success_response($post_data, $form);
       return $result;
@@ -259,17 +263,11 @@ class OMF_Rest
    */
   private function rest_response(Closure $fn, WP_REST_Request $params): mixed
   {
-    $res = $fn($params);
-    $response = new WP_REST_Response($res);
-    if ($response->is_error()) {
-      $error_response = $response->as_error();
-      $error_data = $error_response->get_error_data();
-      $status = !empty($error_data['status']) ? $error_data['status'] : 404;
-      $response->set_status($status);
-    } else {
-      $response->set_status(200);
-    }
-    return $response;
+    $result = $fn($params);
+    if (is_wp_error($result)) { return $result; }
+    $invalid = is_array($result) && (($result['valid'] ?? true) === false);
+    $failed = is_array($result) && (($result['is_sended'] ?? true) === false);
+    return new WP_REST_Response($result, $invalid ? 400 : ($failed ? 502 : 200));
   }
 
   /**
@@ -286,9 +284,13 @@ class OMF_Rest
   /**
    * REST は nonce を通ったリクエストだけ受け付ける
    */
-  public function rest_permission(): bool
+  public function rest_permission(): bool|WP_Error
   {
-    return $this->is_valid_nonce();
+    $page_id = (int) $this->get_post_id_header();
+    if ($page_id && OMF_Embed_Context::resolve($page_id)['present']) {
+      return new WP_Error('omf_embed_flow', '設置したページのフォームから送信してください。', ['status' => 403]);
+    }
+    return $this->is_valid_nonce() ? true : new WP_Error('omf_forbidden', '認証の有効期限が切れました。', ['status' => 403]);
   }
 
   /**
@@ -372,40 +374,7 @@ class OMF_Rest
    */
   private function send_mails(array $post_data, int $post_id, int $form_id): array
   {
-    //添付ファイルの変換処理
-    $converted      = $this->convert_attachments($post_data);
-    $attachments    = $converted['attachment_paths'];
-    $attachment_ids = $converted['attachment_ids'];
-    $post_data      = $converted['tags'];
-
-    //自動返信の有無
-    $is_disable_reply_mail = $this->is_disable_reply_mail($form_id);
-    //自動返信なしの場合
-    if ($is_disable_reply_mail) {
-      //通知メール送信処理
-      $is_sended_admin = $this->send_admin_mail($post_data, $post_id, $attachments);
-      return [
-        'is_sended_admin' => $is_sended_admin,
-        'is_sended'       => $is_sended_admin
-      ];
-    }
-
-    //自動返信ありの場合
-    //自動返信メール送信処理
-    $is_sended_reply = $this->send_reply_mail($post_data, $post_id);
-
-    //通知メール送信処理
-    $post_data['omf_reply_mail_sended'] = $is_sended_reply ? '【自動返信】送信成功' : '【自動返信】送信失敗';
-    $is_sended_admin = $this->send_admin_mail($post_data, $post_id, $attachments);
-
-    //添付ファイルの一時タグを削除
-    $this->remove_temporary_media_tag($attachment_ids);
-
-    return [
-      'is_sended_reply' => $is_sended_reply,
-      'is_sended_admin' => $is_sended_admin,
-      'is_sended'       => $is_sended_reply && $is_sended_admin
-    ];
+    return $this->deliver_submission($post_data, $form_id, $post_id);
   }
 
   /**

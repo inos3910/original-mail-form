@@ -18,10 +18,13 @@ trait OMF_Trait_Form
    */
   public function get_form_slug(int|string|null $post_id = null): string
   {
-    $current_page_id = !empty($post_id) ? $post_id : get_the_ID();
+    $current_page_id = !empty($post_id) ? $post_id : (get_queried_object_id() ?: get_the_ID());
     if (empty($current_page_id)) {
       return '';
     }
+
+    $embed = OMF_Embed_Context::resolve((int) $current_page_id);
+    if ($embed['present']) { return $embed['form']->post_name ?? ''; }
 
     $form_slug = OMF_Utils::custom_escape(get_post_meta($current_page_id, 'cf_omf_select', true));
     if (empty($form_slug)) {
@@ -155,13 +158,15 @@ trait OMF_Trait_Form
    */
   public function is_page(string $page_slug): bool
   {
-    $current_page_id = get_the_ID();
+    $current_page_id = get_queried_object_id() ?: get_the_ID();
+    $managed = $this->get_form($current_page_id);
+    if ($managed && OMF_Managed_Form::enabled($managed->ID)) { return OMF_Managed_Form::step($managed) === $page_slug; }
     $pages = $this->get_form_set_pages($current_page_id);
     if (empty($pages)) {
       return false;
     }
 
-    return $current_page_id === $pages[$page_slug]->ID;
+    return $current_page_id === ($pages[$page_slug]->ID ?? 0);
   }
 
   /**

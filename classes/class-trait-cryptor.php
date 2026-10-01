@@ -22,10 +22,11 @@ trait OMF_Trait_Cryptor
       return '';
     }
 
-    $key = $this->get_encryption_key();
-    $iv = $this->get_iv($name);
-    $encrypted = openssl_encrypt($secret, 'AES-256-CBC', $key, OPENSSL_RAW_DATA, $iv);
-    return base64_encode($encrypted);
+    $iv = random_bytes(12);
+    $key = hash('sha256', wp_salt('auth'), true);
+    $encrypted = openssl_encrypt($secret, 'aes-256-gcm', $key, OPENSSL_RAW_DATA, $iv, $tag);
+    if ($encrypted === false) { throw new \RuntimeException('トークンの暗号化に失敗しました。'); }
+    return 'v2:' . base64_encode($iv . $tag . $encrypted);
   }
 
   /**
@@ -41,10 +42,24 @@ trait OMF_Trait_Cryptor
       return '';
     }
 
+    if (str_starts_with($encrypted_secret, 'v2:')) {
+      $raw = base64_decode(substr($encrypted_secret, 3), true);
+      if ($raw === false || strlen($raw) < 29) { return ''; }
+      $value = openssl_decrypt(substr($raw, 28), 'aes-256-gcm', hash('sha256', wp_salt('auth'), true), OPENSSL_RAW_DATA, substr($raw, 0, 12), substr($raw, 12, 16));
+      return is_string($value) ? $value : '';
+    }
     $key = $this->get_encryption_key();
     $iv = $this->get_iv($name);
-    $decrypted = openssl_decrypt(base64_decode($encrypted_secret), 'AES-256-CBC', $key, OPENSSL_RAW_DATA, $iv);
-    return $decrypted;
+    $decrypted = @openssl_decrypt(base64_decode($encrypted_secret), 'AES-256-CBC', $key, OPENSSL_RAW_DATA, $iv);
+    if (!is_string($decrypted) || !preg_match('/^[\x21-\x7e]+$/D', $decrypted)) {
+      // 旧版の初回保存で使われたbase64文字列の鍵だけを移行する。
+      $decrypted = @openssl_decrypt(base64_decode($encrypted_secret), 'AES-256-CBC', base64_encode($key), OPENSSL_RAW_DATA, $iv);
+    }
+    if (!is_string($decrypted) || !preg_match('/^[\x21-\x7e]+$/D', $decrypted)) { return ''; }
+    if ($decrypted !== '' && in_array($name, ['access_token', 'refresh_token'], true)) {
+      update_option('_omf_google_' . $name, $this->encrypt_secret($decrypted, $name), false);
+    }
+    return is_string($decrypted) ? $decrypted : '';
   }
 
   /**
@@ -75,8 +90,8 @@ trait OMF_Trait_Cryptor
   {
     $key = get_option('_omf_encryption_key');
     if (empty($key)) {
-      $key = base64_encode(openssl_random_pseudo_bytes(32)); // 256ビットの鍵
-      update_option('_omf_encryption_key', $key, 'no');
+      $key = random_bytes(32);
+      update_option('_omf_encryption_key', base64_encode($key), false);
     } else {
       $key = base64_decode($key);
     }

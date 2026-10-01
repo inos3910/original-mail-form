@@ -11,6 +11,16 @@ use WP_Post;
 trait OMF_Trait_Save_Db
 {
   use OMF_Trait_Form;
+
+  /** 通知を再送せず、同じ受付の自動返信結果だけを更新する。 */
+  private function update_saved_reply_result(WP_Post $form, string $result): void
+  {
+    $key = OMF_Embed_Context::prefix($form->post_name) . '_saved_data';
+    $post_id = (int) ($_SESSION[$key] ?? 0);
+    if ($post_id && get_post_type($post_id) === $this->get_data_post_type_by_id($form->ID)) {
+      update_post_meta($post_id, 'omf_reply_mail_sended', $result);
+    }
+  }
   /**
    * 保存用のデータを生成
    *
@@ -64,14 +74,21 @@ trait OMF_Trait_Save_Db
       return;
     }
 
+    $key = OMF_Embed_Context::prefix($form->post_name) . '_saved_data';
+    $receipt_id = (int) ($this->delivery_receipt_id ?? 0);
+    $existing_id = $receipt_id ? (int) (get_posts(['post_type'=>$data_post_type,'fields'=>'ids','posts_per_page'=>1,'meta_key'=>'_omf_receipt_id','meta_value'=>$receipt_id])[0] ?? 0) : (int) ($_SESSION[$key] ?? 0);
+    if ($receipt_id) { $data_to_save['_omf_receipt_id'] = $receipt_id; }
     $post_id = wp_insert_post([
+      'ID' => $existing_id && get_post_type($existing_id) === $data_post_type ? $existing_id : 0,
       'post_type'   => $data_post_type,
       'post_title'  => $data_to_save['omf_mail_title'],
       'post_status' => 'publish',
       'meta_input'  => $data_to_save
     ]);
 
-    if (!empty($post_id)) {
+    if ($receipt_id && (empty($post_id) || is_wp_error($post_id))) { throw new \RuntimeException('受付記録のDB保存に失敗しました。'); }
+    if (!empty($post_id) && !is_wp_error($post_id)) {
+      if (!$receipt_id) { $_SESSION[$key] = $post_id; }
       //スラッグを重複回避でIDにしておく
       wp_update_post([
         'ID'        => $post_id,

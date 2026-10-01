@@ -75,6 +75,7 @@ trait OMF_Trait_Google_Auth
    */
   private function refresh_google_access_token(string $client_id, string $client_secret, string $refresh_token): bool|array
   {
+    if ($client_id === '' || $client_secret === '' || $refresh_token === '') { return false; }
     $url = 'https://oauth2.googleapis.com/token';
 
     $post_data = [
@@ -85,22 +86,20 @@ trait OMF_Trait_Google_Auth
 
     ];
 
-    $response = OMF_Utils::curl_post($url, $post_data);
+    $request = wp_remote_post($url, ['timeout' => 10, 'body' => $post_data]);
+    $response = !is_wp_error($request) && wp_remote_retrieve_response_code($request) === 200 ? wp_remote_retrieve_body($request) : '';
     if (empty($response) || is_wp_error($response)) {
-      $this->save_google_tokens([
-        'access_token'  => '',
-        'refresh_token' => ''
-      ]);
       return false;
     }
 
     $response_data = json_decode($response, true);
 
     $tokens = [
-      'access_token'  => !empty($response_data['access_token']) ? $response_data['access_token'] : '',
+      'access_token'  => !empty(($response_data['access_token'] ?? '')) ? ($response_data['access_token'] ?? '') : '',
       'refresh_token' => $refresh_token
     ];
 
+    if ($tokens['access_token'] === '') { return false; }
     //DB更新
     $this->save_google_tokens($tokens);
 
@@ -128,7 +127,8 @@ trait OMF_Trait_Google_Auth
       'grant_type'    => 'authorization_code'
     ];
 
-    $response = OMF_Utils::curl_post($url, $post_data);
+    $request = wp_remote_post($url, ['timeout' => 10, 'body' => $post_data]);
+    $response = !is_wp_error($request) && wp_remote_retrieve_response_code($request) === 200 ? wp_remote_retrieve_body($request) : '';
     if (empty($response) || is_wp_error($response)) {
       return [];
     }
@@ -136,9 +136,9 @@ trait OMF_Trait_Google_Auth
     $response_data = json_decode($response, true);
 
     return [
-      'expires_in'    => $response_data['expires_in'],
-      'access_token'  => $response_data['access_token'],
-      'refresh_token' => $response_data['refresh_token']
+      'expires_in'    => ($response_data['expires_in'] ?? 0),
+      'access_token'  => ($response_data['access_token'] ?? ''),
+      'refresh_token' => ($response_data['refresh_token'] ?? '')
     ];
   }
 
@@ -152,9 +152,9 @@ trait OMF_Trait_Google_Auth
    */
   private function set_tokens(string $client_id, string $client_secret, string $redirect_uri): bool
   {
-    $tokens = $this->fetch_google_access_token($client_id, $client_secret, $redirect_uri, $_GET['code']);
+    $tokens = $this->fetch_google_access_token($client_id, $client_secret, $redirect_uri, is_string($_GET['code'] ?? null) ? wp_unslash($_GET['code']) : '');
     //トークンがある場合
-    if (!empty($tokens)) {
+    if (!empty($tokens['access_token'])) {
       return $this->save_google_tokens($tokens);
     }
     //トークンがない場合
@@ -169,7 +169,7 @@ trait OMF_Trait_Google_Auth
    */
   private function save_google_tokens(array $tokens): bool
   {
-    if (!empty($tokens)) {
+    if (!empty($tokens['access_token'])) {
       $is_save_access_token = update_option('_omf_google_access_token', $this->encrypt_secret($tokens['access_token'], 'access_token'), 'no');
       $is_save_refresh_token = update_option('_omf_google_refresh_token', $this->encrypt_secret($tokens['refresh_token'], 'refresh_token'), 'no');
       return $is_save_access_token && $is_save_refresh_token;
@@ -201,8 +201,11 @@ trait OMF_Trait_Google_Auth
    */
   private function get_google_auth_url(string $client_id, string $redirect_uri, string $scope = 'https://www.googleapis.com/auth/spreadsheets', string $access_type = 'offline', string $approval_prompt = 'force'): string
   {
+    $state = bin2hex(random_bytes(32));
+    set_transient('omf_oauth_state_' . get_current_user_id(), $state, 10 * MINUTE_IN_SECONDS);
     $base_url = 'https://accounts.google.com/o/oauth2/v2/auth';
     $params = [
+      'state'           => $state,
       'client_id'       => $client_id,
       'redirect_uri'    => $redirect_uri,
       'response_type'   => 'code',

@@ -1,0 +1,3 @@
+.omf-client-error{margin:8px 0 0;color:#a4262c;font-size:14px;font-weight:600;line-height:1.6}
+.omf-client-error[hidden]{display:none}
+[data-omf-state="submitting"] [data-omf-action="confirm"],[data-omf-state="submitting"] [data-omf-action="send"]{cursor:progress}

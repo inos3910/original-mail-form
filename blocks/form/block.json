@@ -1,0 +1,16 @@
+{
+  "$schema": "https://schemas.wp.org/trunk/block.json",
+  "apiVersion": 3,
+  "name": "original-mail-form/form",
+  "version": "1.2.0",
+  "title": "お問い合わせフォーム",
+  "category": "widgets",
+  "icon": "email-alt",
+  "description": "作成済みのフォームを選んで設置します。項目はフォーム管理画面で編集できます。",
+  "keywords": ["メール", "contact", "OMF"],
+  "attributes": {"formId": {"type": "number", "default": 0}},
+  "usesContext": ["postId", "postType"],
+  "supports": {"html": false, "multiple": false, "align": ["wide", "full"]},
+  "editorScript": "omf-form-block",
+  "editorStyle": "omf-form-block-editor"
+}

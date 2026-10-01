@@ -1,0 +1,21 @@
+.omf-mail-tags {
+  --omf-tags-surface: #f6f7f7;
+  --omf-tags-outline: #dcdcde;
+  --omf-tags-text: #50575e;
+  display: block;
+  box-sizing: border-box;
+  margin-top: 8px;
+  padding: 12px 16px;
+  border: 1px solid var(--omf-tags-outline);
+  border-radius: 4px;
+  background: var(--omf-tags-surface);
+  color: var(--omf-tags-text);
+  line-height: 1.8;
+  overflow-wrap: anywhere;
+}
+
+.omf-mail-tags code {
+  padding: 0;
+  background: none;
+  font-size: inherit;
+}

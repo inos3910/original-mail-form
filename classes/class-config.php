@@ -35,6 +35,7 @@ class OMF_Config
     'jpeg' => 'image/jpeg',
     'png'  => 'image/png',
     'gif'  => 'image/gif',
+    'webp' => 'image/webp',
     'pdf'  => 'application/pdf',
     'doc'  => 'application/msword',
     'docx' => 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',

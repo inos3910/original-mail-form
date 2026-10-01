@@ -77,7 +77,10 @@
         <p class="omf-status omf-status--ok">
           <strong>接続が有効です</strong>
         </p>
-        <a class="button button-large omf-button--2" href="<?php echo esc_url($remove_oauth_uri) ?>">OAuth接続を解除する</a>
+        <form method="post">
+          <?php wp_nonce_field('omf_disconnect'); ?>
+          <button class="button" name="omf_disconnect" value="1">OAuth接続を解除する</button>
+        </form>
       <?php } ?>
     <?php
     }

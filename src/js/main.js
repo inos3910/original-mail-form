@@ -1,4 +1,5 @@
 import '../sass/style.scss';
+import '../sass/_form-builder.scss';
 
 class OMF {
   constructor() {
@@ -400,7 +401,7 @@ class OMF {
   updateFieldIndex() {
     const fields = document.querySelectorAll('.js-omf-repeat-field');
     if (!fields.length) {
-      return fieldCount;
+      return;
     }
 
     let count = 0;
@@ -414,6 +415,7 @@ class OMF {
 
       count++;
     }
+    this.repeatCount = count;
   }
 }
 

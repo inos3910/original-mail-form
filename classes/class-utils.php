@@ -10,6 +10,14 @@ use WP_Error;
 
 class OMF_Utils
 {
+  /** フォームとRESTの対象リクエストだけで開始する。 */
+  public static function start_session(): void
+  {
+    if (session_status() !== PHP_SESSION_ACTIVE && !headers_sent()) {
+      session_start(['use_strict_mode' => 1, 'cookie_secure' => is_ssl(), 'cookie_httponly' => true, 'cookie_samesite' => 'Lax']);
+    }
+  }
+
 
   /**
    * curlでデータ取得する関数
@@ -18,7 +26,7 @@ class OMF_Utils
    * @param  int $timeout タイムアウト（秒）
    * @return mixed
    */
-  public static function curl_get(string $url, array $header = [], int $timeout = 60): mixed
+  public static function curl_get(string $url, array $header = [], int $timeout = 10): mixed
   {
     $ch = curl_init();
 
@@ -44,10 +52,9 @@ class OMF_Utils
     $errno = curl_errno($ch);
     $error = curl_error($ch);
     if (CURLE_OK !== $errno) {
-      return new WP_Error('curl_error', __($error), ['status' => $errno]);
+      return new WP_Error('curl_error', $error, ['status' => $errno]);
     }
 
-    curl_close($ch);
     return $result;
   }
 
@@ -61,7 +68,7 @@ class OMF_Utils
    * @param int $timeout
    * @return mixed
    **/
-  public static function curl_post(string $url, array $post_data, array $header = [], string $method = 'POST', int $timeout = 60): mixed
+  public static function curl_post(string $url, array $post_data, array $header = [], string $method = 'POST', int $timeout = 10): mixed
   {
     // 送信データをURLエンコード
     $data = wp_json_encode($post_data);
@@ -94,10 +101,9 @@ class OMF_Utils
     $errno = curl_errno($ch);
     $error = curl_error($ch);
     if (CURLE_OK !== $errno) {
-      return new WP_Error('curl_error', __($error), ['status' => $errno]);
+      return new WP_Error('curl_error', $error, ['status' => $errno]);
     }
 
-    curl_close($ch);
     return $result;
   }
 
@@ -120,10 +126,14 @@ class OMF_Utils
   {
     $responses = [];
     $curl_handles = [];
+    $metrics = [];
     $mh = curl_multi_init();
 
     // 各リクエストに対してcURLハンドルを作成
     foreach ($requests as $request) {
+      if (!is_array($request) || empty($request['url'])) {
+        continue;
+      }
       if (empty($request['url'])) {
         continue;
       }
@@ -132,7 +142,7 @@ class OMF_Utils
       $post_data = $request['post_data'];
       $header    = $request['header'] ?? [];
       $method    = $request['method'] ?? 'POST';
-      $timeout   = $request['timeout'] ?? 60;
+      $timeout   = $request['timeout'] ?? 10;
 
       $parsed_url = parse_url($url);
       $is_ssl = isset($parsed_url['scheme']) && $parsed_url['scheme'] === 'https';
@@ -154,6 +164,7 @@ class OMF_Utils
 
       curl_multi_add_handle($mh, $ch);
       $curl_handles[] = $ch;
+      $metrics[] = [$request['omf_operation'] ?? 'external', (int)($request['omf_form_id'] ?? 0)];
     }
 
     // 実行
@@ -166,9 +177,10 @@ class OMF_Utils
     } while ($active && $status == CURLM_OK);
 
     // 結果を取得
-    foreach ($curl_handles as $ch) {
+    foreach ($curl_handles as $index => $ch) {
       $result = curl_multi_getcontent($ch);
-      $responses[] = $result;
+      $responses[] = curl_errno($ch) || curl_getinfo($ch, CURLINFO_HTTP_CODE) >= 400 ? false : $result;
+      do_action('omf_operation_timing', $metrics[$index][0], curl_getinfo($ch, CURLINFO_TOTAL_TIME) * 1000, $metrics[$index][1]);
       curl_multi_remove_handle($mh, $ch);
     }
 
@@ -183,10 +195,10 @@ class OMF_Utils
    * @param  boolean $is_text_field 改行を含むテキストフィールドの場合
    * @return string|array
    */
-  public static function custom_escape(string|array $input, bool $is_text_field = false): string|array
+  public static function custom_escape(mixed $input, bool $is_text_field = false): string|array
   {
     //空の場合は空文字を返す
-    if (empty($input)) {
+    if ($input === null || $input === false) {
       return '';
     }
 
@@ -194,19 +206,24 @@ class OMF_Utils
       return array_map([__NAMESPACE__ . '\OMF_Utils', 'custom_escape'], $input);
     }
 
+    if (!is_scalar($input)) {
+      return '';
+    }
+    $input = (string) $input;
+
     //テキストフィールドフラグがある場合
     if ($is_text_field) {
-      $sanitized = sanitize_textarea_field(wp_unslash($input));
+      $sanitized = sanitize_textarea_field($input);
     }
     //フラグがない場合
     else {
       //改行を含む場合
       if (preg_match("/\n|\r\n/", $input)) {
-        $sanitized = sanitize_textarea_field(wp_unslash($input));
+        $sanitized = sanitize_textarea_field($input);
       }
       //含まない場合
       else {
-        $sanitized = sanitize_text_field(wp_unslash($input));
+        $sanitized = sanitize_text_field($input);
       }
     }
 

@@ -1,0 +1,35 @@
+.omf-block-editor {
+  --omf-primary: #245a91;
+  --omf-surface: #fff;
+  --omf-container: #f4f6f8;
+  --omf-outline: #c6ced7;
+  --omf-text: #202b36;
+  --omf-muted: #536171;
+  --omf-gap: 16px;
+  box-sizing: border-box;
+  padding: clamp(16px, 3vw, 32px);
+  border: 1px solid var(--omf-outline);
+  border-radius: 12px;
+  background: var(--omf-surface);
+  color: var(--omf-text);
+  font-family: system-ui, sans-serif;
+  font-size: 14px;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+.omf-block-editor *, .omf-block-editor *::before, .omf-block-editor *::after { box-sizing: border-box; }
+.omf-block-editor .omf-block-heading { display: grid; gap: 4px; margin-bottom: 24px; }
+.omf-block-editor .omf-block-heading strong { font-size: 20px; line-height: 1.4; }
+.omf-block-editor .omf-block-heading span, .omf-block-editor .omf-block-footer p { color: var(--omf-muted); }
+.omf-block-editor .omf-block-preview { margin-top: 24px; padding: var(--omf-gap); background: var(--omf-container); border-radius: 8px; }
+.omf-block-editor .omf-block-preview-heading { display: flex; flex-wrap: wrap; gap: 8px 16px; justify-content: space-between; margin-bottom: 24px; }
+.omf-block-editor .omf-block-preview-heading span { font-size: 12px; color: var(--omf-muted); }
+.omf-block-editor .omf-block-preview-field { margin-top: var(--omf-gap); }
+.omf-block-editor .omf-block-preview-label { margin-bottom: 8px; }
+.omf-block-editor .omf-block-preview-label span { margin-left: 8px; font-size: 12px; color: var(--omf-primary); }
+.omf-block-editor .omf-block-preview-input { min-height: 44px; padding: 10px 12px; border: 1px solid var(--omf-outline); border-radius: 4px; background: var(--omf-surface); color: var(--omf-muted); }
+.omf-block-editor .omf-block-preview-input.is-textarea { min-height: 88px; }
+.omf-block-editor .omf-block-footer { margin-top: 24px; }
+.omf-block-editor .omf-block-footer .components-button { min-height: 44px; height: auto; max-width: 100%; white-space: normal; text-align: left; line-height: 1.5; }
+.omf-block-editor .omf-block-footer p { margin-bottom: 0; font-size: 12px; }
+.omf-block-editor :focus-visible { outline: 2px solid var(--omf-primary); outline-offset: 2px; }

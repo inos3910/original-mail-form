@@ -34,6 +34,9 @@ trait OMF_Trait_Output_Csv
     }
 
     $data_id = sanitize_text_field($_POST['omf_data_id'] ?? '');
+    if (!$this->is_omf_data_post_type($data_id) || !post_type_exists($data_id)) {
+      wp_die('送信データの種類が正しくありません。', '', ['response' => 400]);
+    }
     $period  = sanitize_text_field($_POST['omf_output_period'] ?? '');
     if ($period === 'option') {
       $start_date  = sanitize_text_field($_POST['omf_output_start'] ?? '');
@@ -64,7 +67,7 @@ trait OMF_Trait_Output_Csv
     $form       = get_post($form_id);
     $form_title = !empty($form) ? $form->post_title : 'form_data';
 
-    $file_name = "{$form_title}_export_{$start_date}_to_{$end_date}.csv";
+    $file_name = sanitize_file_name("{$form_title}_export_{$start_date}_to_{$end_date}.csv");
 
     header('Content-Type: text/csv; charset=UTF-8');
     header('Content-Disposition: attachment; filename="' . $file_name . '"');
@@ -77,7 +80,11 @@ trait OMF_Trait_Output_Csv
     fwrite($output, "\xEF\xBB\xBF");
 
     foreach ($csv_data as $row) {
-      fputcsv($output, $row);
+      $row = array_map(static function ($value) {
+        $value = is_scalar($value) ? (string) $value : wp_json_encode($value, JSON_UNESCAPED_UNICODE);
+        return preg_match('/^[\s\x00-\x1f]*[=+@-]/u', $value) || preg_match('/^0[0-9]+$/D', $value) ? "'" . $value : $value;
+      }, $row);
+      fputcsv($output, $row, ',', '"', '');
     }
 
     fclose($output);
@@ -167,11 +174,6 @@ trait OMF_Trait_Output_Csv
           foreach ((array)$value as $val) {
             $unserialized = maybe_unserialize($val);
             $formatted_value = is_array($unserialized) && !empty($unserialized['name']) ? $unserialized['name'] : $unserialized;
-
-            // 電話番号の形式（10桁または11桁の数字のみ）なら="09000000000"形式に変換
-            if (preg_match('/^\d{10,11}$/', $formatted_value)) {
-              $formatted_value = '="' . $formatted_value . '"';
-            }
 
             $formatted_value = apply_filters('omf_data_custom_field_value_' . $form_slug, $formatted_value, $key);
 

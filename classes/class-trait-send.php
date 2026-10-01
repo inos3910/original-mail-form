@@ -10,7 +10,7 @@ use WP_Post;
 
 trait OMF_Trait_Send
 {
-  use OMF_Trait_Google_Sheets, OMF_Trait_Slack, OMF_Trait_Save_Db;
+  use OMF_Trait_Google_Sheets, OMF_Trait_Slack, OMF_Trait_Save_Db, OMF_Trait_Submission;
 
   /**
    * 同一リクエスト内でのアップロード処理の二重保存防止フラグ
@@ -46,12 +46,12 @@ trait OMF_Trait_Send
     //送信前のフック
     do_action('omf_before_send_reply_mail', $tag_to_text, $mail_to, $form_title, $mail_template, $mail_from, $from_name, $attachments);
 
-    $mail                = $this->create_reply_mail($info, $attachments);
+    $mail                = $this->create_reply_mail($info, []);
     $reply_mailaddress   = $mail['mailaddress'];
 
     //宛先がない場合は終了
     if (empty($reply_mailaddress)) {
-      return 'no-reply';
+      return false;
     }
 
     $reply_subject       = $mail['subject'];
@@ -59,17 +59,8 @@ trait OMF_Trait_Send
     $reply_headers       = $mail['headers'];
     $attachments         = $mail['attachments'];
 
-    //wp mailのfromを変更
-    add_filter('wp_mail_from', function () use ($mail_from) {
-      return $mail_from;
-    }, PHP_INT_MAX);
-
-    add_filter('wp_mail_from_name', function () use ($from_name) {
-      return $from_name;
-    }, PHP_INT_MAX);
-
     //メール送信処理
-    $is_sended_reply = wp_mail(
+    $is_sended_reply = OMF_Mail_Transport::send('reply', $form->ID,
       //宛先
       $reply_mailaddress,
       //件名
@@ -123,17 +114,8 @@ trait OMF_Trait_Send
     $admin_headers       = $mail['headers'];
     $attachments         = $mail['attachments'];
 
-    //wp mailのfromを変更
-    add_filter('wp_mail_from', function () use ($mail_from) {
-      return $mail_from;
-    }, PHP_INT_MAX);
-
-    add_filter('wp_mail_from_name', function () use ($from_name) {
-      return $from_name;
-    }, PHP_INT_MAX);
-
     //メール送信処理
-    $is_sended_admin   = wp_mail(
+    $is_sended_admin   = OMF_Mail_Transport::send('admin', $form->ID,
       //宛先
       $admin_mailaddress,
       //件名
@@ -171,10 +153,10 @@ trait OMF_Trait_Send
     $mail_to       = OMF_Utils::custom_escape(get_post_meta($form_id, 'cf_omf_reply_to', true));
     $mail_template = OMF_Utils::custom_escape(get_post_meta($form_id, 'cf_omf_reply_mail', true), true);
     $mail_from     = OMF_Utils::custom_escape(get_post_meta($form_id, 'cf_omf_reply_from', true));
-    $mail_from     = !empty($mail_from) ? str_replace(PHP_EOL, '', $mail_from) : '';
+    $mail_from     = is_email($mail_from) ? $mail_from : '';
     $from_name     = OMF_Utils::custom_escape(get_post_meta($form_id, 'cf_omf_reply_from_name', true));
     $from_name     = !empty($from_name) ? $from_name : get_bloginfo('name');
-    $from_name     = !empty($from_name) ? str_replace(PHP_EOL, '', $from_name) : '';
+    $from_name     = !empty($from_name) ? str_replace(["\r", "\n"], '', $from_name) : '';
     $mail_reply_to = OMF_Utils::custom_escape(get_post_meta($form_id, 'cf_omf_reply_address', true));
 
     //メールタグ
@@ -192,6 +174,7 @@ trait OMF_Trait_Send
       'mail_from'     => $mail_from,
       'from_name'     => $from_name,
       'mail_reply_to' => $mail_reply_to,
+      'display_tags'  => $this->mail_display_values($tag_to_text, $form_id),
       'tag_to_text'   => $tag_to_text
     ];
   }
@@ -215,11 +198,11 @@ trait OMF_Trait_Send
     //宛先（タグを含む場合は、置換後の値が単一の正しいメールアドレスの時だけ有効とする）
     $mailaddress = $this->resolve_mail_to_address($info['mail_to'], $tag_to_text);
     //件名
-    $subject = $this->replace_form_mail_tags($info['form_title'], $tag_to_text);
+    $subject = str_replace(["\r", "\n"], '', $this->replace_form_mail_tags($info['form_title'], $tag_to_text));
     //メール本文のifタグを置換
     $mail_template = $this->replace_form_mail_if_tags($info['mail_template'], $tag_to_text);
     //メールタグを置換
-    $message = $this->replace_form_mail_tags($mail_template, $tag_to_text);
+    $message = $this->replace_form_mail_tags($mail_template, $info['display_tags'] ?? $tag_to_text);
 
     //フィルターを通す
     $message = apply_filters('omf_reply_mail', $message, $tag_to_text);
@@ -229,7 +212,7 @@ trait OMF_Trait_Send
     if (!empty($info['from_name'] && !empty($info['mail_from']))) {
       $headers[]   = "From: {$info['from_name']} <{$info['mail_from']}>";
 
-      $reply_to = !empty($info['mail_reply_to']) ? $info['mail_reply_to'] : $info['mail_from'];
+      $reply_to = is_email($info['mail_reply_to']) ? $info['mail_reply_to'] : $info['mail_from'];
       $headers[]   = "Reply-To: {$info['from_name']} <{$reply_to}>";
 
       $headers     = implode(PHP_EOL, $headers);
@@ -240,7 +223,7 @@ trait OMF_Trait_Send
       'subject'     => $subject,
       'message'     => $message,
       'headers'     => $headers,
-      'attachments' => $attachments,
+      'attachments' => [],
     ];
   }
 
@@ -258,19 +241,19 @@ trait OMF_Trait_Send
     $mail_to       = OMF_Utils::custom_escape(get_post_meta($form_id, 'cf_omf_admin_to', true));
     $mail_template = OMF_Utils::custom_escape(get_post_meta($form_id, 'cf_omf_admin_mail', true), true);
     $mail_from     = OMF_Utils::custom_escape(get_post_meta($form_id, 'cf_omf_admin_from', true));
-    $mail_from     = !empty($mail_from) ? str_replace(PHP_EOL, '', $mail_from) : '';
+    $mail_from     = is_email($mail_from) ? $mail_from : '';
     $from_name     = OMF_Utils::custom_escape(get_post_meta($form_id, 'cf_omf_admin_from_name', true));
     $from_name     = !empty($from_name) ? $from_name : get_bloginfo('name');
-    $from_name     = !empty($from_name) ? str_replace(PHP_EOL, '', $from_name) : '';
+    $from_name     = !empty($from_name) ? str_replace(["\r", "\n"], '', $from_name) : '';
 
     //メールタグ
     $default_tags = [
       'send_datetime' => esc_html(OMF_Utils::get_current_datetime()),
       'site_name'     => esc_html(get_bloginfo('name')),
       'site_url'      => esc_url(home_url('/')),
-      'user_agent'    => $_SERVER["HTTP_USER_AGENT"],
-      'user_ip'       => $_SERVER["REMOTE_ADDR"],
-      'host'          => gethostbyaddr($_SERVER["REMOTE_ADDR"])
+      'user_agent'    => sanitize_text_field($_SERVER['HTTP_USER_AGENT'] ?? ''),
+      'user_ip'       => sanitize_text_field($_SERVER['REMOTE_ADDR'] ?? ''),
+      'host'          => ''
     ];
     $tag_to_text = array_merge($post_data, $default_tags);
 
@@ -280,6 +263,8 @@ trait OMF_Trait_Send
       'mail_template' => $mail_template,
       'mail_from'     => $mail_from,
       'from_name'     => $from_name,
+      'mail_reply_to' => $this->resolve_mail_to_address((string) get_post_meta($form_id, 'cf_omf_admin_reply_to', true), $tag_to_text),
+      'display_tags'  => $this->mail_display_values($tag_to_text, $form_id),
       'tag_to_text'   => $tag_to_text
     ];
   }
@@ -302,13 +287,13 @@ trait OMF_Trait_Send
     //宛先（タグを含む場合は、置換後の値が単一の正しいメールアドレスの時だけ有効とする）
     $mailaddress = $this->resolve_mail_to_address($info['mail_to'], $tag_to_text);
     //件名
-    $subject = $this->replace_form_mail_tags($info['form_title'], $tag_to_text);
+    $subject = str_replace(["\r", "\n"], '', $this->replace_form_mail_tags($info['form_title'], $tag_to_text));
 
     //メール本文のifタグを置換
     $mail_template = $this->replace_form_mail_if_tags($info['mail_template'], $tag_to_text);
 
     //メールタグを置換
-    $message = $this->replace_form_mail_tags($mail_template, $tag_to_text);
+    $message = $this->replace_form_mail_tags($mail_template, $info['display_tags'] ?? $tag_to_text);
 
     //フィルターを通す
     $message = apply_filters('omf_admin_mail', $message, $tag_to_text);
@@ -317,8 +302,9 @@ trait OMF_Trait_Send
     $headers = [];
     if (!empty($info['from_name'] && !empty($info['mail_from']))) {
       $headers[]   = "From: {$info['from_name']} <{$info['mail_from']}>";
-      $headers[]   = "Reply-To: {$info['from_name']} <{$info['mail_from']}>";
-      $headers     = implode(PHP_EOL, $headers);
+    }
+    if (!empty($info['mail_reply_to']) && is_email($info['mail_reply_to'])) {
+      $headers[] = 'Reply-To: ' . $info['mail_reply_to'];
     }
 
     return [
@@ -333,7 +319,7 @@ trait OMF_Trait_Send
   /**
    * アップロードファイルを検証・保存し、送信データに反映する
    *
-   * - フォーム設定でfile型（file_size・extensionのいずれかを持つ）として定義された項目名だけを受け付ける
+   * - フォーム設定でfile型（明示的な種別または拡張子設定を持つ）として定義された項目名だけを受け付ける
    * - 保存はnonceが正しいPOSTの時だけ行う。同一リクエスト内では一度だけ処理する
    * - POST内のファイル情報（attachment_id・name・typeなど）は信用せず、
    *   サーバー側で検証・保存した結果だけをセッションに保持して使う
@@ -354,15 +340,8 @@ trait OMF_Trait_Send
       return $post_data;
     }
 
-    //セッションに保存済みのファイル項目を復元し、POSTに残っている値（偽装の可能性がある）は破棄する
-    $session_key = OMF_Config::PREFIX . $form->post_name . '_uploaded_files';
-    foreach ($file_targets as $target) {
-      if (!empty($_SESSION[$session_key][$target])) {
-        $post_data[$target] = $_SESSION[$session_key][$target];
-      } else {
-        unset($post_data[$target]);
-      }
-    }
+    $session_key = OMF_Embed_Context::prefix($form->post_name) . '_uploaded_files';
+    $post_data = $this->restore_uploaded_files($post_data, $post_id);
 
     //アップロードがない・同一リクエストで処理済みの場合はここで終了
     if (empty($_FILES) || $this->uploaded_files_processed) {
@@ -392,6 +371,9 @@ trait OMF_Trait_Send
         continue;
       }
 
+      if (!empty($_SESSION[$session_key][$target]['upload_id'])) {
+        OMF_Uploads::remove($_SESSION[$session_key][$target]['upload_id']);
+      }
       $post_data[$target] = $result['data'];
       $_SESSION[$session_key][$target] = $result['data'];
     }
@@ -400,7 +382,7 @@ trait OMF_Trait_Send
   }
 
   /**
-   * アップロードされたファイルを検証し、問題がなければメディアに保存する
+   * アップロードされたファイルを検証し、問題がなければ非公開の一時領域に保存する
    *
    * @param integer $form_id
    * @param string $target
@@ -410,7 +392,8 @@ trait OMF_Trait_Send
   private function validate_and_save_uploaded_file(int $form_id, string $target, array $file): array
   {
     if (
-      (int)($file['error'] ?? UPLOAD_ERR_NO_FILE) !== UPLOAD_ERR_OK ||
+      !is_int($file['error'] ?? null) || $file['error'] !== UPLOAD_ERR_OK ||
+      !is_string($file['tmp_name'] ?? null) || !is_string($file['name'] ?? null) ||
       empty($file['tmp_name']) ||
       !is_uploaded_file($file['tmp_name'])
     ) {
@@ -439,7 +422,6 @@ trait OMF_Trait_Send
     }
 
     //実体と拡張子の整合性を確認（保存前に行う）
-    require_once(ABSPATH . 'wp-admin/includes/file.php');
     $filetype     = wp_check_filetype_and_ext($file['tmp_name'], $name);
     $checked_ext  = !empty($filetype['ext']) ? strtolower($filetype['ext']) : '';
     $checked_type = !empty($filetype['type']) ? $filetype['type'] : '';
@@ -452,51 +434,15 @@ trait OMF_Trait_Send
       return ['error' => 'このファイル形式は使用できません', 'data' => null];
     }
 
-    // ファイル内容を読み取る
-    if (WP_Filesystem()) {
-      global $wp_filesystem;
-      $file_contents = $wp_filesystem->get_contents($file['tmp_name']);
-    } else {
-      $file_contents = file_get_contents($file['tmp_name']);
+    try {
+      $id = OMF_Uploads::save($file['tmp_name'], $name);
+    } catch (\Throwable $e) {
+      return ['error' => $e->getMessage(), 'data' => null];
     }
-
-    if (empty($file_contents)) {
-      return ['error' => 'ファイルの読み込みに失敗しました', 'data' => null];
-    }
-
-    //検証済みの拡張子・MIMEタイプだけを使って保存する
-    $attachment_id = $this->save_file([
-      'name'      => $name,
-      'extension' => $checked_ext,
-      'type'      => $checked_type,
-      'contents'  => $file_contents,
-    ]);
-
-    if (empty($attachment_id)) {
-      return ['error' => 'ファイルの保存に失敗しました', 'data' => null];
-    }
-
-    //画像の場合
-    $image = wp_get_attachment_image_src($attachment_id, 'medium');
-
-    $data = !empty($image) ? [
-      'name'          => $name,
-      'type'          => $checked_type,
-      'size'          => (int)($file['size'] ?? 0),
-      'attachment_id' => $attachment_id,
-      'image'         => [
-        'src'    => $image[0],
-        'width'  => $image[1],
-        'height' => $image[2]
-      ]
-    ] : [
-      'name'          => $name,
-      'type'          => $checked_type,
-      'size'          => (int)($file['size'] ?? 0),
-      'attachment_id' => $attachment_id,
-    ];
-
-    return ['error' => null, 'data' => $data];
+    return ['error' => null, 'data' => [
+      'name' => sanitize_file_name($name), 'type' => $checked_type,
+      'size' => (int) $file['size'], 'upload_id' => $id,
+    ]];
   }
 
   /**
@@ -530,10 +476,10 @@ trait OMF_Trait_Send
   {
     $rule = $this->get_field_validation_rule($form_id, $target);
     if (!empty($rule['file_size'])) {
-      return (int)$rule['file_size'];
+      return min((int) $rule['file_size'], (int) wp_max_upload_size(), 10 * MB_IN_BYTES);
     }
 
-    return (int)wp_max_upload_size();
+    return min((int) wp_max_upload_size(), 10 * MB_IN_BYTES);
   }
 
   /**
@@ -544,226 +490,21 @@ trait OMF_Trait_Send
    */
   private function convert_attachments(array $tags): array
   {
-
-    if (empty($tags)) {
-      return [];
-    }
-
-    $attachment_paths = [];
-    $attachment_ids   = [];
-    $new_tags         = [];
-
-    foreach ((array)$tags as $key => $tag) {
-      if (
-        is_array($tag) &&
-        !empty($tag['name']) &&
-        !empty($tag['type']) &&
-        !empty($tag['attachment_id']) &&
-        //実在する添付ファイルであることを確認（多層防御）
-        get_post_type($tag['attachment_id']) === 'attachment'
-      ) {
-
-        $attachment_id      = $tag['attachment_id'];
-        $attachment_paths[] = get_attached_file($attachment_id);
-        $attachment_ids[]   = $attachment_id;
-        $image              = !empty($tag['image']) ? $tag['image'] : null;
-        $url                = wp_get_attachment_url($attachment_id);
-
-        $new_tags[$key] = !empty($image) ? [
-          'id'     => $attachment_id,
-          'name'   => $tag['name'],
-          'url'    => $url,
-          'src'    => $image['src'],
-          'width'  => $image['width'],
-          'height' => $image['height']
-        ] : [
-          'id'     => $attachment_id,
-          'name'   => $tag['name'],
-          'url'    => $url,
-        ];
-      } else {
-        $new_tags[$key] = $tag;
+    $paths = []; $ids = [];
+    foreach ($tags as $key => $tag) {
+      if (!is_array($tag) || empty($tag['upload_id'])) { continue; }
+      $owned = false;
+      foreach ($_SESSION as $session_key => $files) {
+        if (str_ends_with((string) $session_key, '_uploaded_files') && is_array($files) && ($files[$key] ?? null) === $tag) { $owned = true; break; }
       }
+      if (!$owned) { continue; }
+      $path = OMF_Uploads::path($tag['upload_id']);
+      if ($path === '') { continue; }
+      $paths[] = $path;
+      $ids[] = $tag['upload_id'];
+      $tags[$key] = $tag['name'];
     }
-
-    return [
-      'attachment_ids'   => $attachment_ids,
-      'attachment_paths' => $attachment_paths,
-      'tags'             => $new_tags
-    ];
-  }
-
-  /**
-   * ファイルを保存する
-   * 保存するファイル名はランダムにし、拡張子は呼び出し元で検証済みのものだけを使う
-   * 元のファイル名は添付のメタとして保持する
-   *
-   * @param array $file 'name'（元のファイル名）・'extension'（検証済み拡張子）・'type'（検証済みMIMEタイプ）・'contents'
-   * @return integer|string
-   */
-  private function save_file(array $file): int|string
-  {
-    $empty_path = '';
-
-    if (empty($file)) {
-      return $empty_path;
-    }
-
-    $name = $file['name'] ?? '';
-    $extension = $file['extension'] ?? '';
-    $type = $file['type'] ?? '';
-    $contents = $file['contents'] ?? '';
-
-    if (empty($name) || empty($extension) || empty($type) || empty($contents)) {
-      return $empty_path;
-    }
-
-    require_once(ABSPATH . 'wp-admin/includes/image.php');
-    require_once(ABSPATH . 'wp-admin/includes/file.php');
-    require_once(ABSPATH . 'wp-admin/includes/media.php');
-
-    $wp_upload_dir = wp_upload_dir();
-    $wp_upload_dir_path = trailingslashit($wp_upload_dir['path']);
-
-    // アップロード用ディレクトリがなければ作成
-    if (!file_exists($wp_upload_dir_path)) {
-      mkdir($wp_upload_dir_path, 0755, true);
-    }
-
-    // 保存するファイル名はランダムにする（拡張子は検証済みのものだけを使う）
-    $random_name = wp_generate_password(20, false, false) . '.' . $extension;
-    $filename = wp_unique_filename($wp_upload_dir_path, $random_name);
-    $file_path = $wp_upload_dir_path . $filename;
-
-    // WP_Filesystemを使ってファイル書き込み
-    $saved_file = false;
-    if (WP_Filesystem()) {
-      global $wp_filesystem;
-      $saved_file = $wp_filesystem->put_contents($file_path, $contents);
-    }
-
-    if (!$saved_file) {
-      return $empty_path;
-    }
-
-    $attachment = [
-      'guid'           => $wp_upload_dir['url'] . '/' . basename($file_path),
-      'post_mime_type' => $type,
-      'post_title'     => sanitize_file_name(pathinfo($name, PATHINFO_FILENAME)),
-      'post_content'   => '',
-      'post_status'    => 'inherit'
-    ];
-
-    $attachment_id = wp_insert_attachment($attachment, $file_path);
-
-    if (is_wp_error($attachment_id) || empty($attachment_id)) {
-      return $empty_path;
-    }
-
-    // 元のファイル名をメタとして保持する
-    update_post_meta($attachment_id, '_omf_original_filename', sanitize_file_name($name));
-
-    $metadata = [
-      'file'       => basename($file_path), // ファイル名
-      'sizes'      => [], // 生成されたサムネイルの情報（空の配列）
-      'image_meta' => [] // 画像のメタ情報（空の配列）
-    ];
-
-    //画像の場合のみ
-    if (strpos($type, 'image/') === 0) {
-      // 画像のメタデータを取得
-      list($width, $height) = getimagesize($file_path);
-      // メタデータを手動で生成
-      $metadata['width'] = $width;
-      $metadata['height'] = $height;
-    }
-    wp_update_attachment_metadata($attachment_id, $metadata);
-
-    //サムネイルの生成
-    $this->generate_medium_thumbnail($attachment_id, $file_path);
-
-    // 一時タグを追加
-    wp_set_object_terms($attachment_id, 'temporary', 'media_tag');
-
-    return $attachment_id;
-  }
-
-  /**
-   * サムネイル画像の生成
-   *
-   * @param integer|string $attachment_id
-   * @param string $file_path
-   * @return void
-   */
-  private function generate_medium_thumbnail(int|string $attachment_id, string $file_path)
-  {
-    // 画像エディタオブジェクトを取得
-    $image_editor = wp_get_image_editor($file_path);
-
-    // ファイルが画像でない場合、エラーを返す
-    if (is_wp_error($image_editor)) {
-      return false;
-    }
-
-    // WordPressの設定から 'medium' サイズを取得
-    $size = [
-      'width'  => !empty(get_option('medium_size_w')) ? get_option('medium_size_w') : 300,
-      'height' => !empty(get_option('medium_size_h')) ? get_option('medium_size_h') : 300,
-      'crop'   => get_option('medium_crop'),
-    ];
-
-    // 画像をリサイズ
-    $resized = $image_editor->resize($size['width'], $size['height'], $size['crop']);
-
-    // リサイズ中にエラーが発生した場合、処理を中断
-    if (is_wp_error($resized)) {
-      return $resized;
-    }
-
-    // 保存先のパスを設定
-    $destination = $image_editor->generate_filename('medium', null, null);
-    $saved = $image_editor->save($destination);
-
-    // 保存中にエラーが発生した場合、処理を中断
-    if (is_wp_error($saved)) {
-      return $saved;
-    }
-
-    // 既存のメタデータを取得
-    $metadata = wp_get_attachment_metadata($attachment_id);
-    if (!empty($metadata)) {
-      // 'medium' サイズのメタデータを作成
-      $metadata['sizes']['medium'] = [
-        'file'      => basename($destination),
-        'width'     => $saved['width'],
-        'height'    => $saved['height'],
-        'mime-type' => $saved['mime-type'],
-      ];
-      // メタデータを更新
-      wp_update_attachment_metadata($attachment_id, $metadata);
-      return true;
-    }
-
-    return false;
-  }
-
-
-  /**
-   * 添付ファイルの一時タグを削除
-   *
-   * @param array $attachment_ids
-   * @return void
-   */
-  private function remove_temporary_media_tag(array $attachment_ids)
-  {
-    if (empty($attachment_ids)) {
-      return;
-    }
-
-    foreach ($attachment_ids as $attachment_id) {
-      // 一時タグを削除
-      wp_remove_object_terms($attachment_id, 'temporary', 'media_tag');
-    }
+    return ['attachment_paths' => $paths, 'attachment_ids' => $ids, 'tags' => $tags];
   }
 
   /**
@@ -798,45 +539,37 @@ trait OMF_Trait_Send
    * @param  array $tag_to_text
    * @return string
    */
-  private function replace_form_mail_tags(string|null $text, array  $tag_to_text): string
+  /** 管理画面方式の同意は検証・条件分岐では1を使い、メール本文では表示値を使う。 */
+  private function mail_display_values(array $tags, int $form_id): array
   {
-    if (empty($text)) {
-      return '';
+    if (OMF_Field_Schema::mode($form_id) !== 'builder') { return $tags; }
+    $schema = OMF_Field_Schema::read($form_id);
+    if (is_wp_error($schema)) { return $tags; }
+    $lines = [];
+    foreach ($schema['fields'] as $field) {
+      $display = OMF_Field_Renderer::display($field, $tags[$field['key']] ?? '');
+      $lines[] = str_replace(["\r", "\n"], '', $field['label']) . '：' . ($display === '' ? '—' : $display);
+      if ($field['type'] === 'acceptance' && isset($tags[$field['key']])) { $tags[$field['key']] = $tags[$field['key']] === '1' ? '同意する' : ''; }
     }
+    $tags['form_data'] = implode("\n\n", $lines);
+    return $tags;
+  }
 
-    preg_match_all('/\{(.+?)\}/', $text, $matches);
-
-    if (!empty($matches[1])) {
-      foreach ($matches[1] as $tag) {
-        $replacement_text = isset($tag_to_text[$tag]) ? $tag_to_text[$tag] : '';
-
-        //添付ファイルタグ（convert_attachmentsで変換済みの'id'・'url'を持つ配列）はファイル名を使う
-        if (is_array($replacement_text) && isset($replacement_text['id']) && isset($replacement_text['url'])) {
-          $replacement_text = $replacement_text['name'] ?? '';
-        }
-        //それ以外の配列は値として使わない
-        elseif (is_array($replacement_text)) {
-          $replacement_text = '';
-        }
-
-        $replacement_text = apply_filters('omf_mail_tag', $replacement_text, $tag);
-        if (empty($replacement_text)) {
-          $replacement_text = '';
-        }
-
-        $text = str_replace("{" . $tag . "}", $replacement_text, $text);
+  private function replace_form_mail_tags(string|null $text, array $tag_to_text): string
+  {
+    return preg_replace_callback('/\{([^{}]+)\}/', static function ($match) use ($tag_to_text) {
+      $value = $tag_to_text[$match[1]] ?? '';
+      if (is_array($value)) {
+        $value = array_is_list($value) ? implode('、', array_filter($value, 'is_string')) : '';
       }
-    }
-
-    return $text;
+      $value = apply_filters('omf_mail_tag', $value, $match[1]);
+      return is_scalar($value) ? (string) $value : '';
+    }, $text ?? '');
   }
 
   /**
-   * 宛先欄のメールタグを解決する
-   * 宛先テンプレートにメールタグが含まれる場合は、置換後の値が
-   * is_email()を通る単一の正しいメールアドレスの時だけ有効とする。
-   * カンマ区切りの複数アドレスや不正な値になった場合は空文字（宛先なし）にする。
-   * タグを含まない場合（管理者が固定で設定した宛先）はそのまま使う。
+   * 管理者が設定したカンマ区切りを先に分け、各宛先を単一アドレスとして検証する。
+   * タグ値にカンマ・改行が含まれる場合は宛先全体を拒否する。
    *
    * @param string|null $mail_to_template
    * @param array $tag_to_text
@@ -844,15 +577,13 @@ trait OMF_Trait_Send
    */
   private function resolve_mail_to_address(string|null $mail_to_template, array $tag_to_text): string
   {
-    $mailaddress = $this->replace_form_mail_tags($mail_to_template, $tag_to_text);
-
-    //宛先テンプレートにメールタグを含む場合のみ、置換結果を検証する
-    $has_tag = !empty($mail_to_template) && preg_match('/\{.+?\}/', $mail_to_template) === 1;
-    if ($has_tag && !is_email($mailaddress)) {
-      return '';
+    $addresses = [];
+    foreach (explode(',', $mail_to_template ?? '') as $template) {
+      $address = trim($this->replace_form_mail_tags(trim($template), $tag_to_text));
+      if (!is_email($address) || preg_match('/[\r\n]/', $address)) { return ''; }
+      $addresses[] = $address;
     }
-
-    return $mailaddress;
+    return implode(',', array_unique($addresses));
   }
 
   /**
@@ -870,7 +601,12 @@ trait OMF_Trait_Send
     $data_to_save = $this->create_save_data($info, $mail, $is_sended_admin);
 
     // DB保存
+    $db_start = microtime(true);
     $this->save_data($form, $data_to_save);
+    do_action('omf_operation_timing', 'database', (microtime(true) - $db_start) * 1000, $form->ID);
+
+    // 通知メールが失敗した試行では外部連携を重複実行しない。
+    if (!$is_sended_admin) { return; }
 
     //API送信データをまとめる
     $webhook_data = [];
@@ -882,6 +618,11 @@ trait OMF_Trait_Send
     $webhook_data[] = $this->get_google_sheets_params($form, $data_to_save);
 
     //一括でまとめて送信
-    OMF_Utils::curl_multi_posts($webhook_data);
+    foreach ($webhook_data as $index => &$request) {
+      if (is_array($request) && !empty($request['url'])) { $request['omf_operation'] = $index === 0 ? 'slack' : 'sheets'; $request['omf_form_id'] = $form->ID; }
+    }
+    unset($request);
+    $responses = OMF_Utils::curl_multi_posts($webhook_data);
+    if (!empty($this->delivery_receipt_id) && in_array(false, $responses, true)) { throw new \RuntimeException('外部連携の結果を確認できません。'); }
   }
 }

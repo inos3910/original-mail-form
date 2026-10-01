@@ -1,0 +1,40 @@
+.omf-managed{--omf-primary:#2856a3;--omf-outline:#bbc7d9;--omf-error:#a4262c;max-width:760px;margin:32px auto;padding:clamp(16px,3vw,32px);font:400 16px/1.7 system-ui,sans-serif;color:#202b3b;background:#fff;border:1px solid var(--omf-outline);border-radius:16px}.omf-managed *{box-sizing:border-box}.omf-managed h2{font-size:24px;line-height:1.4;margin:0 0 24px}.omf-managed-field{min-width:0;margin:0 0 24px;padding:0;border:0}.omf-managed-control{min-width:0}.omf-managed-field>label,.omf-managed-field>[id$="-label"],.omf-managed legend{display:block;font-weight:600;margin-bottom:8px}.omf-managed-field p{font-size:14px;overflow-wrap:anywhere}.omf-managed-required{font-size:12px;color:var(--omf-error)}.omf-managed input:not([type=checkbox]):not([type=radio]),.omf-managed select,.omf-managed textarea{width:100%;max-width:100%;min-height:48px;padding:12px;border:1px solid var(--omf-outline);border-radius:4px;background:#fff;color:inherit;font:inherit}.omf-managed textarea{min-height:128px}.omf-managed .omf-managed-choice{display:flex;align-items:center;gap:12px;min-height:44px;font-weight:400}.omf-managed input[type=checkbox],.omf-managed input[type=radio]{width:20px;height:20px;flex:0 0 20px}.omf-managed-actions{display:flex;flex-wrap:wrap;gap:12px}.omf-managed button{min-height:48px;padding:12px 24px;border:1px solid var(--omf-primary);border-radius:24px;background:#fff;color:var(--omf-primary);font:600 16px/1.5 system-ui,sans-serif;cursor:pointer}.omf-managed button.omf-managed-primary{background:var(--omf-primary);color:#fff}.omf-managed :focus-visible{outline:3px solid var(--omf-primary);outline-offset:3px}.omf-managed-errors{padding:16px;border:1px solid var(--omf-error);border-radius:8px;margin-bottom:24px}.omf-managed-error,.omf-managed-errors{color:var(--omf-error)}.omf-managed-value{margin:0;padding:0;background:transparent;border:0;white-space:pre-wrap;overflow-wrap:anywhere}@media(max-width:480px){.omf-managed-actions button{width:100%}}
+
+.omf-managed-required[hidden]{display:none!important}
+
+/* 規約本文はキーボードでもスクロールできる独立領域にする。 */
+.omf-managed-policy{max-height:16rem;overflow:auto;padding:1rem;border:1px solid var(--omf-border,#d1d5db);border-radius:.5rem;line-height:1.8;white-space:normal;margin-bottom:1rem;background:var(--omf-surface,#fff)}
+.omf-managed-policy:focus-visible{outline:2px solid currentColor;outline-offset:2px}
+
+.omf-managed select[hidden]{display:none}
+
+.omf-managed button:disabled,.omf-managed input[type=submit]:disabled{cursor:not-allowed;opacity:.55;filter:grayscale(.7)}
+.omf-validation-status{margin:16px 0;font-size:14px;line-height:1.7;color:inherit}
+.omf-validation-status[hidden]{display:none}
+
+.omf-managed-select{display:block;position:relative}
+.omf-managed-select select{display:block}
+
+/* 独自テンプレートでも共通クラスに対する状態変化と送信ロックを利用できる。 */
+form[data-omf-form]{--omf-interaction-color:var(--omf-primary,#2856a3);--omf-motion:200ms}
+form[data-omf-form] :is(input,select,textarea),form[data-omf-form] .omf-managed-choice,.omf-managed-button{transition:background-color var(--omf-motion,200ms) ease,border-color var(--omf-motion,200ms) ease,color var(--omf-motion,200ms) ease,box-shadow var(--omf-motion,200ms) ease,opacity var(--omf-motion,200ms) ease,transform var(--omf-motion,200ms) ease}
+form[data-omf-form] :is(input,select,textarea):focus-visible{outline-color:var(--omf-interaction-color);box-shadow:0 0 0 3px color-mix(in srgb,var(--omf-interaction-color) 20%,transparent)}
+form[data-omf-form] .omf-managed-choices .omf-managed-choice:has(input:checked){color:var(--omf-interaction-color)}
+form[data-omf-form] :is(input[type=radio],input[type=checkbox]){appearance:none;display:inline-grid;place-content:center;flex:none;width:20px;height:20px;min-height:0;padding:0;border:1.5px solid var(--omf-outline,#bbc7d9);background:#fff;color:var(--omf-interaction-color);vertical-align:middle;cursor:pointer}
+form[data-omf-form] input[type=radio]{border-radius:50%}
+form[data-omf-form] input[type=checkbox]{border-radius:3px}
+form[data-omf-form] :is(input[type=radio],input[type=checkbox])::after{content:"";display:block;opacity:0;transform:scale(.5);transition:opacity var(--omf-motion) ease,transform var(--omf-motion) ease}
+form[data-omf-form] input[type=radio]::after{width:10px;height:10px;border-radius:50%;background:currentColor}
+form[data-omf-form] input[type=checkbox]::after{width:5px;height:9px;margin-top:-2px;border-right:2px solid #fff;border-bottom:2px solid #fff;transform:rotate(45deg) scale(.5)}
+form[data-omf-form] :is(input[type=radio],input[type=checkbox]):checked{border-color:var(--omf-interaction-color)}
+form[data-omf-form] input[type=checkbox]:checked{background:var(--omf-interaction-color)}
+form[data-omf-form] input[type=radio]:checked::after{opacity:1;transform:scale(1)}
+form[data-omf-form] input[type=checkbox]:checked::after{opacity:1;transform:rotate(45deg) scale(1)}
+form[data-omf-form][data-omf-state=submitting] :is(input:not([type=hidden]),select,textarea){opacity:.65;cursor:wait}
+form[data-omf-form][data-omf-state=submitting] button:disabled{opacity:.8;cursor:wait;transform:none}
+.omf-managed-button[data-omf-loading=true]::before{content:"";display:inline-block;flex:none;width:1em;height:1em;margin-right:.6em;border:2px solid currentColor;border-right-color:transparent;border-radius:50%;animation:omf-submit-spin .8s linear infinite}
+.omf-managed-button[data-omf-loading=true]::after{visibility:hidden}
+.omf-submit-status{margin:16px 0;font-size:14px;line-height:1.7;overflow-wrap:anywhere}
+.omf-submit-status[hidden]{display:none}
+@keyframes omf-submit-spin{to{transform:rotate(360deg)}}
+@media(prefers-reduced-motion:reduce){form[data-omf-form] :is(input,select,textarea),form[data-omf-form] .omf-managed-choice,.omf-managed-button,form[data-omf-form] :is(input[type=radio],input[type=checkbox])::after{transition:none}.omf-managed-button[data-omf-loading=true]::before{animation:none}}

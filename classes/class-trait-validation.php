@@ -12,7 +12,7 @@ use DateTime;
 
 trait OMF_Trait_Validation
 {
-  use OMF_Trait_Form;
+  use OMF_Trait_Form, OMF_Trait_Captcha;
 
   /**
    * POSTの不正な値の検証エラーやファイルアップロードの検証エラーを一時的に保持する
@@ -34,11 +34,14 @@ trait OMF_Trait_Validation
     //連携しているメールフォームを取得
     $form = $this->get_form($post_id);
     if (empty($form)) {
-      return $errors['undefined'] = ['メールフォームにエラーが起きました'];
+      return ['undefined' => ['メールフォームにエラーが起きました']];
     }
 
     //バリデーション設定を取得
-    $validations = get_post_meta($form->ID, 'cf_omf_validation', true);
+    $validations = OMF_Field_Schema::rules($form->ID);
+    if (is_wp_error($validations)) {
+      return ['undefined' => ['フォームの項目設定が不正です。管理者にお問い合わせください。']];
+    }
     if (!empty($validations)) {
       //バリデーション設定
       foreach ((array)$validations as $val) {
@@ -49,6 +52,16 @@ trait OMF_Trait_Validation
         }
       }
     }
+    if (OMF_Field_Schema::mode($form->ID) === 'builder') {
+      $schema = OMF_Field_Schema::read($form->ID);
+      if (is_wp_error($schema)) { return ['undefined' => ['フォームの項目設定が不正です。管理者にお問い合わせください。']]; }
+      foreach ($schema['fields'] as $field) {
+        $condition = $field['required_if'];
+        if ($condition === null || ($post_data[$condition['key']] ?? '') !== $condition['value']) { continue; }
+        $message = $this->validate_required($post_data[$field['key']] ?? '', 1);
+        if ($message !== '') { $errors[$field['key']][] = $message; }
+      }
+    }
 
     //不正な値の送信・ファイルアップロードの検証エラーをマージ
     foreach ($this->extra_errors as $target => $messages) {
@@ -56,28 +69,19 @@ trait OMF_Trait_Validation
     }
     $this->extra_errors = [];
 
-    if (empty($validations)) {
-      return $errors;
+    if ($errors === []) {
+      $errors = $this->validate_captcha($post_data, $form);
     }
 
-    //reCAPTCHA
-    $is_recaptcha = $this->can_use_recaptcha($post_id);
-    if ($is_recaptcha) {
-      $recaptcha = $this->verify_google_recaptcha();
-      if (!$recaptcha) {
-        $errors['recaptcha'] = ['フォーム認証エラーのためもう一度送信してください。'];
+    // 独自検証で組み込みの検証・CAPTCHAエラーを消すことはできない。
+    $custom = apply_filters('omf_validation_errors', [], $post_data, $form->ID, $post_id);
+    if (is_array($custom)) {
+      foreach ($custom as $key => $messages) {
+        foreach ((array) $messages as $message) {
+          if (is_string($message) && $message !== '') { $errors[$key][] = $message; }
+        }
       }
     }
-
-    //Cloudflare Turnstile
-    $is_turnstile = $this->can_use_turnstile($post_id);
-    if ($is_turnstile) {
-      $turnstile = $this->verify_cloudflare_turnstile();
-      if (!$turnstile) {
-        $errors['turnstile'] = ['フォーム認証エラーのためもう一度送信してください。'];
-      }
-    }
-
     return $errors;
   }
 
@@ -89,7 +93,8 @@ trait OMF_Trait_Validation
    */
   private function get_validation_settings(int $form_id): array
   {
-    $validations = get_post_meta($form_id, 'cf_omf_validation', true);
+    $validations = OMF_Field_Schema::rules($form_id);
+    if (is_wp_error($validations)) { return []; }
     if (empty($validations)) {
       return [];
     }
@@ -120,7 +125,7 @@ trait OMF_Trait_Validation
       if (empty($val['target'])) {
         continue;
       }
-      if (!empty($val['extension']) && is_array($val['extension'])) {
+      if (($val['type'] ?? '') === 'file' || (!empty($val['extension']) && is_array($val['extension']))) {
         $targets[] = $val['target'];
       }
     }
@@ -165,12 +170,8 @@ trait OMF_Trait_Validation
   }
 
   /**
-   * POST値への配列の送り込みを制限する
-   *
-   * - ファイル項目（file_size・extensionを持つtarget）は別処理で検証するため対象外
-   * - バリデーション設定に定義された項目は文字列のみ許可し、配列が来た場合はエラーにする
-   * - バリデーション設定に定義されていない項目（チェックボックスなど）は、
-   *   文字列だけで構成された連番のリスト配列のみ許可する
+   * 定義済み項目だけを受け付け、単一値と複数選択の型を検証する。
+   * ファイル情報はPOSTから受け付けず、サーバー側の保管情報を使用する。
    *
    * @param array $posts
    * @param integer|string|null $post_id ページ（固定ページ・投稿）のID
@@ -180,48 +181,38 @@ trait OMF_Trait_Validation
   {
     $form = $this->get_form($post_id);
     if (empty($form)) {
-      return $posts;
+      return [];
     }
-
-    $file_targets   = $this->get_file_field_targets($form->ID);
-    $strict_targets = $this->get_validation_targets($form->ID);
-
-    foreach ($posts as $key => $value) {
-      //ファイル項目は別処理で検証するため対象外
-      if (in_array($key, $file_targets, true)) {
+    $result = [];
+    foreach ($this->get_validation_settings($form->ID) as $rule) {
+      $key = $rule['target'] ?? '';
+      if ($key === '' || !array_key_exists($key, $posts)) {
         continue;
       }
-
-      if (!is_array($value) || empty($value)) {
+      // ファイル情報は後でサーバー側の保管情報から復元する。
+      if (in_array($key, $this->get_file_field_targets($form->ID), true)) {
         continue;
       }
-
-      //バリデーション設定がある項目は文字列のみ許可
-      if (in_array($key, $strict_targets, true)) {
-        unset($posts[$key]);
-        $this->extra_errors[$key][] = '不正な値が送信されました';
-        continue;
+      $value = $posts[$key];
+      $multiple = ($rule['type'] ?? '') === 'multiple';
+      // 既存の複数選択は、メール等の単一値検証がない場合に限り維持する。
+      $legacy_multiple = empty($rule['type']);
+      foreach (['email', 'tel', 'url', 'numeric', 'alpha', 'alphanumeric', 'katakana', 'hiragana', 'kana', 'date', 'postal_code'] as $single) {
+        if (!empty($rule[$single])) { $legacy_multiple = false; }
       }
-
-      //バリデーション設定がない項目は、文字列だけで構成された連番のリスト配列のみ許可（チェックボックスなど）
-      $is_list = array_keys($value) === range(0, count($value) - 1);
-      $is_all_string = $is_list;
-      if ($is_list) {
-        foreach ($value as $v) {
-          if (!is_string($v)) {
-            $is_all_string = false;
-            break;
-          }
+      $valid_list = is_array($value) && array_is_list($value) && count($value) <= 100;
+      if ($valid_list) {
+        foreach ($value as $item) {
+          $valid_list = $valid_list && is_string($item);
         }
       }
-
-      if (!$is_all_string) {
-        unset($posts[$key]);
+      if (($multiple && !$valid_list) || (!is_string($value) && !(($multiple || $legacy_multiple) && $valid_list))) {
         $this->extra_errors[$key][] = '不正な値が送信されました';
+        continue;
       }
+      $result[$key] = OMF_Utils::custom_escape($value);
     }
-
-    return $posts;
+    return $result;
   }
 
   /**
@@ -248,13 +239,6 @@ trait OMF_Trait_Validation
       return false;
     }
 
-    //入力画面のみ
-    $current_page_id = get_the_ID();
-    $page_ids        = $this->get_form_page_ids($form);
-    if ($page_ids['entry'] !== $current_page_id) {
-      return false;
-    }
-
     return $is_recaptcha;
   }
 
@@ -264,33 +248,10 @@ trait OMF_Trait_Validation
    */
   private function verify_google_recaptcha(): bool
   {
-    $recaptcha_secret = !empty(get_option('omf_recaptcha_secret_key')) ? sanitize_text_field(wp_unslash(get_option('omf_recaptcha_secret_key'))) : '';
-    $recaptcha_field_name = !empty(get_option('omf_recaptcha_field_name')) ? sanitize_text_field(wp_unslash(get_option('omf_recaptcha_field_name'))) : 'g-recaptcha-response';
-    $recaptcha_response = !empty(filter_input(INPUT_POST, $recaptcha_field_name)) ? sanitize_text_field(wp_unslash(filter_input(INPUT_POST, $recaptcha_field_name))) : '';
-
-    if (empty($recaptcha_secret) || empty($recaptcha_response)) {
-      return false;
-    }
-
-    // APIリクエスト
-    $recaptch_url = 'https://www.google.com/recaptcha/api/siteverify';
-    $recaptcha_params = [
-      'secret' => $recaptcha_secret,
-      'response' => $recaptcha_response,
-    ];
-    $request_params_query =  http_build_query($recaptcha_params);
-    $endpoint = "{$recaptch_url}?{$request_params_query}";
-
-    $verify_response = OMF_Utils::curl_get($endpoint);
-    //curl取得エラーの場合
-    if (empty($verify_response) || is_wp_error($verify_response)) {
-      return false;
-    }
-
-    // APIレスポンス確認
-    $response_data = json_decode($verify_response);
-
-    return !empty($response_data) && $response_data->success && $response_data->score >= 0.5;
+    $field = (string) get_option('omf_recaptcha_field_name', 'g-recaptcha-response');
+    $result = $this->verify_captcha_response('https://www.google.com/recaptcha/api/siteverify', 'omf_recaptcha_secret_key', $field);
+    $threshold = (float) get_option('omf_recaptcha_score', 0.5);
+    return !empty($result['success']) && ($result['score'] ?? 0) >= $threshold;
   }
 
   /**
@@ -317,13 +278,6 @@ trait OMF_Trait_Validation
       return false;
     }
 
-    //入力画面のみ
-    $current_page_id = get_the_ID();
-    $page_ids        = $this->get_form_page_ids($form);
-    if ($page_ids['entry'] !== $current_page_id) {
-      return false;
-    }
-
     return $is_turnstile;
   }
 
@@ -333,23 +287,8 @@ trait OMF_Trait_Validation
    */
   private function verify_cloudflare_turnstile(): bool
   {
-    $token = $_POST['cf-turnstile-response'] ?? '';
-
-    $ch = curl_init('https://challenges.cloudflare.com/turnstile/v0/siteverify');
-    curl_setopt($ch, CURLOPT_POST, true);
-    curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query([
-      'secret'   => !empty(get_option('omf_turnstile_secret_key')) ? sanitize_text_field(wp_unslash(get_option('omf_turnstile_secret_key'))) : '',
-      'response' => $token,
-      'remoteip' => $_SERVER['REMOTE_ADDR'],
-    ]));
-    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-
-    $response = curl_exec($ch);
-    curl_close($ch);
-
-    $result = json_decode($response, true);
-
-    return !empty($result['success']) && $result['success'];
+    $result = $this->verify_captcha_response('https://challenges.cloudflare.com/turnstile/v0/siteverify', 'omf_turnstile_secret_key', 'cf-turnstile-response');
+    return !empty($result['success']);
   }
 
   /**
@@ -361,6 +300,19 @@ trait OMF_Trait_Validation
   private function validate(array $post_data, array $validation): array
   {
     $errors = [];
+    $target = $validation['target'] ?? '';
+    $input = $post_data[$target] ?? '';
+    if (is_array($input) && array_is_list($input)) {
+      if ($input === []) {
+        $error = $this->validate_required($input, $validation['required'] ?? 0);
+        return $error === '' ? [] : [$error];
+      }
+      foreach ($input as $item) {
+        $errors = array_merge($errors, $this->validate([$target => $item], $validation));
+      }
+      return array_values(array_unique($errors));
+    }
+
 
     if (empty($validation)) {
       return $errors;
@@ -368,137 +320,33 @@ trait OMF_Trait_Validation
 
     //検証するデータ
     $post_key = $validation['target'];
-    $data = !empty($post_data[$post_key]) ? $post_data[$post_key] : '';
+    $data = $post_data[$post_key] ?? '';
 
-    foreach ((array)$validation as $key => $value) {
-      //最小文字数
-      if ($key === 'min') {
-        $error_message = $this->validate_min($data, $value);
-        if (!empty($error_message)) {
-          $errors[] = $error_message;
-        }
-      }
-      //最大文字数
-      elseif ($key === 'max') {
-        $error_message = $this->validate_max($data, $value);
-        if (!empty($error_message)) {
-          $errors[] = $error_message;
-        }
-      }
-      //必須（値が空の場合も検証）
-      elseif ($key === 'required') {
-        $error_message = $this->validate_required($data, $value);
-        if (!empty($error_message)) {
-          $errors[] = $error_message;
-        }
-      }
-      //電話番号
-      elseif ($key === 'tel') {
-        $error_message = $this->validate_tel($data, $value);
-        if (!empty($error_message)) {
-          $errors[] = $error_message;
-        }
-      }
-      //メールアドレス
-      elseif ($key === 'email') {
-        $error_message = $this->validate_email($data, $value);
-        if (!empty($error_message)) {
-          $errors[] = $error_message;
-        }
-      }
-      //URL
-      elseif ($key === 'url') {
-        $error_message = $this->validate_url($data, $value);
-        if (!empty($error_message)) {
-          $errors[] = $error_message;
-        }
-      }
-      //半角数字
-      elseif ($key === 'numeric') {
-        $error_message = $this->validate_numeric($data, $value);
-        if (!empty($error_message)) {
-          $errors[] = $error_message;
-        }
-      }
-      //半角英字
-      elseif ($key === 'alpha') {
-        $error_message = $this->validate_alpha($data, $value);
-        if (!empty($error_message)) {
-          $errors[] = $error_message;
-        }
-      }
-      //半角英数字
-      elseif ($key === 'alphanumeric') {
-        $error_message = $this->validate_alpha_numeric($data, $value);
-        if (!empty($error_message)) {
-          $errors[] = $error_message;
-        }
-      }
-      //カタカナ
-      elseif ($key === 'katakana') {
-        $error_message = $this->validate_katakana($data, $value);
-        if (!empty($error_message)) {
-          $errors[] = $error_message;
-        }
-      }
-      //ひらがな
-      elseif ($key === 'hiragana') {
-        $error_message = $this->validate_hiragana($data, $value);
-        if (!empty($error_message)) {
-          $errors[] = $error_message;
-        }
-      }
-      //カタカナ or ひらがな
-      elseif ($key === 'kana') {
-        $error_message = $this->validate_kana($data, $value);
-        if (!empty($error_message)) {
-          $errors[] = $error_message;
-        }
-      }
-      //日付
-      elseif ($key === 'date') {
-        $error_message = $this->validate_date($data, $value);
-        if (!empty($error_message)) {
-          $errors[] = $error_message;
-        }
-      }
-      //郵便番号
-      elseif ($key === 'postal_code') {
-        $error_message = $this->validate_postal_code($data, $value);
-        if (!empty($error_message)) {
-          $errors[] = $error_message;
-        }
-      }
-      //ThrowsSpamAway
-      elseif ($key === 'throws_spam_away') {
-        $error_message = $this->validate_throws_spam_away($data, $value);
-        if (!empty($error_message)) {
-          $errors[] = $error_message;
-        }
-      }
-      //一致する文字
-      elseif ($key === 'matching_char') {
-        $error_message = $this->validate_matching_char($data, $value);
-        if (!empty($error_message)) {
-          $errors[] = $error_message;
-        }
-      }
-      //添付ファイルのサイズ
-      elseif ($key === 'file_size') {
-        $error_message = $this->validate_file_size($data, $value);
-        if (!empty($error_message)) {
-          $errors[] = $error_message;
-        }
-      }
-      //添付ファイルの許可する拡張子
-      elseif ($key === 'extension') {
-        $error_message = $this->validate_file_extension($data, $value);
-        if (!empty($error_message)) {
-          $errors[] = $error_message;
-        }
-      } else {
-        continue;
-      }
+    // 管理画面方式はカンマ区切りに変換せず、選択値を完全一致で検証する。
+    if (isset($validation['allowed_values']) && $data !== '' && !in_array($data, $validation['allowed_values'], true)) {
+      $errors[] = '選択肢にない値が送信されました。';
+    }
+
+    if (isset($validation['builder_checks']) && is_string($data) && ($data !== '' || !empty($validation['required']))) {
+      $errors = array_merge($errors, OMF_Field_Schema::validate_checks($data, $validation['builder_checks']));
+    }
+    $validators = [
+      'min' => 'validate_min', 'max' => 'validate_max', 'required' => 'validate_required',
+      'tel' => 'validate_tel', 'email' => 'validate_email', 'url' => 'validate_url',
+      'numeric' => 'validate_numeric', 'alpha' => 'validate_alpha', 'alphanumeric' => 'validate_alpha_numeric',
+      'katakana' => 'validate_katakana', 'hiragana' => 'validate_hiragana', 'kana' => 'validate_kana',
+      'date' => 'validate_date', 'postal_code' => 'validate_postal_code', 'throws_spam_away' => 'validate_throws_spam_away',
+      'matching_char' => 'validate_matching_char', 'file_size' => 'validate_file_size', 'extension' => 'validate_file_extension',
+    ];
+    foreach ($validators as $key => $method) {
+      if (isset($validation['builder_checks']) && in_array($key, ['min', 'max', 'email', 'tel', 'url'], true)) { continue; }
+      if (!array_key_exists($key, $validation)) { continue; }
+      $value = $validation[$key];
+      if ($key === 'extension' && !is_array($value)) { continue; }
+      if ($key !== 'extension' && !is_string($value) && !is_int($value)) { continue; }
+      if ($key === 'postal_code' && (int) $value !== 1) { continue; }
+      $message = $this->$method($data, $value);
+      if ($message !== '') { $errors[] = $message; }
     }
     return $errors;
   }
@@ -564,7 +412,7 @@ trait OMF_Trait_Validation
       return $error;
     }
 
-    if (empty($data)) {
+    if ($data === '' || $data === null || $data === []) {
       $error = "必須項目です";
     }
 
@@ -579,28 +427,10 @@ trait OMF_Trait_Validation
    */
   private function validate_tel(mixed $data, int|string $value): string
   {
-    $error = '';
-
-    //検証フラグがOFFの時はスキップ
-    if (intval($value) !== 1) {
-      return $error;
-    }
-
-    if (empty($data) || !is_string($data)) {
-      return $error;
-    }
-
-    $is_tel = !empty($data) ? filter_var($data, FILTER_VALIDATE_REGEXP, [
-      'options' => [
-        'regexp' => '/\A(((0(\d{1}[-(]?\d{4}|\d{2}[-(]?\d{3}|\d{3}[-(]?\d{2}|\d{4}[-(]?\d{1}|[5789]0[-(]?\d{4})[-)]?)|\d{1,4}\-?)\d{4}|0120[-(]?\d{3}[-)]?\d{3})\z/'
-      ]
-    ]) : false;
-
-    if (!$is_tel) {
-      $error = "電話番号の形式で入力してください";
-    }
-
-    return $error;
+    if ((int) $value !== 1 || $data === '') { return ''; }
+    if (!is_string($data)) { return '電話番号の形式で入力してください'; }
+    $number = str_replace('-', '', mb_convert_kana($data, 'n', 'UTF-8'));
+    return preg_match('/^0[0-9]{9,10}$/D', $number) ? '' : '電話番号の形式で入力してください';
   }
 
   /**
@@ -618,7 +448,7 @@ trait OMF_Trait_Validation
       return $error;
     }
 
-    if (empty($data) || !is_string($data)) {
+    if ($data === '' || !is_string($data)) {
       return $error;
     }
 
@@ -645,7 +475,7 @@ trait OMF_Trait_Validation
       return $error;
     }
 
-    if (empty($data) || !is_string($data)) {
+    if ($data === '' || !is_string($data)) {
       return $error;
     }
 
@@ -672,11 +502,11 @@ trait OMF_Trait_Validation
       return $error;
     }
 
-    if (empty($data)) {
+    if ($data === '' || $data === null || $data === []) {
       return $error;
     }
 
-    $is_numeric = !empty($data) && is_numeric($data) ? preg_match('/^[0-9]+$/', $data) === 1 : false;
+    $is_numeric = is_string($data) && is_numeric($data) ? preg_match('/^[0-9]+$/', $data) === 1 : false;
     if (!$is_numeric) {
       $error = "半角数字で入力してください";
     }
@@ -699,7 +529,7 @@ trait OMF_Trait_Validation
       return $error;
     }
 
-    if (empty($data) || !is_string($data)) {
+    if ($data === '' || !is_string($data)) {
       return $error;
     }
 
@@ -726,7 +556,7 @@ trait OMF_Trait_Validation
       return $error;
     }
 
-    if (empty($data) || !is_string($data)) {
+    if ($data === '' || !is_string($data)) {
       return $error;
     }
 
@@ -753,7 +583,7 @@ trait OMF_Trait_Validation
       return $error;
     }
 
-    if (empty($data) || !is_string($data)) {
+    if ($data === '' || !is_string($data)) {
       return $error;
     }
 
@@ -780,7 +610,7 @@ trait OMF_Trait_Validation
       return $error;
     }
 
-    if (empty($data) || !is_string($data)) {
+    if ($data === '' || !is_string($data)) {
       return $error;
     }
 
@@ -808,7 +638,7 @@ trait OMF_Trait_Validation
       return $error;
     }
 
-    if (empty($data) || !is_string($data)) {
+    if ($data === '' || !is_string($data)) {
       return $error;
     }
 
@@ -835,7 +665,7 @@ trait OMF_Trait_Validation
       return $error;
     }
 
-    if (empty($data) || !is_string($data)) {
+    if ($data === '' || !is_string($data)) {
       return $error;
     }
 
@@ -906,7 +736,7 @@ trait OMF_Trait_Validation
       return $error;
     }
 
-    if (empty($data) || !is_string($data)) {
+    if ($data === '' || !is_string($data)) {
       return $error;
     }
 
@@ -929,26 +759,12 @@ trait OMF_Trait_Validation
    */
   private function validate_matching_char(mixed $data, int|string $value): string
   {
-    $error = '';
-
-    //検証フラグがOFFの時はスキップ
-    if (intval($value) !== 1) {
-      return $error;
+    if ((string) $value === '' || $data === '') {
+      return '';
     }
-
-    if (empty($data) || !is_string($data)) {
-      return $error;
-    }
-
-    //一致させる文字列を配列で取得
-    $words = preg_split('/\s*,\s*/', $value, -1, PREG_SPLIT_NO_EMPTY);
-    if (!empty($words) && !in_array($data, $words, true)) {
-      $error = '不正な値が送信されました。';
-    }
-
-    return $error;
+    $words = preg_split('/\s*,\s*/u', (string) $value, -1, PREG_SPLIT_NO_EMPTY);
+    return is_string($data) && in_array($data, $words, true) ? '' : '選択肢にない値が送信されました。';
   }
-
 
   /**
    * Throws SPAM Awayプラグインの検証処理
@@ -1050,62 +866,14 @@ trait OMF_Trait_Validation
    */
   private function validate_file_size(mixed $file, int|string $size): string
   {
-    $error = '';
-    $is_file_array = OMF_Utils::isFilesArray($file);
-    if (!$is_file_array) {
-      return $error;
-    }
-
-    $max_upload_size = size_format($size);
-
-    if ((int)$file['size'] > (int)$size) {
-      $error = "ファイルサイズは{$max_upload_size}以内にしてください。";
-    }
-
-    return $error;
+    if (!is_array($file) || !isset($file['size']) || (int) $size <= 0) { return ''; }
+    return (int) $file['size'] > (int) $size ? 'ファイルサイズは' . size_format((int) $size) . '以内にしてください。' : '';
   }
 
-  /**
-   * 添付ファイルの拡張子を検証
-   * @param  mixed $file  検証するファイルデータ
-   * @param  array $extensions 検証条件
-   * @return string        エラーメッセージ
-   */
   private function validate_file_extension(mixed $file, array $extensions): string
   {
-    $error = '';
-    $is_file_array = OMF_Utils::isFilesArray($file);
-    if (!$is_file_array || empty($file['attachment_id'])) {
-      return $error;
-    }
-
-    if (!is_array($extensions) || empty($extensions)) {
-      return $error;
-    }
-
-    $allowed_types = OMF_Config::ALLOWED_TYPES;
-    $mime_types = [];
-    foreach ((array)$extensions as $ext) {
-      $mime_types[] = $allowed_types[$ext];
-    }
-
-    if (empty($mime_types)) {
-      return $error;
-    }
-
-    $mime_type = get_post_mime_type($file['attachment_id']);
-
-
-    if (!in_array($mime_type, $mime_types, true)) {
-      $extensions_count = count($extensions);
-      if ($extensions_count > 1) {
-        $allowed_extensions = implode('、', $extensions);
-        $error = "拡張子が {$allowed_extensions} のいずれかのファイルに変更してください";
-      } else {
-        $error = "拡張子が {$extensions[0]} のファイルに変更してください";
-      }
-    }
-
-    return $error;
+    if (!is_array($file) || empty($file['upload_id']) || $extensions === []) { return ''; }
+    $ext = strtolower(pathinfo($file['name'], PATHINFO_EXTENSION));
+    return in_array($ext, array_map('strtolower', $extensions), true) ? '' : '許可されていないファイル形式です。';
   }
 }

@@ -11,7 +11,7 @@ use WP_Post;
 
 class OMF_Page
 {
-  use OMF_Trait_Send, OMF_Trait_Validation;
+  use OMF_Trait_Send, OMF_Trait_Validation, OMF_Trait_Managed_Flow;
 
   /**
    * セッション接頭辞
@@ -69,7 +69,7 @@ class OMF_Page
    */
   private function add_actions()
   {
-    add_action('parse_request', [$this, 'init_sessions']);
+    add_action('template_redirect', [$this, 'init_sessions'], 0);
     add_action('wp_enqueue_scripts', [$this, 'load_scripts']);
     add_action('template_redirect', [$this, 'redirect_form_pages']);
   }
@@ -105,19 +105,23 @@ class OMF_Page
    */
   public function init_sessions()
   {
-    ini_set('session.use_cookies', '1');
-    ini_set('session.use_only_cookies', '1');
-    ini_set('session.cookie_secure', '1');
-    ini_set('session.cookie_httponly', '1');
-    ini_set('session.entropy_file', '/dev/urandom');
-    ini_set('session.entropy_length', '32');
-
-    if (!$this->is_rest() && session_status() !== PHP_SESSION_ACTIVE) {
-      session_start();
-      header('Expires:-1');
-      header('Cache-Control:');
-      header('Pragma:');
+    if ($this->is_rest() || is_admin() || is_favicon() || is_robots() || is_feed()) { return; }
+    $form = is_singular() ? $this->get_form(get_queried_object_id()) : [];
+    if (!$form) {
+      // フォーム利用済みの訪問者だけ既存セッションを開き、他機能の状態は残す。
+      if (session_status() !== PHP_SESSION_ACTIVE && empty($_COOKIE[session_name()])) { return; }
+      OMF_Utils::start_session();
+      foreach (array_keys($_SESSION['omf_active_forms'] ?? []) as $slug) { $this->clear_sessions($slug); }
+      unset($_SESSION['omf_active_forms']);
+      session_write_close();
+      return;
     }
+    if (OMF_Managed_Form::enabled($form->ID)) {
+      $routes = OMF_Form_Routes::resolve($form);
+      if ($routes['errors'] || !in_array((int) get_queried_object_id(), $routes['pages'], true)) { return; }
+    }
+    OMF_Utils::start_session();
+    nocache_headers();
   }
 
   /**
@@ -128,7 +132,16 @@ class OMF_Page
   public function load_scripts()
   {
     $this->load_recaptcha_script();
-    $this->load_disable_browser_back_script();
+    $form = $this->get_form();
+    if ($form && OMF_Managed_Form::enabled($form->ID)) {
+      wp_enqueue_style('omf-managed', plugins_url('assets/managed-form.css', __DIR__), [], (string) filemtime(dirname(__DIR__) . '/assets/managed-form.css'));
+      wp_enqueue_script('omf-postal-address', plugins_url('dist/js/postal-address.js', __DIR__), [], (string) filemtime(dirname(__DIR__) . '/dist/js/postal-address.js'), true);
+      wp_enqueue_script('omf-managed', plugins_url('assets/managed-form.js', __DIR__), [], (string) filemtime(dirname(__DIR__) . '/assets/managed-form.js'), true);
+    }
+    if ($form && get_post_meta($form->ID, 'cf_omf_front_validation', true) === '1') {
+      wp_enqueue_script('omf-frontend-validator', plugins_url('dist/js/frontend-validator.js', __DIR__), [], (string) filemtime(dirname(__DIR__) . '/dist/js/frontend-validator.js'), true);
+      wp_enqueue_style('omf-frontend-validator', plugins_url('assets/frontend-validator.css', __DIR__), [], (string) filemtime(dirname(__DIR__) . '/assets/frontend-validator.css'));
+    }
   }
 
 
@@ -170,7 +183,7 @@ class OMF_Page
     }
 
     //現在のページのID取得
-    $current_page_id = get_the_ID();
+    $current_page_id = get_queried_object_id();
 
     //連携するメールフォームを取得
     $form  = $this->get_form($current_page_id);
@@ -180,8 +193,9 @@ class OMF_Page
 
     //入力・確認・完了画面のページIDを取得する
     $page_ids = $this->get_form_page_ids($form);
+    if (OMF_Managed_Form::enabled($form->ID)) { return OMF_Managed_Form::step($form) === 'entry'; }
     //入力・確認画面どちらかでなければ設置しない
-    $recaptcha_page_ids = [$page_ids['entry'], $page_ids['confirm']];
+    $recaptcha_page_ids = [$page_ids['entry'] ?? 0];
     if (!in_array($current_page_id, $recaptcha_page_ids, true)) {
       return false;
     }
@@ -198,16 +212,17 @@ class OMF_Page
   private function get_recaptcha_script(string $recaptcha_site_key): string
   {
 
+    $encoded_key = wp_json_encode($recaptcha_site_key);
     $script = "
     grecaptcha.ready(function () {
       const setToken = () => {
         grecaptcha
-          .execute('{$recaptcha_site_key}', { action: 'homepage' })
+          .execute({$encoded_key}, { action: 'homepage' })
           .then(function (token) {
             var recaptchaResponse = document.getElementById(
               'g-recaptcha-response'
             );
-            recaptchaResponse.value = token;
+            if (recaptchaResponse) recaptchaResponse.value = token;
           });
       };
       setToken();
@@ -224,30 +239,7 @@ class OMF_Page
    *
    * @return void
    */
-  private function load_disable_browser_back_script()
-  {
-    //現在のページのID取得
-    $current_page_id = get_the_ID();
 
-    //連携するメールフォームを取得
-    $form  = $this->get_form($current_page_id);
-    if (empty($form)) {
-      return;
-    }
-
-    //入力・確認・完了画面のページIDを取得する
-    $page_ids = $this->get_form_page_ids($form);
-
-    //完了画面でなければ設置しない
-    if ($current_page_id !== (int)$page_ids['complete']) {
-      return;
-    }
-
-    wp_enqueue_script('omf-disable-back-button-script', plugins_url('dist/js/disable-back-button.js', __DIR__), [], null, [
-      'strategy' => 'defer',
-      'in_footer' => true
-    ]);
-  }
 
   /**
    * エラーデータを取得
@@ -273,28 +265,16 @@ class OMF_Page
    */
   public function get_post_values(): array
   {
-    $post_data = [];
-
-    //セッションがある場合
-    if (!empty($_SESSION[$this->session_name_post_data])) {
-      $post_data = $_SESSION[$this->session_name_post_data];
+    $form = $this->get_form();
+    $completion = $form ? OMF_Managed_Form::completion($form) : null;
+    if ($completion) { return $completion['data']; }
+    $post_data = $_SESSION[$this->session_name_post_data] ?? [];
+    if ($_POST !== [] && $this->is_valid_nonce()) {
+      $posts = $this->restrict_array_values(wp_unslash($_POST));
+      // 未選択のチェックボックスも正しく空に戻す。
+      $post_data = $this->is_page('entry') ? $posts : array_replace($post_data, $posts);
     }
-
-    //POSTがある場合は上書き
-    if (!empty($_POST)) {
-      $posts = array_map([__NAMESPACE__ . '\OMF_Utils', 'custom_escape'], $_POST);
-      //ファイル項目以外の配列の送り込みを制限する
-      $posts = $this->restrict_array_values($posts);
-      foreach ((array)$posts as $key => $value) {
-        $post_data[$key] = $value;
-      }
-      $post_data = $this->filter_post_keys($post_data);
-    }
-
-    //アップロードファイルを検証・保存して追加（nonceが正しいPOSTの時だけ保存する）
-    $post_data = $this->process_uploaded_files($post_data);
-
-    return $post_data;
+    return $this->restore_uploaded_files($post_data);
   }
 
   /**
@@ -304,8 +284,9 @@ class OMF_Page
    */
   public function nonce_field()
   {
+    if ($this->is_page('complete')) { return; }
     //nonceを出力
-    wp_nonce_field($this->nonce_action, 'omf_nonce', true);
+    echo str_replace('<input ', '<input data-omf-role="token" ', wp_nonce_field($this->nonce_action, 'omf_nonce', true, false));
     //ワンタイムトークンの出力
     $this->token_field();
   }
@@ -317,6 +298,7 @@ class OMF_Page
    */
   public function token_field()
   {
+    if ($this->is_page('complete')) { return; }
     $token = '';
     //初期画面
     if ($this->is_page('entry')) {
@@ -324,9 +306,9 @@ class OMF_Page
     }
     //初期画面以外
     else {
-      $token = !empty($_SESSION['omf_token']) ? $_SESSION['omf_token'] : '';
+      $token = !empty($_SESSION[OMF_Embed_Context::token_key()]) ? $_SESSION[OMF_Embed_Context::token_key()] : '';
     }
-    echo '<input type="hidden" name="omf_token" value="' . $token . '">';
+    echo '<input type="hidden" name="omf_token" value="' . esc_attr($token) . '" data-omf-role="token">';
   }
 
   /**
@@ -336,13 +318,16 @@ class OMF_Page
    */
   public function create_token(): string
   {
-    if (!empty($_SESSION['omf_token'])) {
-      return $_SESSION['omf_token'];
+    if ($this->is_page('complete')) { return ''; }
+    $form = $this->get_form();
+    if ($form && session_status() === PHP_SESSION_ACTIVE) { $_SESSION['omf_active_forms'][$form->post_name] = true; }
+    if (!empty($_SESSION[OMF_Embed_Context::token_key()])) {
+      return $_SESSION[OMF_Embed_Context::token_key()];
     }
 
     $token_byte = random_bytes(16);
     $token = bin2hex($token_byte);
-    $_SESSION['omf_token'] = $token;
+    $_SESSION[OMF_Embed_Context::token_key()] = $token;
     return $token;
   }
 
@@ -354,15 +339,15 @@ class OMF_Page
   public function recaptcha_field()
   {
     $is_recaptcha = $this->can_use_recaptcha();
-    if (!$is_recaptcha) {
+    if (!$is_recaptcha || !$this->is_page('entry')) {
       return;
     }
 
-    $recaptcha_field_name = !empty(get_option('omf_recaptcha_field_name')) ? sanitize_text_field(wp_unslash(get_option('omf_recaptcha_field_name'))) : 'g-recaptcha-response';
-    $site_key = !empty(get_option('omf_recaptcha_site_key')) ? sanitize_text_field(wp_unslash(get_option('omf_recaptcha_site_key'))) : '';
+    $recaptcha_field_name = esc_attr((string) get_option('omf_recaptcha_field_name', 'g-recaptcha-response'));
+    $site_key = esc_attr((string) get_option('omf_recaptcha_site_key', ''));
 
     $html =  <<<EOM
-    <input type="hidden" name="{$recaptcha_field_name}" id="g-recaptcha-response" data-sitekey="{$site_key}">
+    <input type="hidden" name="{$recaptcha_field_name}" id="g-recaptcha-response" data-sitekey="{$site_key}" data-omf-role="captcha">
     EOM;
 
     echo $html;
@@ -376,11 +361,11 @@ class OMF_Page
   public function turnstile_field()
   {
     $is_turnstile = $this->can_use_turnstile();
-    if (!$is_turnstile) {
+    if (!$is_turnstile || !$this->is_page('entry')) {
       return;
     }
 
-    $site_key = !empty(get_option('omf_turnstile_site_key')) ? sanitize_text_field(wp_unslash(get_option('omf_turnstile_site_key'))) : '';
+    $site_key = esc_attr((string) get_option('omf_turnstile_site_key', ''));
 
     $html =  <<<EOM
     <div id="turnstile-widget" class="cf-turnstile" data-sitekey="{$site_key}"></div>
@@ -406,7 +391,7 @@ class OMF_Page
         }
       }
 
-      const sitekey = el.dataset.sitekey || '{$site_key}';
+      const sitekey = el.dataset.sitekey;
 
       const widgetId = turnstile.render(el, {
         sitekey: sitekey,
@@ -427,8 +412,9 @@ class OMF_Page
    */
   private function update_session_names(string $prefix_id)
   {
+    if (session_status() === PHP_SESSION_ACTIVE) { $_SESSION['omf_active_forms'][$prefix_id] = true; }
     //セッション接頭辞を一意にする
-    $this->session_name_prefix = OMF_Config::PREFIX . $prefix_id;
+    $this->session_name_prefix = OMF_Embed_Context::prefix($prefix_id);
     //送信データセッション名を更新
     $this->session_name_post_data = "{$this->session_name_prefix}_data";
     //認証セッション名を更新
@@ -448,7 +434,7 @@ class OMF_Page
    *
    * @return void
    */
-  private function clear_sessions_all()
+  private function clear_current_form_sessions()
   {
     $prefix_id = $this->get_form_slug();
     $this->clear_sessions($prefix_id);
@@ -465,11 +451,14 @@ class OMF_Page
       return;
     }
 
-    $prefix = OMF_Config::PREFIX . $prefix_id;
-    foreach ($_SESSION as $key => $value) {
-      if (strpos($key, $prefix) === 0) {
-        unset($_SESSION[$key]);
-      }
+    $prefix = OMF_Embed_Context::prefix($prefix_id) . '_';
+    $form = get_page_by_path($prefix_id, OBJECT, OMF_Config::NAME);
+    if ($form) { unset($_SESSION['omf_delivery_receipt_' . $form->ID]); }
+    unset($_SESSION['omf_active_forms'][$prefix_id]);
+    if (empty($_SESSION['omf_active_forms'])) { unset($_SESSION['omf_active_forms']); }
+    // スラッグが接頭辞として重なる別フォームの状態を巻き込まない。
+    foreach (['data', 'auth', 'errors', 'back', 'sent', 'uploaded_files', 'captcha', 'delivery', 'token', 'managed_step', 'managed_edited', 'managed_entry_once', 'managed_complete_once', 'managed_consumed_token'] as $name) {
+      unset($_SESSION[$prefix . $name]);
     }
   }
 
@@ -485,12 +474,12 @@ class OMF_Page
       return [];
     }
 
-    $recaptcha_field_name = !empty(get_option('omf_recaptcha_field_name')) ? sanitize_text_field(wp_unslash(get_option('omf_recaptcha_field_name'))) : 'g-recaptcha-response';
-    $remove_keys = ['confirm', 'send', 'omf_nonce', '_wp_http_referer', 'omf_token', 'cf-turnstile-response', $recaptcha_field_name];
+    $recaptcha_field_name = esc_attr((string) get_option('omf_recaptcha_field_name', 'g-recaptcha-response'));
+    $remove_keys = ['confirm', 'send', 'submit_back', 'omf_nonce', '_wp_http_referer', 'omf_token', 'cf-turnstile-response', $recaptcha_field_name];
 
-    $filterd_post_data = array_diff_key($post_data, array_flip($remove_keys));
+    $filtered_post_data = array_diff_key($post_data, array_flip($remove_keys));
 
-    return $filterd_post_data;
+    return $filtered_post_data;
   }
 
 
@@ -502,7 +491,7 @@ class OMF_Page
   private function is_valid_nonce(): bool
   {
     $nonce = filter_input(INPUT_POST, 'omf_nonce');
-    return wp_verify_nonce($nonce, $this->nonce_action) !== false;
+    return is_string($nonce) && $nonce !== '' && wp_verify_nonce($nonce, (string) $this->nonce_action) !== false;
   }
 
   /**
@@ -543,8 +532,8 @@ class OMF_Page
    */
   private function is_valid_token(): bool
   {
-    $token = OMF_Utils::custom_escape(filter_input(INPUT_POST, 'omf_token'));
-    $session_token = !empty($_SESSION['omf_token']) ? $_SESSION['omf_token'] : '';
+    $token = OMF_Utils::custom_escape(filter_input(INPUT_POST, 'omf_token') ?? '');
+    $session_token = !empty($_SESSION[OMF_Embed_Context::token_key()]) ? $_SESSION[OMF_Embed_Context::token_key()] : '';
     return !empty($token) && $token === $session_token;
   }
 
@@ -561,15 +550,17 @@ class OMF_Page
     }
 
     //現在のページのID取得
-    $current_page_id = get_the_ID();
+    $current_page_id = get_queried_object_id();
     $form = $this->get_form($current_page_id);
     if (empty($form)) {
-      $this->clear_sessions_all();
+      $this->clear_current_form_sessions();
       return;
     }
 
     //セッション接頭辞を一意にする
     $this->update_session_names($form->post_name);
+
+    if (OMF_Managed_Form::enabled($form->ID)) { $this->managed_redirect($form); return; }
 
     //リダイレクト
     $this->redirect_handler($form->ID, $current_page_id);
@@ -592,15 +583,15 @@ class OMF_Page
     $pages = $this->get_active_form_pages($form_id, $page_paths);
 
     //フォーム入力ページ
-    if ($current_page_id === $pages['entry']->ID) {
+    if ($current_page_id === ($pages['entry']->ID ?? 0)) {
       $this->entry_page_redirect($page_paths, $pages);
     }
     //確認画面
-    elseif ($current_page_id === $pages['confirm']->ID) {
+    elseif ($current_page_id === ($pages['confirm']->ID ?? 0)) {
       $this->confirm_page_redirect($page_paths, $pages);
     }
     //完了画面
-    elseif ($current_page_id === $pages['complete']->ID) {
+    elseif ($current_page_id === ($pages['complete']->ID ?? 0)) {
       $this->complete_page_redirect($page_paths);
     }
     //それ以外
@@ -643,6 +634,7 @@ class OMF_Page
     //認証NG
     if (!$is_authenticate) {
       $_SESSION[$this->session_name_auth] = false;
+      $_SESSION[$this->session_name_error] = ['auth' => ['有効期限が切れました。入力内容を確認してもう一度お試しください。']];
       return;
     }
 
@@ -650,7 +642,7 @@ class OMF_Page
     $post_data = $this->get_post_values();
 
     //入力項目を検証
-    $errors = $this->validate_mail_form_data($post_data);
+    $errors = $this->validate_submission($post_data);
 
     //検証NGの場合は入力画面に戻す
     if (!empty($errors)) {
@@ -695,7 +687,7 @@ class OMF_Page
       //認証フラグをオフ
       $_SESSION[$this->session_name_auth] = false;
       session_write_close();
-      wp_safe_redirect(esc_url(home_url($page_paths['entry'])));
+      wp_safe_redirect(esc_url_raw(home_url($page_paths['entry'])));
       exit;
     }
   }
@@ -728,8 +720,8 @@ class OMF_Page
       $_SESSION[$this->session_name_auth] = false;
       //エラーがなければ送信データをクリア
       if (empty($_SESSION[$this->session_name_error])) {
-        $_SESSION[$this->session_name_post_data] = [];
-        unset($_SESSION[$this->session_name_post_data]);
+        $this->clear_current_form_sessions();
+        unset($_SESSION[OMF_Embed_Context::token_key()]);
       }
     }
   }
@@ -747,7 +739,7 @@ class OMF_Page
     $_SESSION[$this->session_name_post_data] = $this->filter_post_keys($post_data);
     $_SESSION[$this->session_name_error] = $errors;
     session_write_close();
-    wp_safe_redirect(esc_url(home_url($page_paths['entry'])));
+    wp_safe_redirect(esc_url_raw(home_url($page_paths['entry'])));
     exit;
   }
 
@@ -763,7 +755,7 @@ class OMF_Page
     $_SESSION[$this->session_name_auth] = true;
     $_SESSION[$this->session_name_post_data] = $this->filter_post_keys($post_data);
     session_write_close();
-    wp_safe_redirect(esc_url(home_url($page_paths['confirm'])), 307);
+    wp_safe_redirect(esc_url_raw(home_url($page_paths['confirm'])), 303);
     exit;
   }
 
@@ -818,7 +810,7 @@ class OMF_Page
     $_SESSION[$this->session_name_post_data] = $this->get_post_values();
     session_write_close();
     //入力画面に戻す
-    wp_safe_redirect(esc_url(home_url($page_paths['entry'])), 307);
+    wp_safe_redirect(esc_url_raw(home_url($page_paths['entry'])), 303);
     exit;
   }
 
@@ -838,7 +830,7 @@ class OMF_Page
     //POSTもセッションもない場合
     $_SESSION[$this->session_name_auth] = false;
     session_write_close();
-    wp_safe_redirect(esc_url(home_url($page_paths['entry'])));
+    wp_safe_redirect(esc_url_raw(home_url($page_paths['entry'])));
     exit;
   }
 
@@ -884,23 +876,7 @@ class OMF_Page
    */
   private function handle_no_session_confirm_page(array $page_paths, array $pages)
   {
-    //nonce認証・リファラー認証
-    $is_authenticate = $this->is_authenticate($pages['confirm']->post_name) || $this->is_authenticate($pages['entry']->post_name);
-    //token検証
-    $is_valid_token = $this->is_valid_token();
-    //認証NG
-    if (!$is_authenticate || !$is_valid_token) {
-      $this->back_to_entry_page_by_invalid($page_paths);
-      return;
-    }
-
-    //メール送信の場合
-    if ($this->is_mail_send_request()) {
-      //データ取得
-      $post_data = $this->get_post_values();
-      $this->mail_send_handler($page_paths, $pages['confirm']->post_name, $post_data);
-      return;
-    }
+    $this->back_to_entry_page_by_invalid($page_paths);
   }
 
   /**
@@ -924,7 +900,7 @@ class OMF_Page
     $_SESSION[$this->session_name_auth] = false;
     $_SESSION[$this->session_name_post_data] = $this->filter_post_keys($post_data);
     session_write_close();
-    wp_safe_redirect(esc_url(home_url($page_paths['entry'])));
+    wp_safe_redirect(esc_url_raw(home_url($page_paths['entry'])));
     exit;
   }
 
@@ -941,7 +917,7 @@ class OMF_Page
     $_SESSION[$this->session_name_post_data] = $this->filter_post_keys($post_data);
     session_write_close();
     //リダイレクトする
-    wp_safe_redirect(esc_url(home_url($page_paths['confirm'])));
+    wp_safe_redirect(esc_url_raw(home_url($page_paths['confirm'])));
     exit;
   }
 
@@ -955,19 +931,19 @@ class OMF_Page
     //POSTがある場合はリダイレクト
     if (!empty($_POST)) {
       session_write_close();
-      wp_safe_redirect(esc_url(home_url($page_paths['complete'])));
+      wp_safe_redirect(esc_url_raw(home_url($page_paths['complete'])));
       exit;
     }
 
     //セッションがある場合
     if ($this->has_valid_session()) {
       //セッションを破棄
-      $this->clear_sessions_all();
+      $this->clear_current_form_sessions();
     }
     //セッションがない場合
     else {
       session_write_close();
-      wp_safe_redirect(esc_url(home_url($page_paths['entry'])));
+      wp_safe_redirect(esc_url_raw(home_url($page_paths['entry'])));
       exit;
     }
   }
@@ -1006,7 +982,7 @@ class OMF_Page
     //完了画面にリダイレクト
     $_SESSION[$this->session_name_auth] = true;
     session_write_close();
-    wp_safe_redirect(esc_url(home_url($page_paths['complete'])), 307);
+    wp_safe_redirect(esc_url_raw(home_url($page_paths['complete'])), 303);
     exit;
   }
 
@@ -1026,7 +1002,7 @@ class OMF_Page
     ];
     $_SESSION[$this->session_name_post_data] = $this->filter_post_keys($post_data);
     session_write_close();
-    wp_safe_redirect(esc_url(home_url($page_paths['entry'])));
+    wp_safe_redirect(esc_url_raw(home_url($page_paths['entry'])));
     exit;
   }
 
@@ -1061,7 +1037,7 @@ class OMF_Page
     }
 
     //検証
-    $errors = $this->validate_mail_form_data($post_data);
+    $errors = $this->validate_submission($post_data);
     //エラーがある場合は入力画面に戻す
     if (!empty($errors)) {
       $this->redirect_to_entry_page_by_invalid($post_data, $page_paths, $errors);
@@ -1078,7 +1054,9 @@ class OMF_Page
     // メール送信
     $result = $this->send_mails($post_data, $form->ID, $post_id);
 
-    $this->after_send_mails($form, $post_data, $post_id);
+    if ($result) {
+      $this->after_send_mails($form, $post_data, $post_id);
+    }
 
     return $result;
   }
@@ -1093,39 +1071,7 @@ class OMF_Page
    */
   private function send_mails(array $post_data, int $form_id, int $post_id): bool
   {
-    //添付ファイルの変換処理
-    $converted      = $this->convert_attachments($post_data);
-    $attachments    = $converted['attachment_paths'];
-    $attachment_ids = $converted['attachment_ids'];
-    $post_data      = $converted['tags'];
-
-    //自動返信の有無
-    $is_disable_reply_mail = $this->is_disable_reply_mail($form_id);
-    //自動返信なしの場合
-    if ($is_disable_reply_mail) {
-      //通知メール送信処理
-      $is_sended_admin = $this->send_admin_mail($post_data, $post_id, $attachments);
-      return $is_sended_admin;
-    }
-
-    //自動返信ありの場合
-    //自動返信メール送信処理
-    $is_sended_reply = $this->send_reply_mail($post_data, $post_id, $attachments);
-    //自動返信メールの宛先がない時
-    if ($is_sended_reply === 'no-reply') {
-      $post_data['omf_reply_mail_sended'] = '【自動返信】スキップ（宛先なし）';
-    }
-    //自動返信メールの宛先がある時
-    else {
-      $post_data['omf_reply_mail_sended'] = $is_sended_reply ? '【自動返信】送信成功' : '【自動返信】送信失敗';
-    }
-    //通知メール送信処理
-    $is_sended_admin = $this->send_admin_mail($post_data, $post_id, $attachments);
-
-    //添付ファイルの一時タグを削除
-    $this->remove_temporary_media_tag($attachment_ids);
-
-    return $is_sended_reply && $is_sended_admin;
+    return $this->deliver_submission($post_data, $form_id, $post_id)['is_sended'];
   }
 
   /**
@@ -1145,7 +1091,7 @@ class OMF_Page
    */
   private function get_post_data_session(): array
   {
-    return !empty($_SESSION[$this->session_name_post_data]) ? array_map([__NAMESPACE__ . '\OMF_Utils', 'custom_escape'], $_SESSION[$this->session_name_post_data]) : [];
+    return $_SESSION[$this->session_name_post_data] ?? [];
   }
 
   /**
@@ -1163,7 +1109,7 @@ class OMF_Page
     //送信後にメールIDを更新
     $this->update_mail_id($form->ID, $post_data['mail_id']);
     //送信後のフック
-    do_action('omf_after_send_mail', $post_data, $form, $post_id);
+    if (!in_array(OMF_Delivery::mode($form->ID), ['wp_async','server_cron'], true)) { do_action('omf_after_send_mail', $post_data, $form, $post_id); }
   }
 
   /**
@@ -1174,8 +1120,8 @@ class OMF_Page
   private function prevent_duplicate_sending()
   {
     //ワンタイムトークンを破棄
-    if (!empty($_SESSION['omf_token'])) {
-      unset($_SESSION['omf_token']);
+    if (!empty($_SESSION[OMF_Embed_Context::token_key()])) {
+      unset($_SESSION[OMF_Embed_Context::token_key()]);
     }
 
     //送信済みフラグをON

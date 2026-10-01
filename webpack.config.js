@@ -1,6 +1,5 @@
 const path = require('path');
-const glob = require('glob');
-const mqpacker = require('css-mqpacker');
+const fs = require('fs');
 const autoprefixer = require('autoprefixer');
 const MiniCssExtractPlugin = require('mini-css-extract-plugin');
 const TerserPlugin = require('terser-webpack-plugin');
@@ -8,15 +7,7 @@ const TerserPlugin = require('terser-webpack-plugin');
 const is_production = process.env.NODE_ENV === 'production';
 
 const srcDir = './src/js';
-const entries = glob
-  .sync('**/*.js', {
-    ignore: '**/_*.js',
-    cwd: srcDir,
-  })
-  .map(function (key) {
-    // [ '**/*.js' , './src/**/*.js' ]という形式の配列になる
-    return [key, path.resolve(srcDir, key)];
-  });
+const entries = fs.readdirSync(srcDir).filter((key) => key.endsWith('.js') && !key.startsWith('_')).map((key) => [key, path.resolve(srcDir, key)]);
 
 // 配列→{key:value}の連想配列へ変換
 const entryObj = Object.fromEntries(entries);
@@ -50,21 +41,7 @@ module.exports = {
       {
         test: /\.js$/,
         use: [
-          is_production
-            ? {
-                loader: 'babel-loader',
-                options: {
-                  presets: ['@babel/preset-env'],
-                },
-              }
-            : {
-                loader: 'esbuild-loader',
-                options: {
-                  loader: 'js',
-                  target: 'es2015',
-                  sourcemap: true,
-                },
-              },
+          { loader: 'babel-loader', options: { presets: ['@babel/preset-env'] } },
         ],
       },
       {
@@ -98,9 +75,6 @@ module.exports = {
                     cascade: false,
                     grid: true,
                   }),
-                  mqpacker({
-                    sort: true,
-                  }),
                 ],
               },
             },
@@ -122,7 +96,7 @@ module.exports = {
     }),
   ],
   // devtool: is_production ? 'eval' : 'source-map',
-  devtool: 'source-map',
+  devtool: is_production ? false : 'source-map',
   watchOptions: {
     ignored: /node_modules/,
   },

@@ -57,7 +57,7 @@
             $publish_post_date = get_the_date('Y年n月j日', $publish_post);
           }
 
-          $output_data_url = current_user_can('editor') ? "admin.php?page=omf_output_data&omf_data_id={$data_post_type}" : "edit.php?post_type=original_mail_forms&page=omf_output_data&omf_data_id={$data_post_type}";
+          $output_data_url = !current_user_can('manage_options') && current_user_can('edit_others_posts') ? "admin.php?page=omf_output_data&omf_data_id={$data_post_type}" : "edit.php?post_type=original_mail_forms&page=omf_output_data&omf_data_id={$data_post_type}";
         ?>
           <tr>
             <td><a href="<?php echo esc_url(admin_url("edit.php?post_type={$data_post_type}")) ?>"><?php echo esc_html(get_the_title($form->ID)) ?></a></td>

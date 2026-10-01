@@ -1,28 +1,24 @@
 {
   "scripts": {
-    "build": "webpack --mode production",
+    "build": "NODE_ENV=production webpack --mode production",
     "dev": "webpack --mode development",
-    "watch": "webpack --mode development --watch"
+    "watch": "webpack --mode development --watch",
+    "test:php": "php tests/regression.php && php tests/field-schema.php && php tests/form-builder.php && php tests/post-picker.php && php tests/mail-defaults.php && php tests/managed-completion.php && php tests/buttons.php && php tests/delivery-cron.php"
   },
   "devDependencies": {
-    "@babel/core": "^7.23.0",
-    "@babel/preset-env": "^7.22.20",
-    "autoprefixer": "^10.4.16",
-    "babel-loader": "^9.1.3",
-    "css-loader": "^6.8.1",
-    "css-mqpacker": "^7.0.0",
-    "esbuild": "^0.19.3",
-    "esbuild-loader": "^4.0.2",
-    "glob": "^10.3.10",
-    "mini-css-extract-plugin": "^2.7.6",
-    "postcss": "^8.4.30",
-    "postcss-loader": "^7.3.3",
-    "sass": "^1.68.0",
-    "sass-loader": "^13.3.2",
-    "style-loader": "^3.3.3",
-    "terser-webpack-plugin": "^5.3.9",
-    "webpack": "^5.88.2",
-    "webpack-cli": "^5.1.4"
+    "@babel/core": "^7.29.7",
+    "@babel/preset-env": "^7.29.7",
+    "autoprefixer": "^10.6.1",
+    "babel-loader": "^10.1.1",
+    "css-loader": "^7.1.5",
+    "mini-css-extract-plugin": "^2.10.2",
+    "postcss": "^8.5.28",
+    "postcss-loader": "^8.2.1",
+    "sass": "^1.105.0",
+    "sass-loader": "^17.0.1",
+    "terser-webpack-plugin": "^5.6.1",
+    "webpack": "^5.111.1",
+    "webpack-cli": "^7.2.3"
   },
   "browserslist": [
     "> 0.2%, not dead",
