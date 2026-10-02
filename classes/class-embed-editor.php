@@ -5,6 +5,14 @@ if (!defined('ABSPATH')) { exit; }
 /** エディターには公開フォームの見本だけを渡し、送信状態を生成しない。 */
 class OMF_Embed_Editor
 {
+  /** フォーム編集画面の設置欄だけにスタイルを読み込む。 */
+  public static function enqueue_style(): void
+  {
+    $screen = get_current_screen();
+    if (!$screen || $screen->post_type !== OMF_Config::NAME || $screen->base !== 'post') { return; }
+    wp_enqueue_style('omf-placement-editor', plugins_url('assets/embed-editor.css', __DIR__), [], (string) filemtime(dirname(__DIR__) . '/assets/embed-editor.css'));
+  }
+
   public static function routes(): void
   {
     register_rest_route('original-mail-form/v1', '/forms', [
@@ -47,9 +55,9 @@ class OMF_Embed_Editor
       echo '</ul></div>';
     }
     echo '<p>投稿・固定ページで「お問い合わせフォーム」ブロックを追加し、このフォームを選んでください。</p>';
-    echo '<p>ショートコードでも設置できます。入力・確認・完了は同じ記述で表示します。</p><label for="omf-shortcode">設置用ショートコード</label>';
-    echo '<input id="omf-shortcode" class="widefat" readonly value="' . esc_attr('[omf_render_form slug="' . $post->post_name . '"]') . '">';
-    echo '<p><button type="button" class="button" data-omf-copy-shortcode>コピーする</button> <span role="status" data-omf-copy-status></span></p>';
+    echo '<p>ショートコードでも設置できます。入力・確認・完了は同じ記述で表示します。</p><div class="omf-placement-shortcode"><label for="omf-shortcode">設置用ショートコード</label>';
+    echo '<input type="text" id="omf-shortcode" class="omf-shortcode-value" readonly value="' . esc_attr('[omf_render_form slug="' . $post->post_name . '"]') . '">';
+    echo '<p><button type="button" class="button" data-omf-copy-shortcode>コピーする</button> <span role="status" data-omf-copy-status></span></p></div>';
     echo '<p>画面設定で入力・確認・完了の専用ページを指定し、各ページに同じフォームを設置してください。確認を省略する場合は入力・完了の2ページが必要です。設置方法にかかわらず、各ページの「メールフォーム連携」で同じフォームとの連携を有効にして保存してください。「連携しない」のページでは表示・送信できません。ブロック・ショートコードならPHP編集は不要です。1ページに1フォームを設置できます。</p>';
   }
 }

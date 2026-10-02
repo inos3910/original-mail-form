@@ -19,6 +19,7 @@ class OMF_Embed
       return $content;
     }, 10, 2);
     add_action('rest_api_init', [OMF_Embed_Editor::class, 'routes']);
+    add_action('admin_enqueue_scripts', [OMF_Embed_Editor::class, 'enqueue_style']);
     add_action('add_meta_boxes_' . OMF_Config::NAME, static function () {
       add_meta_box('omf-placement', 'ページに設置する', [OMF_Embed_Editor::class, 'placement'], OMF_Config::NAME, 'side');
     });
