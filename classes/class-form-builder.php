@@ -7,6 +7,7 @@ class OMF_Form_Builder
 {
   public function __construct()
   {
+    add_filter('hidden_meta_boxes', [self::class, 'visible_editor_boxes'], 10, 2);
     add_action('wp_ajax_omf_search_pages', [OMF_Post_Picker::class, 'search']);
     add_action('add_meta_boxes_' . OMF_Config::NAME, static function () {
       add_meta_box('omf-builder', 'フォームの項目', [self::class, 'render'], OMF_Config::NAME, 'normal', 'high');
@@ -17,6 +18,15 @@ class OMF_Form_Builder
       wp_enqueue_script('omf-builder', plugins_url('dist/js/form-builder.js', __DIR__), [], (string) filemtime(dirname(__DIR__) . '/dist/js/form-builder.js'), true);
       wp_localize_script('omf-builder', 'omfPostPicker', ['url' => admin_url('admin-ajax.php'), 'nonce' => wp_create_nonce('omf_search_pages'), 'titles' => OMF_Post_Picker::selected_titles()]);
     });
+  }
+
+  /** タブ内の基本設定は、表示オプションの非表示履歴に関係なく使用できるようにする。 */
+  public static function visible_editor_boxes(array $hidden, object $screen): array
+  {
+    if (($screen->post_type ?? '') !== OMF_Config::NAME || ($screen->base ?? '') !== 'post') {
+      return $hidden;
+    }
+    return array_values(array_diff($hidden, ['omf-builder', 'omf-metabox-validation', 'omf-metabox-screen', 'omf-metabox-reply_mail', 'omf-metabox-admin_mail']));
   }
 
   public static function render(\WP_Post $post): void

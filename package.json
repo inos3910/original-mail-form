@@ -3,7 +3,7 @@
     "build": "NODE_ENV=production webpack --mode production",
     "dev": "webpack --mode development",
     "watch": "webpack --mode development --watch",
-    "test:php": "php tests/regression.php && php tests/field-schema.php && php tests/form-builder.php && php tests/post-picker.php && php tests/mail-defaults.php && php tests/managed-completion.php && php tests/buttons.php && php tests/delivery-cron.php && php tests/legacy-compatibility.php"
+    "test:php": "php tests/regression.php && php tests/turnstile.php && php tests/field-schema.php && php tests/form-builder.php && php tests/post-picker.php && php tests/mail-defaults.php && php tests/managed-completion.php && php tests/buttons.php && php tests/delivery-cron.php && php tests/legacy-compatibility.php"
   },
   "devDependencies": {
     "@babel/core": "^7.29.7",
