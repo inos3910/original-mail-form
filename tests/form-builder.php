@@ -2,6 +2,13 @@
 require __DIR__ . '/bootstrap.php';
 use Sharesl\Original\MailForm\OMF_Form_Builder as Builder;
 use Sharesl\Original\MailForm\OMF_Field_Schema as Schema;
+$hidden = ['omf-builder', 'omf-metabox-screen', 'omf-metabox-validation', 'omf-metabox-reply_mail', 'omf-metabox-admin_mail', 'unrelated-box'];
+$screen = (object) ['post_type' => 'original_mail_forms', 'base' => 'post'];
+check(Builder::visible_editor_boxes($hidden, $screen) === ['unrelated-box'], 'フォームとメールの必須設定は非表示の履歴があっても表示する');
+$screen->post_type = 'page';
+check(Builder::visible_editor_boxes($hidden, $screen) === $hidden, '他の投稿タイプの表示オプションを変更しない');
+$screen->post_type = 'original_mail_forms'; $screen->base = 'edit';
+check(Builder::visible_editor_boxes($hidden, $screen) === $hidden, 'フォーム一覧には表示設定の補正を適用しない');
 $fields = [['key'=>'email','label'=>'メール','type'=>'email','required'=>true], ['key'=>'message','label'=>'本文','type'=>'textarea']];
 $schema = ['version'=>1,'fields'=>$fields];
 $input = ['omf_builder_mode'=>'builder','omf_builder_schema'=>json_encode($schema)];

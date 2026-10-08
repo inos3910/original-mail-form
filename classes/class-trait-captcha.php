@@ -50,7 +50,24 @@ trait OMF_Trait_Captcha
     $result = json_decode(wp_remote_retrieve_body($response), true);
     if (!is_array($result)) { return []; }
     $host = wp_parse_url(home_url('/'), PHP_URL_HOST);
-    if (empty($result['hostname']) || strcasecmp($result['hostname'], (string) $host) !== 0) { return []; }
+    // 公式テスト応答のホスト名は実サイトと一致しない。認証成功したダミー応答だけを区別する。
+    $test_response = ($result['success'] ?? false) === true && $this->is_turnstile_test_response($secret_option, $secret, $token);
+    if (!$test_response && (empty($result['hostname']) || !is_string($result['hostname']) || strcasecmp($result['hostname'], (string) $host) !== 0)) { return []; }
     return $result;
+  }
+
+  /** 公式のサイトキー・成功用秘密キー・ダミートークンが揃った場合だけ、テスト応答として扱う。 */
+  private function is_turnstile_test_response(string $secret_option, string $secret, string $token): bool
+  {
+    if ($secret_option !== 'omf_turnstile_secret_key' || $secret !== '1x0000000000000000000000000000000AA' || $token !== 'XXXX.DUMMY.TOKEN.XXXX') {
+      return false;
+    }
+    return in_array((string) get_option('omf_turnstile_site_key', ''), [
+      '1x00000000000000000000AA',
+      '1x00000000000000000000BB',
+      '2x00000000000000000000AB',
+      '2x00000000000000000000BB',
+      '3x00000000000000000000FF',
+    ], true);
   }
 }

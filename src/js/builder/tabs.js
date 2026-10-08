@@ -26,7 +26,13 @@ export function setupEditorTabs(root, mode) {
     panel.setAttribute('role', 'tabpanel');
     panel.setAttribute('aria-labelledby', `omf-tab-${key}`);
     panels[key] = panel;
-    ids.forEach(id => { const item = document.getElementById(id); if (item) panel.append(item); });
+    ids.forEach(id => {
+      const item = document.getElementById(id);
+      if (item) {
+        item.classList.remove('hide-if-js', 'closed');
+        panel.append(item);
+      }
+    });
   }
   const target = document.getElementById('normal-sortables');
   if (!target || !box) return () => {};

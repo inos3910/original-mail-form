@@ -66,6 +66,8 @@ v1.2.0 開発版（2026-09-28・利用者確認待ち）
 
 管理画面の「Turnstile設定」にサイトキーとシークレットキーを登録し、フォームのTurnstileを有効にする。入力フォーム内に `OMF::turnstile_field()` を配置する。RESTでは取得した `cf-turnstile-response` を検証リクエストへ含め、Cookieと入力内容を送信時まで維持する。有効化したのにキーやトークンがない場合は送信を拒否する。
 
+[Cloudflare公式のテストキー](https://developers.cloudflare.com/turnstile/troubleshooting/testing/)にも対応する。公式テストサイトキー・成功用テストシークレットキー・公式ダミートークンの組み合わせで、Siteverifyの認証が成功した場合だけ、テスト応答のホスト名とサイトURLの不一致を許容する。通常キーや通常トークンではホスト名の一致を必須とし、通信エラー・認証失敗はテストキーでも拒否する。公開時は通常キーへ変更する。
+
 ### 配布と開発
 
 `npm ci` → `npm run build` → `npm run test:php`。ビルドにはNode 22.18以上を使用する。配布ZIPはトップ階層を `original-mail-form/` とし、PHP・classes・templates・dist・assets・blocks・autoload.phpを含める。tests・node_modules・Git情報は含めない。
