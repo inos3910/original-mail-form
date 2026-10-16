@@ -985,7 +985,7 @@ class OMF_Admin
   public function register_omf_google_settings()
   {
     register_setting('omf-google-settings-group', 'omf_google_client_id');
-    register_setting('omf-google-settings-group', 'omf_google_client_secret');
+    OMF_Secrets::register_setting('omf-google-settings-group', 'omf_google_client_secret');
     register_setting('omf-google-settings-group', 'omf_google_redirect_uri');
   }
 
@@ -1009,7 +1009,7 @@ class OMF_Admin
     }
     delete_transient('omf_oauth_state_' . get_current_user_id());
     $client_id     = get_option('omf_google_client_id');
-    $client_secret = get_option('omf_google_client_secret');
+    $client_secret = OMF_Secrets::option('omf_google_client_secret');
     $redirect_uri  = admin_url('edit.php?post_type=original_mail_forms&page=omf_google_settings');
     $access_token  = $this->decrypt_secret(get_option('_omf_google_access_token'), 'access_token');
     $refresh_token = $this->decrypt_secret(get_option('_omf_google_refresh_token'), 'refresh_token');
@@ -1048,7 +1048,7 @@ class OMF_Admin
   public function register_recaptcha_settings()
   {
     register_setting('recaptcha-settings-group', 'omf_recaptcha_site_key');
-    register_setting('recaptcha-settings-group', 'omf_recaptcha_secret_key');
+    OMF_Secrets::register_setting('recaptcha-settings-group', 'omf_recaptcha_secret_key');
     register_setting('recaptcha-settings-group', 'omf_recaptcha_score');
     register_setting('recaptcha-settings-group', 'omf_recaptcha_field_name');
   }
@@ -1061,7 +1061,7 @@ class OMF_Admin
   public function register_turnstile_settings()
   {
     register_setting('turnstile-settings-group', 'omf_turnstile_site_key');
-    register_setting('turnstile-settings-group', 'omf_turnstile_secret_key');
+    OMF_Secrets::register_setting('turnstile-settings-group', 'omf_turnstile_secret_key');
   }
 
   /**

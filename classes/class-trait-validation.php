@@ -267,7 +267,7 @@ trait OMF_Trait_Validation
   public function can_use_recaptcha(int|null $post_id = null): bool
   {
     //reCAPTCHAのキーを確認
-    if (empty(get_option('omf_recaptcha_secret_key')) || empty(get_option('omf_recaptcha_site_key'))) {
+    if (OMF_Secrets::option('omf_recaptcha_secret_key') === '' || empty(get_option('omf_recaptcha_site_key'))) {
       return false;
     }
 
@@ -306,7 +306,7 @@ trait OMF_Trait_Validation
   public function can_use_turnstile(int|null $post_id = null): bool
   {
     //reCAPTCHAのキーを確認
-    if (empty(get_option('omf_turnstile_secret_key')) || empty(get_option('omf_turnstile_site_key'))) {
+    if (OMF_Secrets::option('omf_turnstile_secret_key') === '' || empty(get_option('omf_turnstile_site_key'))) {
       return false;
     }
 

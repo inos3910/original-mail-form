@@ -18,7 +18,7 @@ trait OMF_Trait_Google_Auth
   private function get_google_settings_values(): array
   {
     $client_id     = get_option('omf_google_client_id');
-    $client_secret = get_option('omf_google_client_secret');
+    $client_secret = OMF_Secrets::option('omf_google_client_secret');
     $redirect_uri  = admin_url('edit.php?post_type=original_mail_forms&page=omf_google_settings');
     $access_token  = $this->decrypt_secret(get_option('_omf_google_access_token'), 'access_token');
     $refresh_token  = $this->decrypt_secret(get_option('_omf_google_refresh_token'), 'refresh_token');

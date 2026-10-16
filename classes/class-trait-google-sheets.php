@@ -70,7 +70,7 @@ trait OMF_Trait_Google_Sheets
     //アクセストークンが期限切れの場合
     if (!$is_access_token) {
       //リフレッシュトークンで再取得
-      $client_secret = get_option('omf_google_client_secret');
+      $client_secret = OMF_Secrets::option('omf_google_client_secret');
       $refresh_token = $this->decrypt_secret(get_option('_omf_google_refresh_token'), 'refresh_token');
       $this->refresh_google_access_token($client_id, $client_secret, $refresh_token);
       $access_token  = $this->decrypt_secret(get_option('_omf_google_access_token'), 'access_token');
