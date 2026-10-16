@@ -46,6 +46,7 @@ trait OMF_Trait_Validation
       //バリデーション設定
       foreach ((array)$validations as $val) {
         $val = array_map([__NAMESPACE__ . '\OMF_Utils', 'custom_escape'], $val);
+        $val = $this->apply_required_if($val, $post_data);
         $error_message = $this->validate($post_data, $val);
         if (!empty($error_message)) {
           $errors[$val['target']] = $error_message;
@@ -83,6 +84,31 @@ trait OMF_Trait_Validation
       }
     }
     return $errors;
+  }
+
+  /**
+   * コード方式の条件付き必須：指定項目の送信値が指定値と完全一致する場合だけ必須にする
+   * （例：same_as_address が no の時だけ住所を必須にする）
+   *
+   * @param array $validation 検証条件
+   * @param array $post_data 送信データ
+   * @return array 条件を反映した検証条件
+   */
+  private function apply_required_if(array $validation, array $post_data): array
+  {
+    $key      = $validation['required_if_target'] ?? '';
+    $expected = $validation['required_if_value'] ?? '';
+    //項目名・値のどちらかが未設定なら条件なし
+    if (!is_string($key) || $key === '' || !is_string($expected) || $expected === '') {
+      return $validation;
+    }
+
+    $value = $post_data[$key] ?? '';
+    if (is_string($value) && $value === $expected) {
+      $validation['required'] = '1';
+    }
+
+    return $validation;
   }
 
   /**
