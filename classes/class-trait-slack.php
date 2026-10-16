@@ -30,7 +30,7 @@ trait OMF_Trait_Slack
       return;
     }
 
-    $webhook_url = get_post_meta($form->ID, 'cf_omf_slack_webhook_url', true);
+    $webhook_url = OMF_Secrets::meta($form->ID, 'cf_omf_slack_webhook_url');
     $channel = get_post_meta($form->ID, 'cf_omf_slack_channel', true);
     $subject     = $data['subject'] ?? '';
     $message     = $data['message'] ?? '';

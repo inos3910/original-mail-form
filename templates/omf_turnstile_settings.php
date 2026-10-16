@@ -9,7 +9,7 @@
       // settings_errors();
 
       $turnstile_site_key = !empty(get_option('omf_turnstile_site_key')) ? sanitize_text_field(wp_unslash(get_option('omf_turnstile_site_key'))) : '';
-      $turnstile_secret_key = !empty(get_option('omf_turnstile_secret_key')) ? sanitize_text_field(wp_unslash(get_option('omf_turnstile_secret_key'))) : '';
+      $turnstile_secret_status = \Sharesl\Original\MailForm\OMF_Secrets::option_status('omf_turnstile_secret_key');
       ?>
       <table class="form-table">
         <tr>
@@ -27,9 +27,7 @@
             <label for="omf_turnstile_secret_key">Cloudflare Turnstile シークレットキー</label>
           </th>
           <td>
-            <p>
-              <input class="regular-text code" type="password" name="omf_turnstile_secret_key" id="omf_turnstile_secret_key" spellcheck="false" value="<?php echo esc_attr($turnstile_secret_key); ?>" autocomplete="new-password">
-            </p>
+            <?php \Sharesl\Original\MailForm\OMF_Secret_Field::render('omf_turnstile_secret_key', $turnstile_secret_status); ?>
           </td>
         </tr>
       </table>

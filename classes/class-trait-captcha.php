@@ -43,7 +43,7 @@ trait OMF_Trait_Captcha
   {
     $input = $this->captcha_input ?: wp_unslash($_POST);
     $token = $input[$field] ?? '';
-    $secret = (string) get_option($secret_option, '');
+    $secret = OMF_Secrets::option($secret_option);
     if (!is_string($token) || $token === '' || $secret === '') { return []; }
     $response = wp_remote_post($url, ['timeout' => 10, 'body' => ['secret' => $secret, 'response' => $token]]);
     if (is_wp_error($response) || wp_remote_retrieve_response_code($response) !== 200) { return []; }
