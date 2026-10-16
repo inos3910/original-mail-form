@@ -36,7 +36,7 @@ $GLOBALS['meta'][700]=['cf_omf_mail_id'=>'5','cf_omf_slack_webhook_url'=>'https:
 $removal_plan=OMF_Port_Plan::build(OMF_Port_Reader::read(json_encode($plain)));
 check($removal_plan['forms'][0]['removals']===['cf_omf_old_only'],'上書きで削除されるメタは、ファイルに無い cf_omf_ だけ（メールID・秘密情報・表示条件ID・他プラグインのメタは対象外）');
 $view=render_template('omf_port_confirm.php',['omf_port_result'=>null,'omf_port_pending'=>['token'=>'tok','payload'=>OMF_Port_Reader::read(json_encode($plain))]]);
-check(str_contains($view,'削除されるメタ：cf_omf_old_only'),'確認画面に削除されるメタのキー名を出す');
+check(str_contains($view,'ファイルに無いため削除する設定：cf_omf_old_only'),'確認画面に削除されるメタのキー名を出す');
 $GLOBALS['options']['omf_recaptcha_site_key']='KEEP_SITE'; $GLOBALS['options']['omf_recaptcha_secret_key']='KEEP_SECRET';
 $result=import_json($plain);
 check($result['updated']===1&&$result['created']===0&&form_count()===1,'同じスラッグのフォームは上書きし、増やさない');
