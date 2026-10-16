@@ -834,6 +834,7 @@ class OMF_Admin
         'recaptcha' => 'reCAPTCHA',
         'turnstile' => 'Turnstile',
         'google' => 'Google連携',
+        'port' => 'エクスポート・インポート',
         'update' => 'プラグインの更新',
       ];
       $files = [
@@ -841,6 +842,7 @@ class OMF_Admin
         'recaptcha' => 'omf_recaptcha_settings.php',
         'turnstile' => 'omf_turnstile_settings.php',
         'google' => 'omf_google_settings.php',
+        'port' => 'omf_port.php',
         'update' => 'omf_update.php',
       ];
       $tab = sanitize_key($_GET['tab'] ?? '');
