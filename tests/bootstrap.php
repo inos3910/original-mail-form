@@ -5,7 +5,7 @@ define('ABSPATH', sys_get_temp_dir() . '/omf-test-public/');
 define('MINUTE_IN_SECONDS', 60); define('HOUR_IN_SECONDS', 3600); define('DAY_IN_SECONDS', 86400); define('MB_IN_BYTES', 1048576);
 $GLOBALS['options'] = []; $GLOBALS['meta'] = []; $GLOBALS['hooks'] = []; $_SESSION = []; $_POST = []; $_FILES = [];
 class WP_Post { public $ID = 10; public $post_name = 'test'; public $post_type = 'original_mail_forms'; public $post_status = 'publish'; }
-class WP_Error { public function __construct(public $code='',public $message='',public $data=[]) {} public function get_error_code(){return $this->code;} }
+class WP_Error { public function __construct(public $code='',public $message='',public $data=[]) {} public function get_error_code(){return $this->code;} public function get_error_message(){return $this->message;} public function get_error_data(){return $this->data;} }
 class WP_REST_Request { public function __construct(private array $params=[]) {} public function get_params(){return $this->params;} }
 class WP_REST_Response { public function __construct(public $data, public $status=200){} }
 function add_action($hook,$fn,...$args){$GLOBALS['hooks'][$hook][]=$fn;}
@@ -21,9 +21,9 @@ function delete_transient($key){delete_option('transient_'.$key);}
 function get_post_meta($id,$key='',$single=false){return $GLOBALS['meta'][$id][$key]??'';}
 function update_post_meta($id,$key,$value){$GLOBALS['meta'][$id][$key]=$value;}
 function get_the_ID(){return $GLOBALS['page_id']??20;}
-function get_page_by_path($path,...$args){$p=new WP_Post();if(isset($GLOBALS['pages'][$path])){$p->ID=$GLOBALS['pages'][$path];$p->post_name=$path;}return $p;}
+function get_page_by_path($path,...$args){if(!empty($GLOBALS['strict_pages'])){foreach($GLOBALS['wp_posts']??[] as $q){if(((property_exists($q,'uri')&&$q->uri!=='')?$q->uri:$q->post_name)===$path&&$q->post_type===($args[1]??$q->post_type)){return $q;}}return null;}$p=new WP_Post();if(isset($GLOBALS['pages'][$path])){$p->ID=$GLOBALS['pages'][$path];$p->post_name=$path;}return $p;}
 function get_post_type($id){return $GLOBALS['post_type']??'original_mail_forms';}
-function get_post($id){return null;}
+function get_post($id){return $GLOBALS['wp_posts'][$id]??null;}
 function is_admin(){return false;}
 function is_favicon(){return false;}
 function is_robots(){return false;}
