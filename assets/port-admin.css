@@ -1,26 +1,99 @@
-.omf-port { max-width: 960px; }
-.omf-port-section { margin: 20px 0; padding: 0; border: 0; }
-.omf-port-section > legend { padding: 0; font-size: 1.3em; font-weight: 600; margin-bottom: 8px; }
-.omf-port-panel h3 { margin: 0 0 4px; }
-.omf-port-heading { margin-top: 40px; }
-.omf-port-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
-.omf-port-card { display: grid; grid-template-columns: auto 1fr; column-gap: 8px; align-content: start; max-width: none; margin: 0; padding: 12px 16px; cursor: pointer; }
-.omf-port-card input { margin: 2px 0 0; }
-.omf-port-card .description { grid-column: 2; margin: 4px 0 0; }
-.omf-port-card-title { font-weight: 600; }
-.omf-port-card:has(input:checked) { border-color: #2271b1; box-shadow: 0 0 0 1px #2271b1; }
-.omf-port-card:focus-within { outline: 2px solid #2271b1; outline-offset: 2px; }
-.omf-port-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin: 12px 0; }
-.omf-port-box { margin: 0; padding: 12px 16px; background: #fff; border: 1px solid #c3c4c7; max-height: 360px; overflow: auto; }
-.omf-port-box legend { padding: 0 4px; font-weight: 600; }
-.omf-port-bulk { display: flex; gap: 16px; margin-bottom: 8px; }
-.omf-port-list { margin: 0; padding: 0; list-style: none; }
-.omf-port-list li { margin: 0 0 8px; }
-.omf-port-list label code { margin-left: 4px; }
-.omf-port-list .description { margin: 2px 0 0 26px; }
-.omf-port-summary { margin: 16px 0 8px; font-weight: 600; }
-.omf-port-summary.is-warning { color: #8a2424; }
-.omf-port-steps { margin: 0 0 8px 20px; list-style: decimal; }
-.omf-port-bulk .button-link:focus-visible, .omf-port-box input:focus-visible { outline: 2px solid #2271b1; outline-offset: 2px; }
-@media (max-width: 782px) { .omf-port-grid { grid-template-columns: 1fr; } .omf-port-box { max-height: none; } }
+/* エクスポート・インポート（設定タブ port）。一般タブの郵便番号カードと同じ「白いパネル」の作りに揃える。 */
+.omf-port {
+  --omf-port-text: #1d2327;
+  --omf-port-muted: #50575e;
+  --omf-port-outline: #c3c4c7;
+  --omf-port-divider: #dcdcde;
+  --omf-port-surface: #fff;
+  --omf-port-surface-alt: #f6f7f7;
+  --omf-port-selected: #f0f6fc;
+  --omf-port-primary: #2271b1;
+  --omf-port-error: #b32d2e;
+  --omf-port-radius: 8px;
+  --omf-port-radius-sm: 6px;
+  display: grid;
+  gap: 24px;
+  max-width: 800px;
+  margin: 24px 0;
+  color: var(--omf-port-text);
+  font-size: 14px;
+  line-height: 1.7;
+}
+.omf-port p { margin: 0; font-size: inherit; line-height: inherit; }
+.omf-port code { padding: 0; background: none; font-size: 13px; }
 .omf-port [hidden] { display: none; }
+
+/* パネル：見出し・説明 → 本文 → 下部の操作欄 */
+.omf-port-card { padding: 24px; background: var(--omf-port-surface); border: 1px solid var(--omf-port-outline); border-radius: var(--omf-port-radius); }
+.omf-port-card__head { display: grid; gap: 8px; margin-bottom: 24px; }
+.omf-port-card__title { margin: 0; font-size: 18px; line-height: 1.4; }
+.omf-port-card__lead { color: var(--omf-port-muted); }
+.omf-port-card__body { display: grid; gap: 24px; }
+.omf-port-card__foot { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 16px; margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--omf-port-divider); }
+.omf-port-card__actions { display: flex; flex-wrap: wrap; gap: 8px; margin-left: auto; }
+.omf-port-card__actions form { margin: 0; }
+.omf-port .button { min-height: 40px; padding: 4px 16px; line-height: 1.5; }
+.omf-port .button:focus-visible { outline: 2px solid var(--omf-port-primary); outline-offset: 2px; box-shadow: none; }
+
+/* 項目のまとまり：見出し → 選択肢の一覧 → 補足 */
+.omf-port-group { display: grid; gap: 8px; min-width: 0; margin: 0; padding: 0; border: 0; }
+.omf-port-group__label { margin: 0; padding: 0; font-size: inherit; font-weight: 600; line-height: 1.5; }
+.omf-port-help { color: var(--omf-port-muted); font-size: 13px; line-height: 1.6; }
+
+/* 選択肢の一覧（範囲・フォーム・項目・共通設定で共通） */
+.omf-port-options { border: 1px solid var(--omf-port-outline); border-radius: var(--omf-port-radius-sm); overflow: hidden; }
+.omf-port-option { display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 12px; align-items: start; min-height: 48px; box-sizing: border-box; padding: 12px 16px; border-top: 1px solid var(--omf-port-divider); cursor: pointer; transition: background-color 150ms cubic-bezier(0.4, 0, 0.2, 1); }
+.omf-port-option:first-child { border-top: 0; }
+.omf-port-option:hover { background: var(--omf-port-surface-alt); }
+.omf-port-option:has(input:checked) { background: var(--omf-port-selected); }
+.omf-port-option--all, .omf-port-option--all:has(input:checked) { background: var(--omf-port-surface-alt); }
+.omf-port-option input { margin: 3px 0 0; }
+.omf-port-option input:focus-visible { outline: 2px solid var(--omf-port-primary); outline-offset: 2px; }
+.omf-port-option__text { display: grid; gap: 2px; min-width: 0; overflow-wrap: anywhere; }
+.omf-port-option__title { font-weight: 600; line-height: 1.5; }
+.omf-port-option__title code { margin-left: 8px; color: var(--omf-port-muted); font-weight: 400; }
+.omf-port-option__desc { color: var(--omf-port-muted); font-size: 13px; line-height: 1.6; }
+
+/* 要約（下部の操作欄の左） */
+.omf-port-summary { color: var(--omf-port-muted); }
+.omf-port-summary.is-warning { color: var(--omf-port-error); font-weight: 600; }
+
+/* ファイル選択 */
+.omf-port-field { display: grid; gap: 8px; }
+.omf-port-field input[type="file"] { max-width: 100%; color: var(--omf-port-muted); }
+/* ファイル選択のボタンを、WordPress の通常ボタン（.button）と同じ見た目にする */
+.omf-port-field input[type="file"]::file-selector-button { min-height: 40px; margin-right: 12px; padding: 4px 16px; color: var(--omf-port-primary); background: #f6f7f7; border: 1px solid var(--omf-port-primary); border-radius: 3px; font: inherit; line-height: 1.5; cursor: pointer; }
+.omf-port-field input[type="file"]:hover::file-selector-button { color: #0a4b78; background: #f0f0f1; border-color: #0a4b78; }
+.omf-port-field input[type="file"]:focus-visible { outline: 2px solid var(--omf-port-primary); outline-offset: 2px; }
+
+/* 名前と内容の一覧（取り込みのルール・書き出し元・結果） */
+.omf-port-facts { display: grid; grid-template-columns: max-content minmax(0, 1fr); gap: 8px 24px; margin: 0; }
+.omf-port-facts dt { color: var(--omf-port-muted); }
+.omf-port-facts dd { margin: 0; overflow-wrap: anywhere; }
+
+/* 確認画面：フォームごとの行（選択肢の一覧と同じ枠と区切り） */
+.omf-port-items { margin: 0; padding: 0; list-style: none; border: 1px solid var(--omf-port-outline); border-radius: var(--omf-port-radius-sm); }
+.omf-port-item { display: grid; gap: 4px; margin: 0; padding: 12px 16px; border-top: 1px solid var(--omf-port-divider); }
+.omf-port-item:first-child { border-top: 0; }
+.omf-port-item__head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 4px 12px; }
+.omf-port-item__name { font-weight: 600; line-height: 1.5; overflow-wrap: anywhere; }
+.omf-port-item__name code { margin-left: 8px; color: var(--omf-port-muted); font-weight: 400; }
+.omf-port-item__note { color: var(--omf-port-muted); font-size: 13px; line-height: 1.6; overflow-wrap: anywhere; }
+.omf-port-item__note.is-error { color: var(--omf-port-error); }
+.omf-port-badge { display: inline-block; padding: 0 8px; border: 1px solid currentColor; border-radius: 999px; font-size: 12px; font-weight: 600; line-height: 1.8; white-space: nowrap; }
+.omf-port-badge--create { color: #00700a; }
+.omf-port-badge--update { color: #135e96; }
+.omf-port-badge--blocked { color: var(--omf-port-error); }
+
+/* 設定の差分表と、パネル内の注意 */
+.omf-port-table { margin: 0; }
+.omf-port .notice.inline { margin: 0; }
+.omf-port .notice.inline ul { margin: 4px 0 8px 20px; list-style: disc; }
+
+@media (prefers-reduced-motion: reduce) { .omf-port-option { transition: none; } }
+@media (max-width: 600px) {
+  .omf-port-card { padding: 16px; }
+  .omf-port-facts { grid-template-columns: 1fr; gap: 0; }
+  .omf-port-facts dd { margin-bottom: 8px; }
+  .omf-port-card__actions { width: 100%; }
+}
