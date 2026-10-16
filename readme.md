@@ -138,6 +138,8 @@ v1.2.0 開発版（2026-09-28・利用者確認待ち）
 
 `npm ci` → `npm run build` → `npm run test:php`。ビルドにはNode 22.18以上を使用する。配布ZIPはトップ階層を `original-mail-form/` とし、PHP・classes・templates・dist・assets・blocks・autoload.phpを含める。tests・node_modules・Git情報は含めない。
 
+`npm run package` でビルドしてから、配布に含めるファイルだけを `release/` に集める。`release/original-mail-form/` はテスト環境などへ FTP でそのまま置く用、`release/original-mail-form.zip` は管理画面の「プラグインのアップロード」や GitHub リリースの添付用。`release/` は Git 管理外。
+
 GitHubで `v1.2.0` のような正式リリースを作り、ビルド済みの `original-mail-form.zip` を添付すると標準更新で検出する。masterの更新だけでは配布しない。リリース公開は別途行う。
 
 ### v1.1.1（2026-09-26）セキュリティ修正
