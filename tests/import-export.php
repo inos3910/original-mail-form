@@ -14,6 +14,7 @@ function wp_date($format){return date($format,1760000000);}
 function get_file_data($file,$headers){return ['version'=>'1.2.0'];}
 function post_type_exists($type){return in_array($type,['post','page','original_mail_forms'],true);}
 function get_page_uri($post){return $post->uri!==''?$post->uri:$post->post_name;}
+function delete_post_meta($id,$key){unset($GLOBALS['meta'][$id][$key]);return true;}
 function get_post_custom_keys($id){return array_keys($GLOBALS['meta'][$id]??[]);}
 function admin_url($path=''){return 'https://example.test/wp-admin/'.$path;}
 function wp_safe_redirect($url){throw new RuntimeException('redirect:'.$url);}
@@ -33,6 +34,10 @@ function get_posts($args){
 function wp_insert_post($post,$wp_error=false){$id=$GLOBALS['next_id']++;add_test_post($id,$post['post_type'],$post['post_name'],$post['post_title'],$post['post_status']);return $id;}
 function wp_update_post($post,$wp_error=false){$p=$GLOBALS['wp_posts'][$post['ID']];$p->post_title=$post['post_title'];$p->post_status=$post['post_status'];return $p->ID;}
 function add_test_post($id,$type,$slug,$title='',$status='publish',$uri=''){$p=new TestPost();$p->ID=$id;$p->post_type=$type;$p->post_name=$slug;$p->post_title=$title;$p->post_status=$status;$p->uri=$uri;$GLOBALS['wp_posts'][$id]=$p;}
+function esc_attr($s){return htmlspecialchars((string)$s);}
+function submit_button($text,...$args){echo '<button>'.esc_html($text).'</button>';}
+function wp_nonce_field($action){echo '<input type="hidden" name="_wpnonce" value="valid">';}
+function render_template(string $name, array $vars = []): string {extract($vars);ob_start();include dirname(__DIR__).'/templates/'.$name;return (string)ob_get_clean();}
 function reset_env(){$GLOBALS['options']=[];$GLOBALS['meta']=[];$GLOBALS['wp_posts']=[];$GLOBALS['next_id']=900;$GLOBALS['strict_pages']=true;}
 function form_count(){return count(array_filter($GLOBALS['wp_posts'],fn($p)=>$p->post_type==='original_mail_forms'));}
 function valid_schema(){return ['version'=>1,'fields'=>[['key'=>'message','type'=>'text','label'=>'内容','required'=>true]]];}
@@ -83,13 +88,26 @@ check($GLOBALS['options']['omf_recaptcha_secret_key']==='SECRET'&&$GLOBALS['opti
 // 同じスラッグは上書き。IDとメールIDを維持し、ファイルに無い秘密情報は残す
 build_target();
 add_test_post(700,'original_mail_forms','contact-form','古い名前','draft');
-$GLOBALS['meta'][700]=['cf_omf_mail_id'=>'5','cf_omf_slack_webhook_url'=>'https://keep.example.test','cf_omf_admin_title'=>'古い件名'];
+$GLOBALS['meta'][700]=['cf_omf_mail_id'=>'5','cf_omf_slack_webhook_url'=>'https://keep.example.test','cf_omf_admin_title'=>'古い件名','cf_omf_old_only'=>'消える','cf_omf_condition_id'=>'777','unrelated_meta'=>'残る'];
+$removal_plan=OMF_Port_Plan::build(OMF_Port_Reader::read(json_encode($plain)));
+check($removal_plan['forms'][0]['removals']===['cf_omf_old_only'],'上書きで削除されるメタは、ファイルに無い cf_omf_ だけ（メールID・秘密情報・表示条件ID・他プラグインのメタは対象外）');
+$view=render_template('omf_port_confirm.php',['omf_port_result'=>null,'omf_port_pending'=>['token'=>'tok','payload'=>OMF_Port_Reader::read(json_encode($plain))]]);
+check(str_contains($view,'削除されるメタ：cf_omf_old_only'),'確認画面に削除されるメタのキー名を出す');
 $GLOBALS['options']['omf_recaptcha_site_key']='KEEP_SITE'; $GLOBALS['options']['omf_recaptcha_secret_key']='KEEP_SECRET';
 $result=import_json($plain);
 check($result['updated']===1&&$result['created']===0&&form_count()===1,'同じスラッグのフォームは上書きし、増やさない');
 check($GLOBALS['wp_posts'][700]->post_title==='お問い合わせ'&&$GLOBALS['wp_posts'][700]->post_status==='publish'&&$GLOBALS['meta'][700]['cf_omf_admin_title']==='件名\\テスト','上書きでタイトル・ステータス・メタが更新される');
 check($GLOBALS['meta'][700]['cf_omf_mail_id']==='5'&&$GLOBALS['wp_posts'][700]->ID===700,'上書きでも記事IDとメールIDは取り込み先のまま');
+check(!isset($GLOBALS['meta'][700]['cf_omf_old_only'])&&$GLOBALS['meta'][700]['unrelated_meta']==='残る'&&$GLOBALS['meta'][700]['cf_omf_condition_id']==='501,502','上書きでファイルに無い cf_omf_ メタが消え、他のメタは残る');
 check($GLOBALS['meta'][700]['cf_omf_slack_webhook_url']==='https://keep.example.test'&&$GLOBALS['options']['omf_recaptcha_site_key']==='KEEP_SITE'&&$GLOBALS['options']['omf_recaptcha_secret_key']==='KEEP_SECRET','ファイルに無い秘密情報は取り込み先の値を残す');
+
+// 秘密情報を含むファイルにWebhookが無ければ削除する。condition_targetsが無ければ表示条件IDに触れない
+build_target();
+add_test_post(700,'original_mail_forms','contact-form','古い名前','draft');
+$GLOBALS['meta'][700]=['cf_omf_mail_id'=>'5','cf_omf_slack_webhook_url'=>'https://old.example.test','cf_omf_condition_id'=>'777'];
+$no_webhook=$secret; unset($no_webhook['forms'][0]['meta']['cf_omf_slack_webhook_url'],$no_webhook['forms'][0]['condition_targets']);
+import_json($no_webhook);
+check(!isset($GLOBALS['meta'][700]['cf_omf_slack_webhook_url'])&&$GLOBALS['meta'][700]['cf_omf_mail_id']==='5'&&$GLOBALS['meta'][700]['cf_omf_condition_id']==='777','秘密情報を含むファイルにWebhookが無ければ削除し、メールIDと（condition_targets無しの）表示条件IDは残す');
 
 // ID→パス→IDの往復と、見つからないページの警告
 build_target(); unset($GLOBALS['wp_posts'][502]);
@@ -144,10 +162,6 @@ try { OMF_Port_Admin::handle_run(); } catch (RuntimeException $e) { $redirect=$e
 check(form_count()===1&&OMF_Port_Admin::pending()===null&&str_ends_with($redirect,'step=result')&&OMF_Port_Admin::take('omf_port_result_')['created']===1,'確認後の実行で取り込み、一時データを削除して結果を渡す');
 
 // 画面テンプレートが警告なく描画できること（確認画面・結果画面・入口画面）
-function esc_attr($s){return htmlspecialchars((string)$s);}
-function submit_button($text,...$args){echo '<button>'.esc_html($text).'</button>';}
-function wp_nonce_field($action){echo '<input type="hidden" name="_wpnonce" value="valid">';}
-function render_template(string $name, array $vars = []): string {extract($vars);ob_start();include dirname(__DIR__).'/templates/'.$name;return (string)ob_get_clean();}
 build_target(); unset($GLOBALS['wp_posts'][502]);
 $view=render_template('omf_port_confirm.php',['omf_port_result'=>null,'omf_port_pending'=>['token'=>'tok','payload'=>OMF_Port_Reader::read(json_encode($secret))]]);
 check(str_contains($view,'contact-form')&&str_contains($view,'新規作成')&&str_contains($view,'見つかりません')&&!str_contains($view,'SECRET')&&str_contains($view,'omf_port_run'),'確認画面に新規／上書き・警告・実行ボタンを出し、秘密情報の値は出さない');

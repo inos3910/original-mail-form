@@ -25,7 +25,7 @@ class OMF_Port_Plan
       $plan['settings'] = self::settings($payload['settings']);
     }
     foreach ((array) $payload['forms'] as $form) {
-      $entry = self::form($form);
+      $entry = self::form($form, !empty($payload['source']['includes_secrets']));
       array_push($plan['warnings'], ...$entry['warnings']);
       $plan['forms'][] = $entry;
     }
@@ -60,9 +60,10 @@ class OMF_Port_Plan
    * フォーム1件の照合。
    *
    * @param array $form
+   * @param bool $includes_secrets ファイルが秘密情報を含む書き出しか
    * @return array
    */
-  private static function form(array $form): array
+  private static function form(array $form, bool $includes_secrets): array
   {
     $existing = $form['slug'] !== '' ? self::find_form($form['slug']) : null;
     $label = '「' . ($form['slug'] !== '' ? $form['slug'] : $form['title']) . '」';
@@ -76,6 +77,7 @@ class OMF_Port_Plan
       'conditions' => null,
       'links' => null,
       'warnings' => [],
+      'removals' => $existing && $form['errors'] === [] ? self::removals((int) $existing->ID, $form['meta'], $includes_secrets) : [],
       'has_secrets' => array_intersect_key($form['meta'], array_flip(OMF_Port_Schema::secret_meta_keys())) !== [],
     ];
     if ($entry['action'] === 'blocked') {
@@ -100,6 +102,29 @@ class OMF_Port_Plan
       }
     }
     return $entry;
+  }
+
+  /**
+   * 上書きで削除する取り込み先のメタ。ファイルに無い cf_omf_ を削除して移行元と一致させる。
+   * メールID・表示条件ID、および秘密情報を含まないファイルでの秘密情報は残す。
+   *
+   * @param int $id
+   * @param array $meta ファイルのメタ
+   * @param bool $includes_secrets
+   * @return string[]
+   */
+  private static function removals(int $id, array $meta, bool $includes_secrets): array
+  {
+    $keys = [];
+    foreach ((array) get_post_custom_keys($id) as $key) {
+      $is_secret = in_array($key, OMF_Port_Schema::secret_meta_keys(), true);
+      if (!str_starts_with($key, OMF_Port_Schema::META_PREFIX) || array_key_exists($key, $meta) || in_array($key, OMF_Port_Schema::managed_meta_keys(), true) || ($is_secret && !$includes_secrets)) {
+        continue;
+      }
+      $keys[] = $key;
+    }
+    sort($keys);
+    return $keys;
   }
 
   /**

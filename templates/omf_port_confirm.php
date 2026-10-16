@@ -86,6 +86,7 @@ $action_labels = ['create' => '新規作成', 'update' => '上書き', 'blocked'
               <?php foreach ($entry['errors'] as $error) : ?><div><?php echo esc_html($error); ?></div><?php endforeach; ?>
               <?php if ($entry['has_secrets']) : ?><div>秘密情報（Slack Webhook URL）を含む</div><?php endif; ?>
               <?php if ($entry['action'] === 'update') : ?><div>ID <?php echo esc_html((string) $entry['id']); ?> を上書き（送信データはそのまま）</div><?php endif; ?>
+              <?php if ($entry['removals'] !== []) : ?><div>削除されるメタ：<?php echo esc_html(implode('、', $entry['removals'])); ?></div><?php endif; ?>
             </td>
           </tr>
         <?php endforeach; ?>

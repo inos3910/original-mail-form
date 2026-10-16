@@ -42,7 +42,7 @@ class OMF_Port_Apply
   }
 
   /**
-   * フォーム1件の作成または上書き。IDと cf_omf_mail_id は取り込み先のものを維持する。
+   * フォーム1件の作成または上書き。IDと cf_omf_mail_id は取り込み先のものを維持し、ファイルに無いメタは削除する。
    *
    * @param array $entry
    * @return int|\WP_Error
@@ -66,6 +66,9 @@ class OMF_Port_Apply
     }
     foreach ($form['meta'] as $key => $value) {
       update_post_meta($id, $key, wp_slash($value));
+    }
+    foreach ($entry['removals'] as $key) {
+      delete_post_meta($id, $key);
     }
     if ($entry['conditions'] !== null) {
       update_post_meta($id, OMF_Port_Schema::META_CONDITION_ID, implode(',', $entry['conditions']['ids']));

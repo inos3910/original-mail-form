@@ -40,6 +40,7 @@ class OMF_Port_Reader
         'url' => is_string($data['source_url'] ?? null) ? sanitize_text_field($data['source_url']) : '',
         'plugin_version' => is_string($data['plugin_version'] ?? null) ? sanitize_text_field($data['plugin_version']) : '',
         'exported_at' => is_string($data['exported_at'] ?? null) ? sanitize_text_field($data['exported_at']) : '',
+        'includes_secrets' => ($data['includes_secrets'] ?? false) === true,
       ],
       'settings' => null,
       'forms' => null,
