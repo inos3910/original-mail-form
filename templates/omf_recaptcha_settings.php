@@ -9,7 +9,7 @@
       // settings_errors();
 
       $recaptcha_site_key = !empty(get_option('omf_recaptcha_site_key')) ? sanitize_text_field(wp_unslash(get_option('omf_recaptcha_site_key'))) : '';
-      $recaptcha_secret_key = !empty(get_option('omf_recaptcha_secret_key')) ? sanitize_text_field(wp_unslash(get_option('omf_recaptcha_secret_key'))) : '';
+      $recaptcha_secret_status = \Sharesl\Original\MailForm\OMF_Secrets::option_status('omf_recaptcha_secret_key');
       $recaptcha_score = !empty(get_option('omf_recaptcha_score')) ? sanitize_text_field(wp_unslash(get_option('omf_recaptcha_score'))) : '';
       $recaptcha_field_name = !empty(get_option('omf_recaptcha_field_name')) ? sanitize_text_field(wp_unslash(get_option('omf_recaptcha_field_name'))) : 'g-recaptcha-response';
       ?>
@@ -30,9 +30,7 @@
             <label for="omf_recaptcha_secret_key">reCAPTCHA v3 シークレットキー</label>
           </th>
           <td>
-            <p>
-              <input class="regular-text code" type="password" name="omf_recaptcha_secret_key" id="omf_recaptcha_secret_key" spellcheck="false" value="<?php echo esc_attr($recaptcha_secret_key); ?>" autocomplete="new-password">
-            </p>
+            <?php \Sharesl\Original\MailForm\OMF_Secret_Field::render('omf_recaptcha_secret_key', $recaptcha_secret_status); ?>
           </td>
         </tr>
         <tr>

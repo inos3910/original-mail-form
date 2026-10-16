@@ -11,6 +11,7 @@
       $values        = $this->get_google_settings_values();
       $client_id     = $values['client_id'];
       $client_secret = $values['client_secret'];
+      $client_secret_status = \Sharesl\Original\MailForm\OMF_Secrets::option_status('omf_google_client_secret');
       $redirect_uri  = $values['redirect_uri'];
       $access_token  = $values['access_token'];
       $is_credential = !empty($client_id) && !empty($redirect_uri) && !empty($client_secret);
@@ -42,7 +43,7 @@
             <label for="omf_google_client_secret">クライアントシークレット</label>
           </th>
           <td>
-            <input class="regular-text code" type="password" spellcheck="false" id="omf_google_client_secret" name="omf_google_client_secret" value="<?php echo esc_attr($client_secret) ?>" autocomplete="new-password">
+            <?php \Sharesl\Original\MailForm\OMF_Secret_Field::render('omf_google_client_secret', $client_secret_status); ?>
           </td>
         </tr>
         <tr>

@@ -1139,7 +1139,6 @@ class OMF_Admin
       'cf_omf_save_db',
       'cf_omf_mail_id',
       'cf_omf_is_slack_notify',
-      'cf_omf_slack_webhook_url',
       'cf_omf_slack_channel',
       'cf_omf_data_memo',
       'cf_omf_is_google_sheets',
@@ -1152,6 +1151,21 @@ class OMF_Admin
         update_post_meta($post_id, $key, sanitize_textarea_field(wp_unslash($_POST[$key])));
       }
     }
+    $this->save_secret_custom_fields($post_id);
+  }
+
+  /**
+   * 秘密情報のカスタムフィールド保存（Slack Webhook URL）。空欄なら維持、削除チェックで削除、入力があれば置き換え
+   *
+   * @param integer $post_id
+   * @return void
+   */
+  private function save_secret_custom_fields(int $post_id)
+  {
+    $key = 'cf_omf_slack_webhook_url';
+    $input = isset($_POST[$key]) && is_string($_POST[$key]) ? esc_url_raw(trim(wp_unslash($_POST[$key]))) : '';
+    $delete = ($_POST[OMF_Secrets::delete_field_name($key)] ?? '') === '1';
+    OMF_Secrets::save_meta($post_id, $key, $input, $delete);
   }
 
   /**
@@ -1526,7 +1540,7 @@ class OMF_Admin
     <div class="omf-metabox-wrapper">
       <?php
       $this->omf_meta_box_boolean($post, '送信内容をSlackに通知する', 'cf_omf_is_slack_notify');
-      $this->omf_meta_box_text($post, 'Webhook URL', 'cf_omf_slack_webhook_url', 'SlackアプリのIncoming Webhookで生成されるWebhook URL');
+      OMF_Secret_Field::render_meta_box('Webhook URL', 'cf_omf_slack_webhook_url', OMF_Secrets::meta_status($post->ID, 'cf_omf_slack_webhook_url'), 'SlackアプリのIncoming Webhookで生成されるWebhook URL');
       $this->omf_meta_box_text($post, 'チャンネル名', 'cf_omf_slack_channel', '先頭の # は不要');
       ?>
     </div>
