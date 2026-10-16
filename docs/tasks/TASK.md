@@ -20,6 +20,8 @@
 | OMF-014 | P1 | 完了 | [設定・フォームのエクスポート／インポート](import-export.md) | — |
 | OMF-015 | P0 | 完了 | CSV出力のファイル名がmd5になる不具合（sanitize_file_name を WP Multibyte Patch が md5 化）を修正 | — |
 | OMF-016 | P1 | 完了 | コード方式の検証設定に条件付き必須（`required_if_target` / `required_if_value`：指定項目の値が一致する時だけ必須）を追加 | — |
+| OMF-017 | P1 | 進行中 | [エクスポート・インポート画面の整理（範囲の選択・項目の選択・秘密情報の廃止）](port-ui.md) | OMF-014 |
+| OMF-018 | P0 | 未着手 | 秘密情報（認証キー・トークン・Webhook URL）の保存時の暗号化と漏えい対策の調査（調査→報告→方針確認→修正） | — |
 
 レビュー: [2026-10-01](../review/complete/2026-10-01-rereview.md)
 
