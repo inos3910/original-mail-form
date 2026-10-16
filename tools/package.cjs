@@ -21,7 +21,8 @@ for (const entry of entries) {
   }
 }
 
-fs.rmSync(outDir, { recursive: true, force: true });
+// ファイル操作の競合などによる一時的な ENOTEMPTY は、間隔を空けて再試行する。
+fs.rmSync(outDir, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 });
 fs.mkdirSync(target, { recursive: true });
 for (const entry of entries) {
   fs.cpSync(path.join(root, entry), path.join(target, entry), {
