@@ -22,6 +22,7 @@
 | OMF-016 | P1 | 完了 | コード方式の検証設定に条件付き必須（`required_if_target` / `required_if_value`：指定項目の値が一致する時だけ必須）を追加 | — |
 | OMF-017 | P1 | 完了 | [エクスポート・インポート画面の整理（範囲の選択・項目の選択・秘密情報の廃止）](port-ui.md) | OMF-014 |
 | OMF-018 | P0 | 完了 | [秘密情報の暗号化保存と画面への非表示](secret-storage.md) | — |
+| OMF-019 | P1 | 完了 | [管理画面の操作結果の通知・CSV出力の画面遷移なし化](../review/admin-action-notices-20261008.md)（2026-10-08 作業分を develop へ統合。CSVのファイル名は OMF-015 の方式に統一） | — |
 
 レビュー: [2026-10-01](../review/complete/2026-10-01-rereview.md)
 

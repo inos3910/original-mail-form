@@ -120,6 +120,9 @@ class OMF_Admin
    */
   public function add_omf_scripts()
   {
+    if (($_GET['page'] ?? '') === 'omf_data' && ($_GET['tab'] ?? '') === 'csv') {
+      wp_enqueue_script('omf-admin-csv', plugins_url('assets/admin-csv.js', __DIR__), [], filemtime(dirname(__DIR__) . '/assets/admin-csv.js'), true);
+    }
     global $post_type;
     if (!empty($post_type)) {
       if ($post_type === OMF_Config::NAME) {
@@ -893,6 +896,7 @@ class OMF_Admin
   {
     echo '<div class="wrap omf-admin-screen">';
     echo '<h1>' . esc_html($title) . '</h1>';
+    OMF_Admin_Notices::show($page === 'omf_settings' ? 'settings' : 'data');
     echo '<div class="omf-editor-tabs" role="tablist" aria-label="' . esc_attr($label) . '">';
     foreach ($tabs as $key => $text) {
       $selected = $key === $current;
@@ -997,7 +1001,7 @@ class OMF_Admin
   private function oauth_redirect()
   {
     if (!current_user_can('manage_options')) { return; }
-    $is_oauth_page = isset($_GET['page']) && $_GET['page'] === 'omf_google_settings' && isset($_GET['code']);
+    $is_oauth_page = isset($_GET['page']) && $_GET['page'] === 'omf_google_settings' && (isset($_GET['code']) || isset($_GET['error']));
     if (!$is_oauth_page) {
       return;
     }
@@ -1005,16 +1009,16 @@ class OMF_Admin
     $state = isset($_GET['state']) && is_string($_GET['state']) ? wp_unslash($_GET['state']) : '';
     $expected = get_transient('omf_oauth_state_' . get_current_user_id());
     if (!is_string($expected) || $state === '' || !hash_equals($expected, $state)) {
-      wp_die('OAuth認証の有効期限が切れました。接続操作をやり直してください。', '', ['response' => 403]);
+      OMF_Admin_Notices::remember('settings', 'Googleに接続できませんでした。認証の有効期限が切れたため、接続操作をやり直してください。', true);
+      wp_safe_redirect($this->plugin_admin_url('omf_settings', ['tab' => 'google']));
+      exit;
     }
     delete_transient('omf_oauth_state_' . get_current_user_id());
     $client_id     = get_option('omf_google_client_id');
     $client_secret = OMF_Secrets::option('omf_google_client_secret');
     $redirect_uri  = admin_url('edit.php?post_type=original_mail_forms&page=omf_google_settings');
-    $access_token  = $this->decrypt_secret(get_option('_omf_google_access_token'), 'access_token');
-    $refresh_token = $this->decrypt_secret(get_option('_omf_google_refresh_token'), 'refresh_token');
-
-    $this->set_tokens($client_id, $client_secret, $redirect_uri, $access_token, $refresh_token);
+    $success = !isset($_GET['error']) && $this->set_tokens((string) $client_id, (string) $client_secret, $redirect_uri);
+    OMF_Admin_Notices::remember('settings', $success ? 'Googleに接続しました。' : 'Googleに接続できませんでした。設定を確認して再度お試しください。', !$success);
 
     wp_redirect($this->plugin_admin_url('omf_settings', ['tab' => 'google']));
     exit;
@@ -1035,6 +1039,8 @@ class OMF_Admin
     check_admin_referer('omf_disconnect');
     //OAuth接続を解除
     $this->remove_google_tokens();
+    $success = !get_option('_omf_google_access_token') && !get_option('_omf_google_refresh_token');
+    OMF_Admin_Notices::remember('settings', $success ? 'Googleとの接続を解除しました。' : 'Googleとの接続を解除できませんでした。再度お試しください。', !$success);
     //OAuth接続を解除したらリダイレクト
     wp_redirect($this->plugin_admin_url('omf_settings', ['tab' => 'google']));
     exit;
@@ -1091,12 +1097,12 @@ class OMF_Admin
     }
 
     $delivery_mode = OMF_Delivery_Admin::validate($post_id, wp_unslash($_POST));
-    if (is_wp_error($delivery_mode)) { wp_die(esc_html($delivery_mode->get_error_message()), '送信設定を保存できません', ['response'=>400,'back_link'=>true]); }
+    if (is_wp_error($delivery_mode)) { $this->editor_save_error($post_id, $delivery_mode->get_error_message()); }
     $builder = OMF_Form_Builder::prepare($post_id, wp_unslash($_POST));
     if (is_wp_error($builder)) {
       $detail = $builder->get_error_data();
       $position = isset($detail['field_index']) ? '項目' . ($detail['field_index'] + 1) . '：' : '';
-      wp_die(esc_html($position . $builder->get_error_message()), 'フォーム設定を保存できません', ['response' => 400, 'back_link' => true]);
+      $this->editor_save_error($post_id, $position . $builder->get_error_message());
     }
     if (is_array($builder)) { OMF_Form_Builder::persist($post_id, $builder); }
 
@@ -1104,6 +1110,15 @@ class OMF_Admin
     $this->save_single_custom_fields($post_id);
     $this->save_array_custom_fields($post_id);
     $this->save_validation_custom_fields($post_id);
+  }
+
+  /** 保存に失敗した理由を編集画面へ戻して表示する。 */
+  private function editor_save_error(int $post_id, string $message): void
+  {
+    OMF_Admin_Notices::remember('editor_' . $post_id, 'フォーム設定を保存できませんでした。' . $message, true);
+    $location = $this->keep_editor_tab(admin_url('post.php?post=' . $post_id . '&action=edit'), $post_id);
+    wp_safe_redirect($location);
+    exit;
   }
 
   /**

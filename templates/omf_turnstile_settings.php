@@ -6,7 +6,6 @@
       <?php
       settings_fields('turnstile-settings-group');
       do_settings_sections('turnstile-settings-group');
-      // settings_errors();
 
       $turnstile_site_key = !empty(get_option('omf_turnstile_site_key')) ? sanitize_text_field(wp_unslash(get_option('omf_turnstile_site_key'))) : '';
       $turnstile_secret_status = \Sharesl\Original\MailForm\OMF_Secrets::option_status('omf_turnstile_secret_key');

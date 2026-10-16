@@ -170,9 +170,10 @@ trait OMF_Trait_Google_Auth
   private function save_google_tokens(array $tokens): bool
   {
     if (!empty($tokens['access_token'])) {
-      $is_save_access_token = update_option('_omf_google_access_token', $this->encrypt_secret($tokens['access_token'], 'access_token'), 'no');
-      $is_save_refresh_token = update_option('_omf_google_refresh_token', $this->encrypt_secret($tokens['refresh_token'], 'refresh_token'), 'no');
-      return $is_save_access_token && $is_save_refresh_token;
+      update_option('_omf_google_access_token', $this->encrypt_secret($tokens['access_token'], 'access_token'), 'no');
+      update_option('_omf_google_refresh_token', $this->encrypt_secret($tokens['refresh_token'], 'refresh_token'), 'no');
+      return $this->decrypt_secret(get_option('_omf_google_access_token'), 'access_token') === $tokens['access_token']
+        && $this->decrypt_secret(get_option('_omf_google_refresh_token'), 'refresh_token') === $tokens['refresh_token'];
     }
 
     return false;

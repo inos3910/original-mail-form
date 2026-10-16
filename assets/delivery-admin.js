@@ -5,6 +5,7 @@ document.querySelectorAll('.omf-cron-setup').forEach(panel=>{
   panel.querySelectorAll('[data-omf-cron-copy],[data-omf-cron-renew]').forEach(button=>button.addEventListener('click',async()=>{
     const renew=button.hasAttribute('data-omf-cron-renew');
     if(renew&&!window.confirm('登録用キーを再発行すると、現在のcron設定は使えなくなります。再発行して設定し直しますか？'))return;
+    panel.closest('.omf-admin-screen')?.querySelectorAll('[data-omf-action-notice]').forEach(notice=>notice.remove());
     button.disabled=true;feedback.textContent='準備しています…';
     let failure='設定を取得できませんでした。画面を更新してやり直してください。';
     try{

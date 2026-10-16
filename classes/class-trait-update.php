@@ -41,7 +41,9 @@ trait OMF_Trait_Update
       // WP_Upgraderは展開成功時に結果配列、更新不要時にtrueを返す。
       $success = $result === true || (is_array($result) && ($result['destination_name'] ?? '') === dirname($plugin));
       $message = $success ? 'プラグインが更新されました。' : '更新できませんでした。WordPressのプラグイン画面から再度お試しください。';
-      echo '<div class="notice ' . ($success ? 'notice-success' : 'notice-error') . '"><p>' . esc_html($message) . '</p></div>';
+      OMF_Admin_Notices::render($message, !$success);
+    } catch (\Throwable $e) {
+      OMF_Admin_Notices::render('更新できませんでした。WordPressのプラグイン画面から再度お試しください。', true);
     } finally {
       remove_filter('site_transient_update_plugins', $provide_package);
       remove_filter('upgrader_source_selection', $normalize_source, 10);

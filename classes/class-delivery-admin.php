@@ -57,7 +57,6 @@ class OMF_Delivery_Admin
     if (!current_user_can('manage_options')) { return; }
     OMF_Delivery_Store::recover(); $rows=OMF_Delivery_Store::rows();
     echo '<div class="omf-delivery-ui"><p>非同期・並列の受付を新しい順に50件表示します。「送信成功」はメールサーバーへの引き渡し成功で、受信箱への到着を保証するものではありません。</p>';
-    if (isset($_GET['done'])) { echo '<div class="notice notice-info"><p>処理しました。下の状態を確認してください。</p></div>'; }
     echo '<section class="omf-delivery-card"><h2>実行環境</h2><div class="omf-delivery-toolbar">';
     self::button('diagnose','並列送信の環境を確認'); self::button('run','WordPressの送信待ちを今すぐ処理');
     echo '</div><p>並列送信：'.(OMF_Delivery_Runner::ready() ? '環境確認済み（サーバー変更時は再確認）' : '未確認または利用不可').'</p>';
@@ -87,16 +86,49 @@ class OMF_Delivery_Admin
     if (!current_user_can('manage_options')) { wp_die('この操作の権限がありません。', '', ['response'=>403]); }
     check_admin_referer('omf_delivery_action');
     $operation=is_string($_POST['operation'] ?? null) ? $_POST['operation'] : '';
-    if ($operation==='diagnose') { OMF_Delivery_Runner::diagnose(); }
-    if ($operation==='run') { OMF_Delivery::run('wp_async'); }
-    if ($operation==='retry') {
-      $id=absint($_POST['receipt'] ?? 0); $kind=is_string($_POST['kind'] ?? null) ? $_POST['kind'] : '';
-      if (OMF_Delivery_Store::retry($id,$kind)) {
-        $row=OMF_Delivery_Store::get($id);
-        if ($row['mode']==='parallel') { OMF_Delivery_Runner::parallel($id); }
-        elseif ($row['mode']==='wp_async') { OMF_Delivery_Runner::schedule(); }
+    $result = self::perform($operation, absint($_POST['receipt'] ?? 0), is_string($_POST['kind'] ?? null) ? $_POST['kind'] : '');
+    OMF_Admin_Notices::remember('data', $result['message'], $result['error']);
+    wp_safe_redirect(admin_url('edit.php?post_type='.OMF_Config::NAME.'&page=omf_data&tab=deliveries')); exit;
+  }
+
+  /** 押された操作の結果だけを返し、画面上の通知を一件にする。 */
+  public static function perform(string $operation, int $id = 0, string $kind = ''): array
+  {
+    try {
+      if ($operation === 'diagnose') {
+        $ok = OMF_Delivery_Runner::diagnose();
+        return ['error' => !$ok, 'message' => $ok ? '環境を確認しました。並列送信を利用できます。' : '環境確認に失敗しました。並列送信を利用できません。サーバーの設定を確認してください。'];
       }
+      if ($operation === 'run') {
+        $rows = OMF_Delivery_Store::rows('wp_async', 10);
+        OMF_Delivery::run('wp_async');
+        foreach ($rows as $row) {
+          $updated = OMF_Delivery_Store::get((int) $row['id']);
+          if ($updated && array_intersect(['failed', 'unknown'], [$updated['reply'], $updated['admin'], $updated['effects']])) {
+            return ['error' => true, 'message' => '送信待ちの処理で失敗または結果不明のメールがありました。下の送信状況を確認してください。'];
+          }
+        }
+        return ['error' => false, 'message' => $rows ? '送信待ちの処理を実行しました。下の送信状況を確認してください。' : '確認しました。処理対象の送信待ちはありません。'];
+      }
+      if ($operation === 'retry') {
+        if (!OMF_Delivery_Store::retry($id, $kind)) {
+          return ['error' => true, 'message' => '再試行できませんでした。対象の状態や保存期限を確認してください。'];
+        }
+        $row = OMF_Delivery_Store::get($id);
+        if (!$row) { return ['error' => true, 'message' => '再試行の受付を確認できませんでした。送信状況を確認してください。']; }
+        if ($row['mode'] === 'parallel') {
+          if (!OMF_Delivery_Runner::ready()) { return ['error' => true, 'message' => '再試行を開始できませんでした。並列送信の環境確認を実行してください。']; }
+          OMF_Delivery_Runner::parallel($id);
+          $updated = OMF_Delivery_Store::get($id);
+          if (!$updated || $updated[$kind] !== 'sent') { return ['error' => true, 'message' => '再試行で送信成功を確認できませんでした。下の送信状況を確認してください。']; }
+        } elseif ($row['mode'] === 'wp_async') {
+          OMF_Delivery_Runner::schedule();
+        }
+        return ['error' => false, 'message' => '再試行を受け付けました。下の送信状況を確認してください。'];
+      }
+      return ['error' => true, 'message' => '処理できませんでした。操作を選び直してください。'];
+    } catch (\Throwable $e) {
+      return ['error' => true, 'message' => '処理を完了できませんでした。送信状況を確認して再度お試しください。'];
     }
-    wp_safe_redirect(admin_url('edit.php?post_type='.OMF_Config::NAME.'&page=omf_data&tab=deliveries&done=1')); exit;
   }
 }
