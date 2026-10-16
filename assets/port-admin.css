@@ -1,0 +1,26 @@
+.omf-port { max-width: 960px; }
+.omf-port-section { margin: 20px 0; padding: 0; border: 0; }
+.omf-port-section > legend { padding: 0; font-size: 1.3em; font-weight: 600; margin-bottom: 8px; }
+.omf-port-panel h3 { margin: 0 0 4px; }
+.omf-port-heading { margin-top: 40px; }
+.omf-port-cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 12px; }
+.omf-port-card { display: grid; grid-template-columns: auto 1fr; column-gap: 8px; align-content: start; max-width: none; margin: 0; padding: 12px 16px; cursor: pointer; }
+.omf-port-card input { margin: 2px 0 0; }
+.omf-port-card .description { grid-column: 2; margin: 4px 0 0; }
+.omf-port-card-title { font-weight: 600; }
+.omf-port-card:has(input:checked) { border-color: #2271b1; box-shadow: 0 0 0 1px #2271b1; }
+.omf-port-card:focus-within { outline: 2px solid #2271b1; outline-offset: 2px; }
+.omf-port-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin: 12px 0; }
+.omf-port-box { margin: 0; padding: 12px 16px; background: #fff; border: 1px solid #c3c4c7; max-height: 360px; overflow: auto; }
+.omf-port-box legend { padding: 0 4px; font-weight: 600; }
+.omf-port-bulk { display: flex; gap: 16px; margin-bottom: 8px; }
+.omf-port-list { margin: 0; padding: 0; list-style: none; }
+.omf-port-list li { margin: 0 0 8px; }
+.omf-port-list label code { margin-left: 4px; }
+.omf-port-list .description { margin: 2px 0 0 26px; }
+.omf-port-summary { margin: 16px 0 8px; font-weight: 600; }
+.omf-port-summary.is-warning { color: #8a2424; }
+.omf-port-steps { margin: 0 0 8px 20px; list-style: decimal; }
+.omf-port-bulk .button-link:focus-visible, .omf-port-box input:focus-visible { outline: 2px solid #2271b1; outline-offset: 2px; }
+@media (max-width: 782px) { .omf-port-grid { grid-template-columns: 1fr; } .omf-port-box { max-height: none; } }
+.omf-port [hidden] { display: none; }
