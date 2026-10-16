@@ -25,7 +25,7 @@ class OMF_Port_Plan
       $plan['settings'] = self::settings($payload['settings']);
     }
     foreach ((array) $payload['forms'] as $form) {
-      $entry = self::form($form, !empty($payload['source']['includes_secrets']));
+      $entry = self::form($form);
       array_push($plan['warnings'], ...$entry['warnings']);
       $plan['forms'][] = $entry;
     }
@@ -33,7 +33,7 @@ class OMF_Port_Plan
   }
 
   /**
-   * 設定の変更有無。秘密情報の値は画面に出さない。
+   * 設定の変更有無。
    *
    * @param array $settings
    * @return array
@@ -46,24 +46,18 @@ class OMF_Port_Plan
       if ($current !== null && (string) $current === $value) {
         continue;
       }
-      $secret = in_array($key, OMF_Port_Schema::secret_options(), true);
-      $changes[$key] = ['secret' => $secret, 'old' => $secret ? '' : (string) $current, 'new' => $secret ? '' : $value];
+      $changes[$key] = ['old' => (string) $current, 'new' => $value];
     }
-    return [
-      'values' => $settings,
-      'changes' => $changes,
-      'has_secrets' => array_intersect_key($settings, array_flip(OMF_Port_Schema::secret_options())) !== [],
-    ];
+    return ['values' => $settings, 'changes' => $changes];
   }
 
   /**
    * フォーム1件の照合。
    *
    * @param array $form
-   * @param bool $includes_secrets ファイルが秘密情報を含む書き出しか
    * @return array
    */
-  private static function form(array $form, bool $includes_secrets): array
+  private static function form(array $form): array
   {
     $existing = $form['slug'] !== '' ? self::find_form($form['slug']) : null;
     $label = '「' . ($form['slug'] !== '' ? $form['slug'] : $form['title']) . '」';
@@ -74,14 +68,18 @@ class OMF_Port_Plan
       'id' => $existing ? (int) $existing->ID : 0,
       'action' => $form['errors'] !== [] ? 'blocked' : ($existing ? 'update' : 'create'),
       'errors' => $form['errors'],
+      'parts' => $form['parts'],
       'conditions' => null,
       'links' => null,
       'warnings' => [],
-      'removals' => $existing && $form['errors'] === [] ? self::removals((int) $existing->ID, $form['meta'], $includes_secrets) : [],
-      'has_secrets' => array_intersect_key($form['meta'], array_flip(OMF_Port_Schema::secret_meta_keys())) !== [],
+      'removals' => $existing && $form['errors'] === [] ? self::removals((int) $existing->ID, $form['meta'], $form['parts']) : [],
     ];
     if ($entry['action'] === 'blocked') {
       return $entry;
+    }
+    $missing_parts = array_diff(OMF_Port_Schema::part_keys(), $form['parts']);
+    if (!$existing && $missing_parts !== []) {
+      $entry['warnings'][] = $label . 'は新規作成で、含まれない項目（' . OMF_Port_Schema::part_labels($missing_parts) . '）は未設定のまま作成されます。';
     }
     if ($form['condition_targets'] !== null) {
       $entry['conditions'] = self::resolve($form['condition_targets']);
@@ -105,23 +103,21 @@ class OMF_Port_Plan
   }
 
   /**
-   * 上書きで削除する取り込み先のメタ。ファイルに無い cf_omf_ を削除して移行元と一致させる。
-   * メールID・表示条件ID、および秘密情報を含まないファイルでの秘密情報は残す。
+   * 上書きで削除する取り込み先のメタ。含まれる項目に属し、ファイルに無い cf_omf_ を削除して移行元と一致させる。
+   * 他の項目のメタ、メールID・表示条件ID、メモ・秘密情報は残す。
    *
    * @param int $id
    * @param array $meta ファイルのメタ
-   * @param bool $includes_secrets
+   * @param string[] $parts 含まれる項目
    * @return string[]
    */
-  private static function removals(int $id, array $meta, bool $includes_secrets): array
+  private static function removals(int $id, array $meta, array $parts): array
   {
     $keys = [];
     foreach ((array) get_post_custom_keys($id) as $key) {
-      $is_secret = in_array($key, OMF_Port_Schema::secret_meta_keys(), true);
-      if (!str_starts_with($key, OMF_Port_Schema::META_PREFIX) || array_key_exists($key, $meta) || in_array($key, OMF_Port_Schema::managed_meta_keys(), true) || ($is_secret && !$includes_secrets)) {
-        continue;
+      if (OMF_Port_Schema::is_part_meta($key, $parts) && !array_key_exists($key, $meta)) {
+        $keys[] = $key;
       }
-      $keys[] = $key;
     }
     sort($keys);
     return $keys;
