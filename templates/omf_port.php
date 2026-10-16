@@ -34,7 +34,7 @@ $forms = get_posts([
     <div class="omf-port-card__head">
       <h2 class="omf-port-card__title" id="omf-port-export-title">エクスポート</h2>
       <p class="omf-port-card__lead">このサイトのフォームと設定を JSON ファイルに書き出します。別のサイトの「インポート」で取り込めます。</p>
-      <p class="omf-port-help">送信データ、メールIDの連番、秘密情報（reCAPTCHA・Turnstile・Google連携のキー、Slack の Webhook URL）は書き出しません。</p>
+
     </div>
     <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" data-omf-port-export data-total="<?php echo esc_attr((string) count($forms)); ?>">
       <input type="hidden" name="action" value="omf_port_export">
@@ -58,6 +58,10 @@ $forms = get_posts([
 
         <?php require plugin_dir_path(__DIR__) . 'templates/omf_port_select.php'; ?>
       </div>
+      <details class="omf-port-details">
+        <summary>書き出しに含まれない情報</summary>
+        <p>送信データ、メールIDの連番、秘密情報（reCAPTCHA・Turnstile・Google連携のキー、Slack の Webhook URL）は書き出しません。</p>
+      </details>
       <div class="omf-port-card__foot">
         <p class="omf-port-summary" role="status" aria-live="polite" data-omf-port-summary>すべてのフォーム（<?php echo esc_html((string) count($forms)); ?>件）と共通設定を書き出します。</p>
         <div class="omf-port-card__actions">
@@ -70,7 +74,7 @@ $forms = get_posts([
   <section class="omf-port-card" aria-labelledby="omf-port-import-title">
     <div class="omf-port-card__head">
       <h2 class="omf-port-card__title" id="omf-port-import-title">インポート</h2>
-      <p class="omf-port-card__lead">エクスポートした JSON ファイルを取り込みます。次の確認画面で内容を見てから「取り込みを実行」を押すまで、このサイトは何も変わりません。</p>
+      <p class="omf-port-card__lead">エクスポートした JSON ファイルを取り込みます。確認画面で内容を確認し、「取り込みを実行」を押すと反映されます。</p>
     </div>
     <form method="post" action="<?php echo esc_url(admin_url('admin-post.php')); ?>" enctype="multipart/form-data">
       <input type="hidden" name="action" value="omf_port_upload">
@@ -81,8 +85,8 @@ $forms = get_posts([
           <input type="file" id="omf-port-file" name="omf_port_file" accept=".json,application/json" required aria-describedby="omf-port-file-help">
           <p class="omf-port-help" id="omf-port-file-help">2MB まで。このプラグインの「エクスポート」で書き出したファイルを選んでください。</p>
         </div>
-        <div class="omf-port-group">
-          <h3 class="omf-port-group__label">取り込みのルール</h3>
+        <details class="omf-port-details">
+          <summary>取り込みのルール</summary>
           <dl class="omf-port-facts">
             <dt>同じスラッグのフォームがある</dt>
             <dd>ファイルに含まれる項目だけを上書きします。送信データはそのまま残ります。</dd>
@@ -91,10 +95,9 @@ $forms = get_posts([
             <dt>表示条件・連携ページ</dt>
             <dd>ページのパスで、このサイトのページと照合します。</dd>
           </dl>
-        </div>
+        </details>
       </div>
       <div class="omf-port-card__foot">
-        <p class="omf-port-summary">次の画面で、取り込む内容を確認します。</p>
         <div class="omf-port-card__actions">
           <?php submit_button('内容を確認する', 'primary', 'submit', false); ?>
         </div>

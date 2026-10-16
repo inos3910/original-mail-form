@@ -4,7 +4,7 @@ use Sharesl\Original\MailForm\OMF_Port_Schema;
 
 /** @var \WP_Post[] $forms omf_port.php で取得したフォーム一覧 */
 ?>
-<div class="omf-port-card__body" data-omf-port-panel>
+<div class="omf-port-card__body omf-port-selection" data-omf-port-panel>
   <fieldset class="omf-port-group">
     <legend class="omf-port-group__label">書き出すフォーム</legend>
     <?php if ($forms === []) : ?>
