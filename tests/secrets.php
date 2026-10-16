@@ -145,3 +145,13 @@ check(!empty($result['success']) && $GLOBALS['captcha_secret'] === 'captcha-secr
 
 // 書き出し・取り込みの秘密情報リストとの整合
 check(OMF_Secrets::META_KEYS === OMF_Port_Schema::secret_meta_keys() && array_diff(OMF_Secrets::OPTIONS, OMF_Port_Schema::secret_options()) === [], '暗号化対象が書き出し・取り込みの秘密情報リストに含まれる');
+
+// 保存時の暗号化フックは管理画面以外でも常に登録され、何度 new しても一度だけ
+$GLOBALS['hooks'] = [];
+(new \ReflectionProperty(OMF_Secrets::class, 'hooked'))->setValue(null, false);
+new OMF_Secrets();
+new OMF_Secrets();
+$registered = array_map(static fn($name) => count($GLOBALS['hooks']['sanitize_option_' . $name] ?? []), OMF_Secrets::OPTIONS);
+check($registered === [1, 1, 1], '保存時の暗号化フックは重複登録しない');
+$hook = $GLOBALS['hooks']['sanitize_option_omf_turnstile_secret_key'][0] ?? null;
+check($hook !== null && str_starts_with($hook('cli-secret-ABCDEFGH'), 'v2:'), '保存時の暗号化フックは入力を暗号化する');

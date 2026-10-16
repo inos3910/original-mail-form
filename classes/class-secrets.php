@@ -67,13 +67,26 @@ class OMF_Secrets
     return self::is_encrypted($raw) ? $raw : self::encrypt($raw, $name);
   }
 
-  /** register_setting と、autoload を無効にするフックをまとめて登録する。 */
+  /** 保存時の暗号化と autoload 無効化は、管理画面以外（WP-CLI など）からの保存にも効くよう常に登録する。 */
+  private static bool $hooked = false;
+
+  public function __construct()
+  {
+    // 暗号化処理でも new されるため、フックは一度だけ登録する。
+    if (self::$hooked) { return; }
+    self::$hooked = true;
+    foreach (self::OPTIONS as $name) {
+      add_filter('sanitize_option_' . $name, static fn($value) => self::sanitize_option($name, $value));
+      $disable_autoload = static function () use ($name): void { wp_set_option_autoload($name, false); };
+      add_action('add_option_' . $name, $disable_autoload);
+      add_action('update_option_' . $name, $disable_autoload);
+    }
+  }
+
+  /** 設定画面の保存対象に登録する（暗号化はコンストラクタで登録したフックが行う）。 */
   public static function register_setting(string $group, string $name): void
   {
-    register_setting($group, $name, ['sanitize_callback' => static fn($value) => self::sanitize_option($name, $value)]);
-    $disable_autoload = static function () use ($name): void { wp_set_option_autoload($name, false); };
-    add_action('add_option_' . $name, $disable_autoload);
-    add_action('update_option_' . $name, $disable_autoload);
+    register_setting($group, $name);
   }
 
   // ---- フォームのメタ ----
