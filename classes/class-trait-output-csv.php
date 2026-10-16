@@ -67,10 +67,12 @@ trait OMF_Trait_Output_Csv
     $form       = get_post($form_id);
     $form_title = !empty($form) ? $form->post_title : 'form_data';
 
-    $file_name = sanitize_file_name("{$form_title}_export_{$start_date}_to_{$end_date}.csv");
+    //sanitize_file_name() は日本語名を md5 に置き換える環境があるため使わない
+    $file_name = "{$form_title}_export_{$start_date}_to_{$end_date}.csv";
+    $fallback  = "form-data_{$start_date}_to_{$end_date}.csv";
 
     header('Content-Type: text/csv; charset=UTF-8');
-    header('Content-Disposition: attachment; filename="' . $file_name . '"');
+    header('Content-Disposition: ' . OMF_Download_Name::content_disposition($file_name, $fallback));
     header('Pragma: no-cache');
     header('Expires: 0');
 
