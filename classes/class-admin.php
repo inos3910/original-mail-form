@@ -1625,6 +1625,8 @@ class OMF_Admin
           $postal_code      = !empty($value['postal_code']) ? sanitize_text_field(wp_unslash($value['postal_code'])) : '';
           $extension        = !empty($value['extension']) ? array_map([$this, 'sanitize_validation_custom_fields'], $value['extension']) : [];
           $file_size        = !empty($value['file_size']) ? sanitize_text_field(wp_unslash($value['file_size'])) : '';
+          $required_if_target = !empty($value['required_if_target']) ? sanitize_text_field(wp_unslash($value['required_if_target'])) : '';
+          $required_if_value  = !empty($value['required_if_value']) ? sanitize_text_field(wp_unslash($value['required_if_value'])) : '';
       ?>
 
           <div class="omf-metabox__list js-omf-repeat-field" data-omf-validation-count="<?php echo esc_attr($key) ?>" draggable="true">
@@ -1704,6 +1706,13 @@ class OMF_Admin
                   <span>必須</span>
                   <span>
                     <input type="checkbox" name="<?php echo esc_attr("{$meta_key}[{$key}][required]") ?>" value="1" <?php if ($required) echo esc_attr(' checked') ?>>
+                  </span>
+                </div>
+                <div class="omf-metabox__row">
+                  <span>条件付き必須（左の項目の値が右と一致する時だけ必須）</span>
+                  <span>
+                    <input type="text" name="<?php echo esc_attr("{$meta_key}[{$key}][required_if_target]") ?>" value="<?php echo esc_attr($required_if_target) ?>" placeholder="項目名" aria-label="条件にする項目名">
+                    <input type="text" name="<?php echo esc_attr("{$meta_key}[{$key}][required_if_value]") ?>" value="<?php echo esc_attr($required_if_value) ?>" placeholder="値" aria-label="必須にする値">
                   </span>
                 </div>
                 <div class="omf-metabox__row">

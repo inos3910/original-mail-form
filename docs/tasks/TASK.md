@@ -17,6 +17,7 @@
 | OMF-011 | P1 | 完了 | [FSE向けフォームブロック・ショートコード](complete/fse-embedding.md) | OMF-004, OMF-005 |
 | OMF-012 | P1 | レビュー待ち | [管理項目の一括設定・共通バリデーション・住所自動入力](builder-input-validation.md) | OMF-003, OMF-004 |
 | OMF-010 | P2 | レビュー待ち | [全方式の結合検証と利用手順](release-readiness.md) | OMF-004, OMF-005, OMF-008, OMF-009, OMF-011, OMF-013 |
+| OMF-016 | P1 | 完了 | コード方式の検証設定に条件付き必須（`required_if_target` / `required_if_value`：指定項目の値が一致する時だけ必須）を追加 | — |
 
 レビュー: [2026-10-01](../review/complete/2026-10-01-rereview.md)
 

@@ -31,6 +31,14 @@ check(isset($probe->validate_mail_form_data($data)['choices']), '旧方式の連
 $GLOBALS['meta'][10]['cf_omf_validation'] = [['target'=>'file','required'=>'1','extension'=>['txt'],'file_size'=>'100']];
 check((new LegacyInput())->validate_mail_form_data(['file'=>['pending'=>true]]) === [], '旧必須添付の保存前の存在確認を文字列配列として再帰検証しない');
 check((new LegacyInput())->validate_mail_form_data(['file'=>['upload_id'=>str_repeat('a',40),'name'=>'x.txt','size'=>101]]) !== [], '旧添付でも実体情報のサイズ上限を検証する');
+$GLOBALS['meta'][10]['cf_omf_validation'] = [['target'=>'same','required'=>'1','matching_char'=>'yes,no'],['target'=>'other_address','max'=>'10','required_if_target'=>'same','required_if_value'=>'no']];
+check((new LegacyInput())->validate_mail_form_data(['same'=>'yes']) === [], '旧方式の条件付き必須は条件が不一致なら空欄を許す');
+check(isset((new LegacyInput())->validate_mail_form_data(['same'=>'no'])['other_address']), '旧方式の条件付き必須は条件が一致したら空欄を拒否する');
+check((new LegacyInput())->validate_mail_form_data(['same'=>'no','other_address'=>'大阪']) === [], '旧方式の条件付き必須は条件一致かつ入力ありなら通す');
+check(isset((new LegacyInput())->validate_mail_form_data(['same'=>'yes','other_address'=>str_repeat('あ', 11)])['other_address']), '条件不一致でも入力があれば他の検証は行う');
+check(!isset((new LegacyInput())->validate_mail_form_data(['same'=>['no']])['other_address']), '条件項目が配列なら条件一致とみなさない');
+$GLOBALS['meta'][10]['cf_omf_validation'] = [['target'=>'other_address','required_if_target'=>'same','required_if_value'=>'']];
+check((new LegacyInput())->validate_mail_form_data([]) === [], '条件の値が未設定なら条件付き必須を無視する');
 $GLOBALS['meta'][10][Schema::MODE_KEY] = 'builder';
 $GLOBALS['meta'][10][Schema::META_KEY] = ['version'=>1,'fields'=>[['key'=>'message','type'=>'text','label'=>'内容','required'=>true]]];
 $data = (new LegacyInput())->input(['message'=>'新方式','unknown'=>'取り込まない']);
