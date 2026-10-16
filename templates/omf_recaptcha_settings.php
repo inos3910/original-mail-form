@@ -6,7 +6,6 @@
       <?php
       settings_fields('recaptcha-settings-group');
       do_settings_sections('recaptcha-settings-group');
-      // settings_errors();
 
       $recaptcha_site_key = !empty(get_option('omf_recaptcha_site_key')) ? sanitize_text_field(wp_unslash(get_option('omf_recaptcha_site_key'))) : '';
       $recaptcha_secret_key = !empty(get_option('omf_recaptcha_secret_key')) ? sanitize_text_field(wp_unslash(get_option('omf_recaptcha_secret_key'))) : '';

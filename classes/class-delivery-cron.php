@@ -58,7 +58,9 @@ class OMF_Delivery_Cron
     check_ajax_referer('omf_cron_setup', 'nonce');
     $kind = is_string($_POST['kind'] ?? null) ? $_POST['kind'] : '';
     if ($kind==='renew') {
-      update_option(self::KEY, bin2hex(random_bytes(32)), false);
+      $key = bin2hex(random_bytes(32));
+      update_option(self::KEY, $key, false);
+      if (get_option(self::KEY) !== $key) { wp_send_json_error(['message'=>'登録用キーを再発行できませんでした。再度お試しください。'], 500); }
       delete_option('omf_delivery_cron_probe_at');
       wp_send_json_success(['message'=>'登録用キーを再発行しました。コマンドをコピーし直し、サーバーの設定を更新してください。']);
     }

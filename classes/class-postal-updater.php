@@ -35,7 +35,7 @@ class OMF_Postal_Updater
     if (($_SERVER['REQUEST_METHOD'] ?? '') !== 'POST') { wp_die('更新ボタンから実行してください。', '', ['response' => 405]); }
     check_admin_referer('omf_update_postal');
     $result = self::update();
-    set_transient('omf_postal_notice_' . get_current_user_id(), ['error' => is_wp_error($result), 'message' => is_wp_error($result) ? $result->get_error_message() : $result], 120);
+    OMF_Admin_Notices::remember('settings', is_wp_error($result) ? $result->get_error_message() : $result, is_wp_error($result));
     wp_safe_redirect(admin_url('edit.php?post_type=' . OMF_Config::NAME . '&page=omf_settings&tab=general'));
     exit;
   }

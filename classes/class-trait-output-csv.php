@@ -15,12 +15,6 @@ trait OMF_Trait_Output_Csv
    */
   public function output_csv()
   {
-    $error_slug    = 'omf_output_csv_notices';
-    $error_code    = 'omf_notice';
-    $error_message = 'エラーのため出力失敗しました';
-    $error_type    = 'error';
-
-
     if (!isset($_POST['output_csv'])) {
       return;
     }
@@ -35,7 +29,9 @@ trait OMF_Trait_Output_Csv
 
     $data_id = sanitize_text_field($_POST['omf_data_id'] ?? '');
     if (!$this->is_omf_data_post_type($data_id) || !post_type_exists($data_id)) {
-      wp_die('送信データの種類が正しくありません。', '', ['response' => 400]);
+      if (($_POST['omf_csv_async'] ?? '') === '1') { wp_send_json_error(['message' => '送信データの種類が正しくありません。'], 400); }
+      OMF_Admin_Notices::remember('data', 'CSVを出力できませんでした。送信データの種類が正しくありません。', true);
+      return;
     }
     $period  = sanitize_text_field($_POST['omf_output_period'] ?? '');
     if ($period === 'option') {
@@ -48,8 +44,9 @@ trait OMF_Trait_Output_Csv
 
     if (!$data_id || !$start_date || !$end_date) {
       $error_message = '必要なデータが不足しています。';
-      add_settings_error($error_slug, $error_code, $error_message, $error_type);
-      settings_errors($error_slug);
+      if (($_POST['omf_csv_async'] ?? '') === '1') { wp_send_json_error(['message' => $error_message], 400); }
+      OMF_Admin_Notices::remember('data', 'CSVを出力できませんでした。' . $error_message, true);
+
       return;
     }
 
@@ -58,8 +55,9 @@ trait OMF_Trait_Output_Csv
     $csv_data = $this->get_csv_data($data_id, $start_date, $end_date, $fields_to_include);
     if (empty($csv_data)) {
       $error_message = 'データがありません。';
-      add_settings_error($error_slug, $error_code, $error_message, $error_type);
-      settings_errors($error_slug);
+      if (($_POST['omf_csv_async'] ?? '') === '1') { wp_send_json_error(['message' => $error_message], 400); }
+      OMF_Admin_Notices::remember('data', 'CSVを出力できませんでした。' . $error_message, true);
+
       return;
     }
 
@@ -70,7 +68,8 @@ trait OMF_Trait_Output_Csv
     $file_name = sanitize_file_name("{$form_title}_export_{$start_date}_to_{$end_date}.csv");
 
     header('Content-Type: text/csv; charset=UTF-8');
-    header('Content-Disposition: attachment; filename="' . $file_name . '"');
+    // 日本語名はUTF-8で符号化し、通常のダウンロードとfetchの両方で同じ名前を使う。
+    header("Content-Disposition: attachment; filename=\"form-data.csv\"; filename*=UTF-8''" . rawurlencode($file_name));
     header('Pragma: no-cache');
     header('Expires: 0');
 
