@@ -48,7 +48,7 @@ class OMF_Port_Form_Reader
    */
   private static function read_one(mixed $item, int $number, array &$warnings): array
   {
-    $form = ['slug' => '', 'title' => '', 'status' => '', 'meta' => [], 'condition_targets' => null, 'linked_pages' => null, 'errors' => []];
+    $form = ['slug' => '', 'title' => '', 'status' => '', 'parts' => [], 'meta' => [], 'condition_targets' => null, 'linked_pages' => null, 'errors' => []];
     if (!is_array($item)) {
       $form['errors'][] = $number . '件目のフォームの形式が不正です。';
       return $form;
@@ -72,75 +72,49 @@ class OMF_Port_Form_Reader
     } else {
       $form['errors'][] = $label . 'のステータスが不正です。';
     }
-    $form['meta'] = self::meta($item['meta'] ?? [], $label, $warnings, $form['errors']);
+    $form['parts'] = self::parts($item, $label, $warnings, $form['errors']);
+    $form['meta'] = OMF_Port_Meta_Reader::read($item['meta'] ?? [], $form['parts'], $label, $warnings, $form['errors']);
     foreach (['condition_targets', 'linked_pages'] as $key) {
-      if (array_key_exists($key, $item)) {
+      if (!array_key_exists($key, $item)) {
+        continue;
+      }
+      if (in_array('screen', $form['parts'], true)) {
         $form[$key] = self::targets($item[$key], $label . 'の' . $key, $warnings);
+      } else {
+        $warnings[] = $label . 'の' . $key . 'は「画面設定」が含まれていないため無視しました。';
       }
     }
     return $form;
   }
 
   /**
-   * メタの検証。cf_omf_ 以外・取り込み先で決めるキーは捨てる。項目定義は既存の検証を通す。
+   * 取り込む項目（parts）の検証。parts キーが無いファイルは全項目入りとして扱う。未知の値は警告して無視する。
    *
-   * @param mixed $raw
+   * @param array $item
    * @param string $label
    * @param array $warnings
    * @param array $errors
-   * @return array
+   * @return string[]
    */
-  private static function meta(mixed $raw, string $label, array &$warnings, array &$errors): array
+  private static function parts(array $item, string $label, array &$warnings, array &$errors): array
   {
-    if (!is_array($raw) || ($raw !== [] && OMF_Utils::is_list($raw))) {
-      $errors[] = $label . 'のメタの形式が不正です。';
+    if (!array_key_exists('parts', $item)) {
+      return OMF_Port_Schema::part_keys();
+    }
+    if (!is_array($item['parts']) || ($item['parts'] !== [] && !OMF_Utils::is_list($item['parts']))) {
+      $errors[] = $label . 'の parts の形式が不正です。';
       return [];
     }
-    $meta = [];
-    foreach ($raw as $key => $value) {
-      $key = (string) $key;
-      if (!preg_match('/^cf_omf_[a-z0-9_]{1,100}$/D', $key)) {
-        $warnings[] = $label . 'の未対応のメタ「' . sanitize_text_field($key) . '」は無視しました。';
-      } elseif (in_array($key, OMF_Port_Schema::managed_meta_keys(), true)) {
-        $warnings[] = $label . 'のメタ「' . $key . '」は取り込み先の値を使うため無視しました。';
-      } elseif (!self::is_plain_value($value, 0)) {
-        $errors[] = $label . 'のメタ「' . $key . '」の値が不正です。';
-      } else {
-        $meta[$key] = $value;
+    foreach ($item['parts'] as $part) {
+      if (!is_string($part) || !isset(OMF_Port_Schema::PARTS[$part])) {
+        $warnings[] = $label . 'の未対応の項目「' . sanitize_text_field(is_scalar($part) ? (string) $part : gettype($part)) . '」は無視しました。';
       }
     }
-    if (isset($meta[OMF_Field_Schema::META_KEY]) && $meta[OMF_Field_Schema::META_KEY] !== '') {
-      $checked = OMF_Field_Schema::normalize($meta[OMF_Field_Schema::META_KEY]);
-      if (is_wp_error($checked)) {
-        $detail = $checked->get_error_data();
-        $position = isset($detail['field_index']) ? '項目' . ($detail['field_index'] + 1) . '：' : '';
-        $errors[] = $label . 'の項目定義が不正です（' . $position . $checked->get_error_message() . '）';
-      }
+    $parts = OMF_Port_Schema::normalize_parts($item['parts']);
+    if ($parts === [] && $errors === []) {
+      $errors[] = $label . 'に取り込める項目がありません。';
     }
-    return $meta;
-  }
-
-  /**
-   * 文字列・数値・真偽値・null・それらの配列だけを許す。
-   *
-   * @param mixed $value
-   * @param int $depth
-   * @return bool
-   */
-  private static function is_plain_value(mixed $value, int $depth): bool
-  {
-    if (is_scalar($value) || $value === null) {
-      return true;
-    }
-    if (!is_array($value) || $depth >= 8) {
-      return false;
-    }
-    foreach ($value as $child) {
-      if (!self::is_plain_value($child, $depth + 1)) {
-        return false;
-      }
-    }
-    return true;
+    return $parts;
   }
 
   /**

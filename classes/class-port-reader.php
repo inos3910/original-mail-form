@@ -40,7 +40,6 @@ class OMF_Port_Reader
         'url' => is_string($data['source_url'] ?? null) ? sanitize_text_field($data['source_url']) : '',
         'plugin_version' => is_string($data['plugin_version'] ?? null) ? sanitize_text_field($data['plugin_version']) : '',
         'exported_at' => is_string($data['exported_at'] ?? null) ? sanitize_text_field($data['exported_at']) : '',
-        'includes_secrets' => ($data['includes_secrets'] ?? false) === true,
       ],
       'settings' => null,
       'forms' => null,
@@ -57,7 +56,7 @@ class OMF_Port_Reader
   }
 
   /**
-   * 設定を許可リストで絞り、値を検証する。サイトキーとシークレットは組が揃った時だけ受け付ける。
+   * 設定を許可リストで絞り、値を検証する。秘密情報（認証キー）は取り込まず、警告にする。
    *
    * @param mixed $raw
    * @param array $warnings
@@ -71,6 +70,10 @@ class OMF_Port_Reader
     }
     $accepted = [];
     foreach ($raw as $key => $value) {
+      if (in_array($key, OMF_Port_Schema::secret_options(), true)) {
+        $warnings[] = '秘密情報の設定「' . $key . '」は取り込まず、取り込み先の値を残しました。';
+        continue;
+      }
       if (!in_array($key, OMF_Port_Schema::allowed_options(), true)) {
         $warnings[] = '未対応の設定「' . sanitize_text_field((string) $key) . '」は無視しました。';
         continue;
@@ -81,12 +84,6 @@ class OMF_Port_Reader
         continue;
       }
       $accepted[$key] = $clean;
-    }
-    foreach (OMF_Port_Schema::SECRET_OPTION_PAIRS as $pair) {
-      if (isset($accepted[$pair[0]]) !== isset($accepted[$pair[1]])) {
-        unset($accepted[$pair[0]], $accepted[$pair[1]]);
-        $warnings[] = '認証キー「' . $pair[0] . '」と「' . $pair[1] . '」は組で揃っていないため取り込みません。';
-      }
     }
     return $accepted;
   }
@@ -109,7 +106,7 @@ class OMF_Port_Reader
       'omf_retention_days' => preg_match('/^\d{1,5}$/D', $text) ? $text : null,
       'omf_recaptcha_score' => is_numeric($text) && (float) $text >= 0 && (float) $text <= 1 ? $text : null,
       'omf_recaptcha_field_name' => preg_match('/^[A-Za-z0-9_\-]{1,64}$/D', $text) ? $text : null,
-      default => preg_match('/^[\x21-\x7E]{0,512}$/D', $text) ? $text : null,
+      default => null,
     };
   }
 }

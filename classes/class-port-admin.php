@@ -32,18 +32,9 @@ class OMF_Port_Admin
   public static function handle_export(): void
   {
     self::guard('omf_port_export');
-    $raw_mode = $_POST['forms_mode'] ?? '';
-    $mode = is_string($raw_mode) ? sanitize_key(wp_unslash($raw_mode)) : 'none';
-    $forms = null;
-    if ($mode === 'all') {
-      $forms = 'all';
-    } elseif ($mode === 'selected') {
-      $ids = isset($_POST['form_ids']) && is_array($_POST['form_ids']) ? array_filter(array_map('absint', array_filter(wp_unslash($_POST['form_ids']), 'is_scalar'))) : [];
-      $forms = array_values($ids);
-    }
-    $options = ['settings' => !empty($_POST['include_settings']), 'forms' => $forms, 'secrets' => !empty($_POST['include_secrets'])];
-    if (!$options['settings'] && ($forms === null || $forms === [])) {
-      self::finish('notice', ['error' => true, 'message' => '書き出す設定またはフォームを選んでください。']);
+    $options = OMF_Port_Request::export_options($_POST);
+    if (is_wp_error($options)) {
+      self::finish('notice', ['error' => true, 'message' => $options->get_error_message()]);
     }
     $json = OMF_Port_Export::to_json(OMF_Port_Export::build($options));
     nocache_headers();

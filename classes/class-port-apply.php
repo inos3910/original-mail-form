@@ -42,7 +42,7 @@ class OMF_Port_Apply
   }
 
   /**
-   * フォーム1件の作成または上書き。IDと cf_omf_mail_id は取り込み先のものを維持し、ファイルに無いメタは削除する。
+   * フォーム1件の作成または上書き。IDと cf_omf_mail_id は取り込み先のものを維持し、含まれる項目のうちファイルに無いメタは削除する。
    *
    * @param array $entry
    * @return int|\WP_Error
@@ -56,10 +56,13 @@ class OMF_Port_Apply
       'post_name' => $form['slug'],
       'post_status' => $form['status'],
     ];
-    if ($entry['action'] === 'update') {
+    if ($entry['action'] === 'create') {
+      $id = wp_insert_post($post, true);
+    } elseif (in_array('info', $form['parts'], true)) {
+      // タイトル・公開状態の更新は「フォーム情報」がある時だけ
       $id = wp_update_post($post + ['ID' => $entry['id']], true);
     } else {
-      $id = wp_insert_post($post, true);
+      $id = $entry['id'];
     }
     if (is_wp_error($id)) {
       return $id;

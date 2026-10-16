@@ -12,30 +12,29 @@ if (!defined('ABSPATH')) {
 class OMF_Port_Export
 {
   /**
-   * 書き出し内容の配列を作る。
+   * 書き出し内容の配列を作る。秘密情報は一切含めない。
    *
-   * @param array $options settings(bool) / forms(int[]|'all'|null) / secrets(bool)
+   * @param array $options settings(bool) / forms(int[]|'all'|null) / parts(string[]。省略時は全項目)
    * @return array
    */
   public static function build(array $options): array
   {
-    $secrets = !empty($options['secrets']);
     $data = [
       'format' => OMF_Port_Schema::FORMAT,
       'version' => OMF_Port_Schema::VERSION,
       'plugin_version' => self::plugin_version(),
       'exported_at' => wp_date('c'),
       'source_url' => home_url(),
-      'includes_secrets' => $secrets,
     ];
     if (!empty($options['settings'])) {
-      $data['settings'] = self::settings($secrets);
+      $data['settings'] = self::settings();
     }
     $forms = $options['forms'] ?? null;
     if ($forms === 'all' || (is_array($forms) && $forms !== [])) {
+      $parts = OMF_Port_Schema::normalize_parts($options['parts'] ?? OMF_Port_Schema::part_keys());
       $data['forms'] = [];
       foreach (self::form_posts($forms) as $post) {
-        $data['forms'][] = self::form($post, $secrets);
+        $data['forms'][] = self::form($post, $parts);
       }
     }
     return $data;
@@ -65,23 +64,14 @@ class OMF_Port_Export
   }
 
   /**
-   * 設定（オプション）。認証キーは秘密情報を含める時だけ、組で書き出す。
+   * 設定（オプション）。認証キーなどの秘密情報は書き出さない。
    *
-   * @param bool $secrets
    * @return array
    */
-  private static function settings(bool $secrets): array
+  private static function settings(): array
   {
-    $keys = OMF_Port_Schema::GENERAL_OPTIONS;
-    if ($secrets) {
-      foreach (OMF_Port_Schema::SECRET_OPTION_PAIRS as $pair) {
-        if (get_option($pair[0], null) !== null && get_option($pair[1], null) !== null) {
-          array_push($keys, ...$pair);
-        }
-      }
-    }
     $settings = [];
-    foreach ($keys as $key) {
+    foreach (OMF_Port_Schema::GENERAL_OPTIONS as $key) {
       $value = get_option($key, null);
       if ($value !== null) {
         $settings[$key] = (string) $value;
@@ -112,33 +102,33 @@ class OMF_Port_Export
   }
 
   /**
-   * フォーム1件。
+   * フォーム1件。選ばれた項目（parts）のメタだけを出す。照合と新規作成のため slug・title・status は常に出す。
    *
    * @param \WP_Post $post
-   * @param bool $secrets
+   * @param string[] $parts
    * @return array
    */
-  private static function form(\WP_Post $post, bool $secrets): array
+  private static function form(\WP_Post $post, array $parts): array
   {
     $meta = [];
     foreach ((array) get_post_custom_keys($post->ID) as $key) {
-      if (!str_starts_with($key, OMF_Port_Schema::META_PREFIX) || in_array($key, OMF_Port_Schema::managed_meta_keys(), true)) {
-        continue;
+      if (OMF_Port_Schema::is_part_meta($key, $parts)) {
+        $meta[$key] = get_post_meta($post->ID, $key, true);
       }
-      if (!$secrets && in_array($key, OMF_Port_Schema::secret_meta_keys(), true)) {
-        continue;
-      }
-      $meta[$key] = get_post_meta($post->ID, $key, true);
     }
     ksort($meta);
-    return [
+    $form = [
       'slug' => $post->post_name,
       'title' => $post->post_title,
       'status' => $post->post_status,
+      'parts' => $parts,
       'meta' => $meta,
-      'condition_targets' => OMF_Port_Paths::ids_to_targets(get_post_meta($post->ID, OMF_Port_Schema::META_CONDITION_ID, true)),
-      'linked_pages' => OMF_Port_Paths::linked_targets($post->post_name),
     ];
+    if (in_array('screen', $parts, true)) {
+      $form['condition_targets'] = OMF_Port_Paths::ids_to_targets(get_post_meta($post->ID, OMF_Port_Schema::META_CONDITION_ID, true));
+      $form['linked_pages'] = OMF_Port_Paths::linked_targets($post->post_name);
+    }
+    return $form;
   }
 
   /**
