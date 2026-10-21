@@ -112,6 +112,12 @@ class OMF
     return apply_filters('omf_get_post_values', []);
   }
 
+  /** 正常な完了画面の応答内だけ、送信データを取得する（両作成方式共通）。 */
+  public static function get_completion_values(): array
+  {
+    return $GLOBALS['global_omf']->get_instance('page')->get_completion_values();
+  }
+
   /**
    * nonceフィールド出力
    * @return void

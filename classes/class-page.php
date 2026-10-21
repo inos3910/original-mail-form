@@ -19,6 +19,9 @@ class OMF_Page
    */
   private $session_name_prefix;
 
+  /** コード方式の完了応答内だけ保持するデータ。セッションには保存しない。 */
+  private array $completion_values = [];
+
   /**
    * 送信データセッション名
    * @var string
@@ -280,6 +283,15 @@ class OMF_Page
     return $this->restore_uploaded_files($post_data);
   }
 
+  /** 完了処理で退避した値だけを返し、入力・確認用の値取得には影響させない。 */
+  public function get_completion_values(): array
+  {
+    $form = $this->get_form();
+    if (!$form) { return []; }
+    $completion = OMF_Managed_Form::completion($form);
+    return $completion['data'] ?? $this->completion_values[OMF_Embed_Context::prefix($form->post_name)] ?? [];
+  }
+
   /**
    * nonceフィールドを出力する
    *
@@ -460,7 +472,7 @@ class OMF_Page
     unset($_SESSION['omf_active_forms'][$prefix_id]);
     if (empty($_SESSION['omf_active_forms'])) { unset($_SESSION['omf_active_forms']); }
     // スラッグが接頭辞として重なる別フォームの状態を巻き込まない。
-    foreach (['data', 'auth', 'errors', 'back', 'sent', 'uploaded_files', 'captcha', 'delivery', 'token', 'managed_step', 'managed_edited', 'managed_entry_once', 'managed_complete_once', 'managed_consumed_token'] as $name) {
+    foreach (['data', 'completion_data', 'auth', 'errors', 'back', 'sent', 'uploaded_files', 'captcha', 'delivery', 'token', 'managed_step', 'managed_edited', 'managed_entry_once', 'managed_complete_once', 'managed_consumed_token'] as $name) {
       unset($_SESSION[$prefix . $name]);
     }
   }
@@ -940,6 +952,10 @@ class OMF_Page
 
     //セッションがある場合
     if ($this->has_valid_session()) {
+      // 既存の完了判定・セッション削除は維持し、送信済みの値だけ専用API用に退避する。
+      if ($this->has_sent_session()) {
+        $this->completion_values[$this->session_name_prefix] = $_SESSION[$this->session_name_prefix . '_completion_data'] ?? $this->get_post_data_session();
+      }
       //セッションを破棄
       $this->clear_current_form_sessions();
     }
@@ -1058,6 +1074,8 @@ class OMF_Page
     $result = $this->send_mails($post_data, $form->ID, $post_id);
 
     if ($result) {
+      // 確認画面を省略するコード方式でも、送信成功時の値を次の完了応答へ渡す。
+      $_SESSION[$this->session_name_prefix . '_completion_data'] = $post_data;
       $this->after_send_mails($form, $post_data, $post_id);
     } elseif (OMF_Field_Schema::mode($form->ID) === 'code' && OMF_Delivery::mode($form->ID) === 'serial') {
       // 旧方式の失敗通知等のフックも維持する。成功扱いやトークン消費は行わない。

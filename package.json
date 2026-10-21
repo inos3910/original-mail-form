@@ -5,7 +5,7 @@
     "watch": "webpack --mode development --watch",
     "package": "npm run build && node tools/package.cjs",
     "test:admin-js": "node tests/admin-csv.cjs",
-    "test:php": "php tests/regression.php && php tests/turnstile.php && php tests/field-schema.php && php tests/form-builder.php && php tests/post-picker.php && php tests/mail-defaults.php && php tests/managed-completion.php && php tests/buttons.php && php tests/delivery-cron.php && php tests/legacy-compatibility.php && php tests/download-name.php && php tests/import-export.php && php tests/port-parts.php && php tests/port-ui.php && php tests/secrets.php && php tests/admin-notices.php"
+    "test:php": "php tests/regression.php && php tests/turnstile.php && php tests/field-schema.php && php tests/form-builder.php && php tests/post-picker.php && php tests/mail-defaults.php && php tests/managed-completion.php && php tests/completion-values.php && php tests/buttons.php && php tests/delivery-cron.php && php tests/legacy-compatibility.php && php tests/download-name.php && php tests/import-export.php && php tests/port-parts.php && php tests/port-ui.php && php tests/secrets.php && php tests/admin-notices.php"
   },
   "devDependencies": {
     "@babel/core": "^7.29.7",
