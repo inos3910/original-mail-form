@@ -1,0 +1,32 @@
+.omf-upload-settings {
+  --omf-upload-outline: #c3c4c7;
+  --omf-upload-surface: #fff;
+  --omf-upload-muted: #50575e;
+  --omf-upload-focus: #2271b1;
+  --omf-upload-error: #b32d2e;
+  margin: 24px 0;
+  padding: 24px;
+  max-width: 720px;
+  background: var(--omf-upload-surface);
+  border: 1px solid var(--omf-upload-outline);
+  border-radius: 8px;
+  line-height: 1.7;
+  overflow-wrap: anywhere;
+}
+.omf-upload-settings h2 { margin: 0 0 12px; font-size: 18px; line-height: 1.4; }
+.omf-upload-settings dl { display: grid; grid-template-columns: max-content 1fr; gap: 8px 24px; margin: 20px 0; }
+.omf-upload-settings dt { color: var(--omf-upload-muted); }
+.omf-upload-settings dd { margin: 0; min-width: 0; }
+.omf-upload-settings code { white-space: normal; overflow-wrap: anywhere; }
+.omf-upload-settings summary { cursor: pointer; min-height: 44px; align-content: center; }
+.omf-upload-settings summary:hover { color: var(--omf-upload-focus); }
+.omf-upload-settings :is(summary, input, .button):focus-visible { outline: 2px solid var(--omf-upload-focus); outline-offset: 3px; }
+.omf-upload-settings label { display: block; margin: 16px 0 8px; font-weight: 600; }
+.omf-upload-settings input { box-sizing: border-box; min-height: 44px; width: 100%; }
+.omf-upload-settings .button { min-height: 44px; padding: 6px 16px; white-space: normal; }
+.omf-upload-settings__error { color: var(--omf-upload-error); }
+@media (max-width: 600px) {
+  .omf-upload-settings { padding: 16px; }
+  .omf-upload-settings dl { grid-template-columns: 1fr; gap: 4px; }
+  .omf-upload-settings dd { margin-bottom: 12px; }
+}
