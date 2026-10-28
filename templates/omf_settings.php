@@ -26,6 +26,7 @@
       <?php submit_button(); ?>
     </form>
   </div>
+  <?php require __DIR__ . '/omf_upload_settings.php'; ?>
   <?php
   $postal = \Sharesl\Original\MailForm\OMF_Postal_Updater::current();
   ?>
